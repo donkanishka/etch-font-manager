@@ -81,10 +81,15 @@ icon exactly after the dark mode toggle, the plugin registers the control offici
 position once, re-applying it if the builder re-renders that section. Any other placement value uses the
 plain API behaviour with no DOM adjustment.
 
-Etch 1.6.4 can expose a control store that accepts external controls while its Svelte Settings Bar renderer
-fails to display them. The plugin detects this using the already-registered ACSS control. Only in that broken
-state, it inserts a native-shaped button after dark mode without adding another item to Etch's store. Healthy
-Etch installations remain on the official Controls API path.
+### Canvas stylesheet registration
+
+Etch renders the canvas stylesheet list with a Svelte keyed each block keyed by `id`, and it also folds styles
+enqueued on `etch/canvas/enqueue_assets` into that same list using the style handle as the id. Registering a
+stylesheet through both that action and the `etch/canvas/additional_stylesheets` filter produces two entries
+with the same id, which throws `each_key_duplicate` and breaks the entire builder canvas.
+
+This plugin therefore registers the canvas stylesheet **only** through the filter, and the filter skips itself
+if an entry for the stylesheet is already present.
 
 ## REST API
 

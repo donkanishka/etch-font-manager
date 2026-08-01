@@ -9,9 +9,13 @@
 	'use strict';
 
 	var cfg = window.efmConfig;
-	if (!cfg) {
+	if (!cfg || window.__efmPanelBooted) {
 		return;
 	}
+
+	// The builder can evaluate enqueued assets more than once while mounting.
+	// A page-level guard prevents duplicate control IDs in Etch's keyed list.
+	window.__efmPanelBooted = true;
 
 	var t = cfg.i18n || {};
 	var CONTROL_ID = 'efm-fonts';
@@ -1037,6 +1041,8 @@
 	/* Settings Bar control                                                   */
 	/* --------------------------------------------------------------------- */
 
+	var registered = false;
+
 	function sectionFor(placement) {
 		if (placement.indexOf('top') === 0) {
 			return 'top';
@@ -1055,45 +1061,144 @@
 		return current;
 	}
 
-	function registerControl() {
+	/**
+	 * The Settings Bar must be mounted before a control is registered.
+	 * Registering earlier makes Etch's keyed control list throw
+	 * (svelte each_key_duplicate), which stops every custom control from
+	 * rendering, including controls owned by other plugins.
+	 *
+	 * @return {boolean} True once the bar is mounted and the API is present.
+	 */
+	function settingsBarReady() {
 		var controls = window.etchControls;
+		var placement = cfg.placement || 'after-dark-mode';
+		var section = sectionFor(placement === 'after-dark-mode' ? 'bottom' : placement);
+		var container = document.querySelector('.settings-bar__section.' + section);
 
-		if (!controls || !controls.builder || !controls.builder.settingsBar) {
+		return !!(
+			controls &&
+			controls.builder &&
+			controls.builder.settingsBar &&
+			controls.builder.settingsBar[section] &&
+			container &&
+			container.querySelector('button')
+		);
+	}
+
+	/**
+	 * Etch 1.6.4 can expose a live control store while failing to render any
+	 * external controls. ACSS gives us a reliable feature test: if its control
+	 * is registered but its source icon is absent after mount, adding another
+	 * API control would only leave another invisible store entry.
+	 *
+	 * @return {boolean}
+	 */
+	function controlsRendererUnavailable() {
+		var bottom = window.etchControls && window.etchControls.builder && window.etchControls.builder.settingsBar.bottom;
+		var registered = bottom && bottom.before && bottom.before.some(function (control) {
+			return control.id === 'acss-dashboard-button';
+		});
+
+		return !!(
+			window.ACSS_API &&
+			(window.ACSS_API.appLoaded !== false) &&
+			registered &&
+			!document.querySelector('[data-acss-source-icon]')
+		);
+	}
+
+	/**
+	 * Render a native-shaped button when Etch's public control store is present
+	 * but its Svelte renderer is not consuming that store. This path does not
+	 * mutate Etch's store and is used only after the feature test above fails.
+	 *
+	 * @return {boolean}
+	 */
+	function registerFallbackControl() {
+		if (registered) {
+			return false;
+		}
+
+		var container = document.querySelector('.settings-bar__section.bottom');
+		var darkModeButton = container && container.querySelector('button');
+
+		if (!container || !darkModeButton) {
+			return false;
+		}
+
+		controlButton = el('button', {
+			type: 'button',
+			class: 'etch-builder-button etch-builder-button--icon-placement-before etch-builder-button--variant-icon efm-control',
+			'data-button-root': 'true',
+			'data-efm-fallback': 'true',
+			'aria-label': t.fonts || 'Fonts',
+			'aria-expanded': 'false',
+			'aria-controls': 'efm-panel',
+			title: t.fonts || 'Fonts',
+			style: {
+				'--button-font-size': 'var(--e-font-size-m)',
+				'--icon-rotation': '0deg'
+			},
+			onclick: toggle
+		}, [
+			el('div', { class: 'icon-wrapper' }, [icon('font', 14)])
+		]);
+
+		darkModeButton.after(controlButton);
+		registered = true;
+
+		return true;
+	}
+
+	function registerControl() {
+		if (registered || !settingsBarReady()) {
 			return false;
 		}
 
 		var placement = cfg.placement || 'after-dark-mode';
 		var section = sectionFor(placement === 'after-dark-mode' ? 'bottom' : placement);
-		var api = controls.builder.settingsBar[section];
+		var api = window.etchControls.builder.settingsBar[section];
+		var container = document.querySelector('.settings-bar__section.' + section);
+		var before = Array.prototype.slice.call(container.querySelectorAll('button'));
+		var useEnd = placement.indexOf('-end') !== -1;
 
-		if (!api) {
+		// Etch stores controls before rendering them. Never call add twice: a
+		// duplicate id crashes its keyed Svelte list. Observe the single call
+		// until the corresponding button appears instead.
+		registered = true;
+
+		try {
+			(useEnd ? api.addAfter : api.addBefore).call(api, {
+				id: CONTROL_ID,
+				icon: cfg.icon || 'ph:text-aa-duotone',
+				tooltip: t.fonts || 'Fonts',
+				callback: toggle
+			});
+		} catch (error) {
+			registered = false;
 			return false;
 		}
 
-		var container = document.querySelector('.settings-bar__section.' + section);
-		var before = container ? Array.prototype.slice.call(container.querySelectorAll('button')) : [];
-		var useEnd = placement.indexOf('-end') !== -1;
+		var finished = false;
+		var observer;
 
-		(useEnd ? api.addAfter : api.addBefore).call(api, {
-			id: CONTROL_ID,
-			icon: cfg.icon || 'ph:text-aa-duotone',
-			tooltip: t.fonts || 'Fonts',
-			callback: toggle
-		});
-
-		window.setTimeout(function () {
-			var scope = document.querySelector('.settings-bar__section.' + section);
-			if (!scope) {
-				return;
+		var finish = function () {
+			if (finished) {
+				return true;
 			}
 
-			var buttons = Array.prototype.slice.call(scope.querySelectorAll('button'));
+			var buttons = Array.prototype.slice.call(container.querySelectorAll('button'));
 			controlButton = buttons.filter(function (button) {
 				return before.indexOf(button) === -1;
 			})[0];
 
 			if (!controlButton) {
-				return;
+				return false;
+			}
+
+			finished = true;
+			if (observer) {
+				observer.disconnect();
 			}
 
 			controlButton.setAttribute('aria-expanded', 'false');
@@ -1101,9 +1206,21 @@
 			controlButton.classList.add('efm-control');
 
 			if (placement === 'after-dark-mode') {
-				pinAfterDarkMode(scope, buttons, before);
+				pinAfterDarkMode(container, buttons, before);
 			}
-		}, 350);
+
+			return true;
+		};
+
+		if (!finish()) {
+			observer = new MutationObserver(finish);
+			observer.observe(container, { childList: true, subtree: true });
+			window.setTimeout(function () {
+				if (observer) {
+					observer.disconnect();
+				}
+			}, 5000);
+		}
 
 		return true;
 	}
@@ -1151,18 +1268,29 @@
 	}
 
 	function boot() {
-		if (registerControl()) {
-			refreshFontCss();
-			return;
-		}
-
 		var attempts = 0;
+
 		var timer = window.setInterval(function () {
 			attempts += 1;
 
-			if (registerControl() || attempts > 60) {
+			if (settingsBarReady()) {
 				window.clearInterval(timer);
-				refreshFontCss();
+
+				// Allow third-party controls (notably ACSS) to finish registering,
+				// then choose the official API or the guarded DOM fallback.
+				window.setTimeout(function () {
+					if (controlsRendererUnavailable()) {
+						registerFallbackControl();
+					} else {
+						registerControl();
+					}
+					refreshFontCss();
+				}, 1200);
+				return;
+			}
+
+			if (attempts > 160) {
+				window.clearInterval(timer);
 			}
 		}, 250);
 	}

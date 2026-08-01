@@ -22,9 +22,17 @@ class EFM_Builder {
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_panel' ), 30 );
 		add_action( 'enqueue_block_assets', array( __CLASS__, 'enqueue_fonts' ), 20 );
 
-		// Etch canvas iframe.
+		/*
+		 * Etch canvas iframe.
+		 *
+		 * Only the filter is used. Etch renders the canvas stylesheet list with a
+		 * keyed each block keyed by `id`, and it also collects styles enqueued on
+		 * `etch/canvas/enqueue_assets` into that same list using the style handle
+		 * as the id. Registering through both paths puts two entries with the id
+		 * `efm-fonts` into the list, which throws svelte `each_key_duplicate` and
+		 * takes down the whole builder canvas.
+		 */
 		add_filter( 'etch/canvas/additional_stylesheets', array( __CLASS__, 'canvas_stylesheets' ) );
-		add_action( 'etch/canvas/enqueue_assets', array( __CLASS__, 'enqueue_fonts' ) );
 
 		// Expose families to the block editor font pickers (names only, no duplicate @font-face).
 		add_filter( 'wp_theme_json_data_theme', array( __CLASS__, 'register_theme_json_fonts' ) );
@@ -191,9 +199,21 @@ class EFM_Builder {
 			return $stylesheets;
 		}
 
+		$css_url = EFM_Fonts::css_url();
+
+		// The list is rendered by a keyed each block; never register twice.
+		foreach ( $stylesheets as $stylesheet ) {
+			$existing_id  = is_array( $stylesheet ) ? ( $stylesheet['id'] ?? '' ) : '';
+			$existing_url = is_array( $stylesheet ) ? ( $stylesheet['url'] ?? '' ) : '';
+
+			if ( 'efm-fonts' === $existing_id || ( $existing_url && false !== strpos( $existing_url, EFM_Fonts::CSS_FILENAME ) ) ) {
+				return $stylesheets;
+			}
+		}
+
 		$stylesheets[] = array(
 			'id'  => 'efm-fonts',
-			'url' => add_query_arg( 'ver', EFM_Fonts::css_version(), EFM_Fonts::css_url() ),
+			'url' => add_query_arg( 'ver', EFM_Fonts::css_version(), $css_url ),
 		);
 
 		return $stylesheets;

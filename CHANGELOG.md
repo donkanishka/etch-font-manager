@@ -2,6 +2,16 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.4
+
+- **Fix builder-breaking bug:** register the canvas stylesheet only through `etch/canvas/additional_stylesheets`.
+  Registering through `etch/canvas/enqueue_assets` as well produced two entries with the id `efm-fonts` in Etch's
+  keyed canvas stylesheet list, throwing `each_key_duplicate` and leaving the builder canvas collapsed and unclickable.
+- Skip the filter when an entry for the stylesheet already exists.
+- Never rename or replace the canvas link element Etch owns; only its `href` is updated when fonts change.
+- Remove the 1.0.3 DOM fallback control. The official Controls API works; the fallback inserted a foreign node
+  into Etch's Svelte-managed Settings Bar.
+
 ## 1.0.3
 
 - Detect the Etch 1.6.4 state where external controls enter the public store but its Svelte Settings Bar renderer does not consume them.

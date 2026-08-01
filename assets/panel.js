@@ -197,6 +197,13 @@
 		return docs;
 	}
 
+	/**
+	 * Reload the generated stylesheet in the builder shell and the canvas.
+	 *
+	 * Etch renders the canvas stylesheet list from a keyed each block, so the
+	 * link element it owns is only ever updated in place (href only, never its
+	 * id) and a replacement link is never inserted with Etch's own id.
+	 */
 	function refreshFontCss() {
 		if (!state.cssUrl) {
 			return;
@@ -205,25 +212,28 @@
 		var href = state.cssUrl + '?ver=' + encodeURIComponent(state.cssVersion || Date.now());
 
 		collectDocuments().forEach(function (doc) {
-			var link = doc.getElementById('efm-fonts-css');
+			var owned = doc.getElementById('efm-fonts-live');
 
-			if (!link) {
-				link = Array.prototype.filter.call(
-					doc.querySelectorAll('link[rel="stylesheet"]'),
-					function (node) {
-						return node.href && node.href.indexOf('efm-fonts.css') !== -1;
-					}
-				)[0];
+			var etchOwned = Array.prototype.filter.call(
+				doc.querySelectorAll('link[rel="stylesheet"]'),
+				function (node) {
+					return node !== owned && node.href && node.href.indexOf('efm-fonts.css') !== -1;
+				}
+			)[0];
+
+			if (etchOwned) {
+				// Attribute-only update on a node Etch manages.
+				etchOwned.href = href;
+				return;
 			}
 
-			if (link) {
-				link.href = href;
-				link.id = 'efm-fonts-css';
+			if (owned) {
+				owned.href = href;
 				return;
 			}
 
 			var created = doc.createElement('link');
-			created.id = 'efm-fonts-css';
+			created.id = 'efm-fonts-live';
 			created.rel = 'stylesheet';
 			created.href = href;
 			doc.head.appendChild(created);
@@ -1085,71 +1095,6 @@
 		);
 	}
 
-	/**
-	 * Etch 1.6.4 can expose a live control store while failing to render any
-	 * external controls. ACSS gives us a reliable feature test: if its control
-	 * is registered but its source icon is absent after mount, adding another
-	 * API control would only leave another invisible store entry.
-	 *
-	 * @return {boolean}
-	 */
-	function controlsRendererUnavailable() {
-		var bottom = window.etchControls && window.etchControls.builder && window.etchControls.builder.settingsBar.bottom;
-		var registered = bottom && bottom.before && bottom.before.some(function (control) {
-			return control.id === 'acss-dashboard-button';
-		});
-
-		return !!(
-			window.ACSS_API &&
-			(window.ACSS_API.appLoaded !== false) &&
-			registered &&
-			!document.querySelector('[data-acss-source-icon]')
-		);
-	}
-
-	/**
-	 * Render a native-shaped button when Etch's public control store is present
-	 * but its Svelte renderer is not consuming that store. This path does not
-	 * mutate Etch's store and is used only after the feature test above fails.
-	 *
-	 * @return {boolean}
-	 */
-	function registerFallbackControl() {
-		if (registered) {
-			return false;
-		}
-
-		var container = document.querySelector('.settings-bar__section.bottom');
-		var darkModeButton = container && container.querySelector('button');
-
-		if (!container || !darkModeButton) {
-			return false;
-		}
-
-		controlButton = el('button', {
-			type: 'button',
-			class: 'etch-builder-button etch-builder-button--icon-placement-before etch-builder-button--variant-icon efm-control',
-			'data-button-root': 'true',
-			'data-efm-fallback': 'true',
-			'aria-label': t.fonts || 'Fonts',
-			'aria-expanded': 'false',
-			'aria-controls': 'efm-panel',
-			title: t.fonts || 'Fonts',
-			style: {
-				'--button-font-size': 'var(--e-font-size-m)',
-				'--icon-rotation': '0deg'
-			},
-			onclick: toggle
-		}, [
-			el('div', { class: 'icon-wrapper' }, [icon('font', 14)])
-		]);
-
-		darkModeButton.after(controlButton);
-		registered = true;
-
-		return true;
-	}
-
 	function registerControl() {
 		if (registered || !settingsBarReady()) {
 			return false;
@@ -1276,14 +1221,10 @@
 			if (settingsBarReady()) {
 				window.clearInterval(timer);
 
-				// Allow third-party controls (notably ACSS) to finish registering,
-				// then choose the official API or the guarded DOM fallback.
+				// Let third-party controls (notably ACSS) register first, then use
+				// the official Controls API.
 				window.setTimeout(function () {
-					if (controlsRendererUnavailable()) {
-						registerFallbackControl();
-					} else {
-						registerControl();
-					}
+					registerControl();
 					refreshFontCss();
 				}, 1200);
 				return;

@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,19 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.0.3 =
+* Detect the Etch 1.6.4 external-controls renderer regression and use a guarded native DOM fallback.
+* Keep healthy Etch installations on the official Controls API path.
+
+= 1.0.2 =
+* Use file modification times for builder assets so hotfixes never remain cached.
+* Add a URL-scoped diagnostic bypass for isolating third-party Settings Bar integrations.
+
+= 1.0.1 =
+* Wait for the mounted Etch Settings Bar before registering the Fonts control.
+* Prevent duplicate control IDs when builder assets are evaluated more than once.
+* Use the shared wp-content/fonts directory so legacy font files load correctly.
 
 = 1.0.0 =
 * Initial release.

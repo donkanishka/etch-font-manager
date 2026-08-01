@@ -2,6 +2,23 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.3
+
+- Detect the Etch 1.6.4 state where external controls enter the public store but its Svelte Settings Bar renderer does not consume them.
+- In that specific state, render a native-shaped Fonts button directly after dark mode without mutating Etch's control store.
+- Continue using the official Controls API on healthy Etch installations.
+
+## 1.0.2
+
+- Version builder panel assets by file modification time to prevent stale JavaScript after hotfixes.
+- Add a URL-scoped diagnostic bypass for isolating third-party Settings Bar integrations.
+
+## 1.0.1
+
+- Wait for the exact Etch Settings Bar section to mount before registering the Fonts control.
+- Add a page-level boot guard and guarantee a single Controls API registration, preventing Etch's Svelte `each_key_duplicate` crash.
+- Store and serve fonts from the shared `wp-content/fonts/` directory so legacy Etch Custom Fonts files work immediately.
+
 ## 1.0.0
 
 Initial release.

@@ -67,14 +67,17 @@ class EFM_Fonts {
 	 * @return string
 	 */
 	public static function dir() {
-		if ( function_exists( 'wp_get_font_dir' ) ) {
-			$font_dir = wp_get_font_dir();
-			if ( ! empty( $font_dir['basedir'] ) ) {
-				return trailingslashit( $font_dir['basedir'] );
-			}
-		}
-
-		return trailingslashit( WP_CONTENT_DIR . '/fonts' );
+		/**
+		 * Filter the directory used to store font files.
+		 *
+		 * Etch Font Manager deliberately uses wp-content/fonts rather than
+		 * wp_get_font_dir(). WordPress may resolve that API to uploads/fonts,
+		 * while Etch and the legacy Etch Custom Fonts plugin use content/fonts.
+		 * A stable shared path also makes legacy imports immediately usable.
+		 *
+		 * @param string $dir Absolute directory path.
+		 */
+		return trailingslashit( apply_filters( 'efm_fonts_dir', WP_CONTENT_DIR . '/fonts' ) );
 	}
 
 	/**
@@ -83,14 +86,12 @@ class EFM_Fonts {
 	 * @return string
 	 */
 	public static function url() {
-		if ( function_exists( 'wp_get_font_dir' ) ) {
-			$font_dir = wp_get_font_dir();
-			if ( ! empty( $font_dir['baseurl'] ) ) {
-				return trailingslashit( $font_dir['baseurl'] );
-			}
-		}
-
-		return trailingslashit( content_url( '/fonts' ) );
+		/**
+		 * Filter the public URL corresponding to efm_fonts_dir.
+		 *
+		 * @param string $url Fonts directory URL.
+		 */
+		return trailingslashit( apply_filters( 'efm_fonts_url', content_url( '/fonts' ) ) );
 	}
 
 	/**

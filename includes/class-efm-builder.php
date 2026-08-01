@@ -75,8 +75,22 @@ class EFM_Builder {
 			return;
 		}
 
-		wp_enqueue_style( 'efm-panel', EFM_URL . 'assets/panel.css', array(), EFM_VERSION );
-		wp_enqueue_script( 'efm-panel', EFM_URL . 'assets/panel.js', array(), EFM_VERSION, true );
+		$panel_css = EFM_DIR . 'assets/panel.css';
+		$panel_js  = EFM_DIR . 'assets/panel.js';
+
+		wp_enqueue_style(
+			'efm-panel',
+			EFM_URL . 'assets/panel.css',
+			array(),
+			file_exists( $panel_css ) ? filemtime( $panel_css ) : EFM_VERSION
+		);
+		wp_enqueue_script(
+			'efm-panel',
+			EFM_URL . 'assets/panel.js',
+			array(),
+			file_exists( $panel_js ) ? filemtime( $panel_js ) : EFM_VERSION,
+			true
+		);
 
 		/**
 		 * Filter where the Fonts control is placed in the Etch Settings Bar.

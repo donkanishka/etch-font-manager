@@ -71,6 +71,8 @@ The static stylesheet uses **relative** `src` URLs, which avoids cross-origin is
 | `efm_control_placement` | `after-dark-mode` (default), `top-start`, `top-end`, `center-start`, `center-end`, `bottom-start`, `bottom-end`. |
 | `efm_control_icon` | Iconify icon for the control. Default `ph:text-aa-duotone`. |
 | `efm_font_css` | Filter the generated CSS before it is written. |
+| `efm_fonts_dir` | Change the absolute font-storage directory. Default `wp-content/fonts/`. |
+| `efm_fonts_url` | Change the public URL corresponding to `efm_fonts_dir`. |
 
 ### Placement note
 
@@ -78,6 +80,11 @@ Etch's Controls API can only add a control at the **start** or **end** of a Sett
 icon exactly after the dark mode toggle, the plugin registers the control officially and then pins its
 position once, re-applying it if the builder re-renders that section. Any other placement value uses the
 plain API behaviour with no DOM adjustment.
+
+Etch 1.6.4 can expose a control store that accepts external controls while its Svelte Settings Bar renderer
+fails to display them. The plugin detects this using the already-registered ACSS control. Only in that broken
+state, it inserts a native-shaped button after dark mode without adding another item to Etch's store. Healthy
+Etch installations remain on the official Controls API path.
 
 ## REST API
 

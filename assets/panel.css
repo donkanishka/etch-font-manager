@@ -1,0 +1,598 @@
+/**
+ * Etch Font Manager — panel styles.
+ *
+ * Values intentionally read Etch's own custom properties first and only fall
+ * back to literals, so the panel follows the builder's light/dark scheme.
+ */
+
+.efm-panel {
+	--efm-bar-width: 47px;
+	--efm-radius: var(--e-border-radius, 6px);
+	--efm-muted: color-mix(in srgb, currentColor 62%, transparent);
+	--efm-line: var(--etch-border-color, #36363a);
+	--efm-accent: var(--etch-focus-color, #deff38);
+
+	position: fixed;
+	inset-block: 0;
+	inset-inline-start: var(--efm-bar-width);
+	z-index: 40;
+
+	display: none;
+	flex-direction: column;
+	inline-size: 300px;
+	max-inline-size: calc(100vw - var(--efm-bar-width));
+
+	background: var(--etch-panel-bg, #27272b);
+	border-inline-end: 1px solid var(--efm-line);
+	box-shadow: var(--edda-shadow, 0 4px 14px rgba(0, 0, 0, .4), 0 0 0 1px rgba(0, 0, 0, .2));
+	color: var(--e-text-color, #e1e1e5);
+	font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	font-size: var(--e-font-size-m, 12px);
+	line-height: 1.45;
+}
+
+.efm-panel.is-open {
+	display: flex;
+}
+
+.efm-panel *,
+.efm-panel *::before,
+.efm-panel *::after {
+	box-sizing: border-box;
+}
+
+.efm-panel :focus-visible {
+	outline: none;
+	box-shadow: var(--etch-focus-box-shadow, 0 0 0 1px #28557b, 0 0 0 2px #469fea);
+}
+
+/* ------------------------------- Header -------------------------------- */
+
+.efm-header {
+	display: flex;
+	align-items: center;
+	gap: var(--etch-space-md, 8px);
+	block-size: 53px;
+	padding-inline: 12px;
+	border-block-end: 1px solid var(--efm-line);
+	flex: 0 0 auto;
+}
+
+.efm-header__icon {
+	display: inline-flex;
+	color: var(--efm-muted);
+}
+
+.efm-title {
+	flex: 1;
+	margin: 0;
+	font-size: var(--e-hub-title-font-size, 16px);
+	font-weight: 400;
+	color: var(--e-text-color, #e1e1e5);
+}
+
+/* -------------------------------- Tabs --------------------------------- */
+
+.efm-tabs {
+	display: flex;
+	gap: 2px;
+	padding: var(--etch-panel-padding, 8px);
+	border-block-end: 1px solid var(--efm-line);
+	flex: 0 0 auto;
+}
+
+.efm-tab {
+	flex: 1;
+	block-size: 28px;
+	padding-inline: 10px;
+	border: 0;
+	border-radius: var(--efm-radius);
+	background: transparent;
+	color: var(--efm-muted);
+	font: inherit;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background-color .12s ease, color .12s ease;
+}
+
+.efm-tab:hover {
+	background: color-mix(in srgb, currentColor 10%, transparent);
+	color: var(--e-text-color, #e1e1e5);
+}
+
+.efm-tab.is-active {
+	background: color-mix(in srgb, currentColor 14%, transparent);
+	color: var(--e-text-color, #e1e1e5);
+}
+
+/* -------------------------------- Body --------------------------------- */
+
+.efm-body {
+	flex: 1 1 auto;
+	overflow-y: auto;
+	padding: var(--etch-panel-padding, 8px);
+	display: flex;
+	flex-direction: column;
+	gap: var(--etch-space-md, 8px);
+	scrollbar-width: thin;
+	scrollbar-color: var(--etch-scrollbar-thumb-color, #4b4b4e) transparent;
+}
+
+.efm-body::-webkit-scrollbar {
+	inline-size: 8px;
+}
+
+.efm-body::-webkit-scrollbar-thumb {
+	background: var(--etch-scrollbar-thumb-color, #4b4b4e);
+	border-radius: var(--etch-scrollbar-thumb-radius, 5px);
+}
+
+.efm-section-title {
+	margin: var(--etch-space-md, 8px) 0 0;
+	font-size: var(--e-font-size-s, 11px);
+	font-weight: 600;
+	letter-spacing: .04em;
+	text-transform: uppercase;
+	color: var(--efm-muted);
+}
+
+.efm-muted {
+	margin: 0;
+	color: var(--efm-muted);
+}
+
+.efm-notice {
+	margin: 0;
+	padding: 8px 10px;
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+	color: var(--efm-muted);
+}
+
+/* ------------------------------ Families ------------------------------- */
+
+.efm-list {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.efm-item {
+	border: 1px solid transparent;
+	border-radius: var(--efm-radius);
+	padding: 6px;
+	transition: background-color .12s ease, border-color .12s ease;
+}
+
+.efm-item:hover {
+	background: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.efm-item.is-expanded {
+	background: color-mix(in srgb, currentColor 6%, transparent);
+	border-color: var(--efm-line);
+}
+
+.efm-item__head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.efm-item__toggle {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex: 1;
+	min-inline-size: 0;
+	padding: 2px 4px;
+	border: 0;
+	border-radius: var(--efm-radius);
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+}
+
+.efm-item__toggle svg {
+	flex: 0 0 auto;
+	color: var(--efm-muted);
+	transition: transform .15s ease;
+}
+
+.efm-item__toggle.is-expanded svg {
+	transform: rotate(90deg);
+}
+
+.efm-item__name {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: 13px;
+}
+
+.efm-item__meta {
+	flex: 0 0 auto;
+	font-size: var(--e-font-size-s, 11px);
+	color: var(--efm-muted);
+}
+
+.efm-item__preview {
+	margin: 2px 0 0 22px;
+	font-size: 15px;
+	color: var(--efm-muted);
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.efm-item__body {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-block-start: 8px;
+	padding-block-start: 8px;
+	border-block-start: 1px solid var(--efm-line);
+}
+
+.efm-variant {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 6px;
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+}
+
+.efm-variant__row {
+	display: flex;
+	gap: 4px;
+	align-items: center;
+}
+
+.efm-variant__row .efm-input {
+	flex: 1;
+	min-inline-size: 0;
+}
+
+/* ------------------------------- Fields -------------------------------- */
+
+.efm-field {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.efm-field__label {
+	font-size: var(--e-font-size-s, 11px);
+	color: var(--efm-muted);
+}
+
+.efm-input {
+	inline-size: 100%;
+	block-size: 28px;
+	padding-inline: 8px;
+	border: 1px solid var(--efm-line);
+	border-radius: var(--etch-input-radius, 6px);
+	background: color-mix(in srgb, currentColor 8%, transparent);
+	color: inherit;
+	font: inherit;
+}
+
+.efm-input::placeholder {
+	color: var(--efm-muted);
+}
+
+.efm-input:focus {
+	outline: none;
+	border-color: var(--e-focus-outline-color, #469fea);
+}
+
+.efm-input--select {
+	appearance: none;
+	padding-inline-end: 22px;
+	background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+	background-position: calc(100% - 12px) 12px, calc(100% - 8px) 12px;
+	background-size: 4px 4px;
+	background-repeat: no-repeat;
+	cursor: pointer;
+}
+
+.efm-input--select option {
+	background: var(--etch-panel-bg, #27272b);
+	color: var(--e-text-color, #e1e1e5);
+}
+
+/* ------------------------------ Dropzone ------------------------------- */
+
+.efm-dropzone {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	padding: 18px 12px;
+	border: 1px dashed var(--etch-divider-color, #4b4b4e);
+	border-radius: var(--efm-radius);
+	color: var(--efm-muted);
+	text-align: center;
+	cursor: pointer;
+	transition: border-color .12s ease, background-color .12s ease;
+}
+
+.efm-dropzone:hover,
+.efm-dropzone.is-dragover {
+	border-color: var(--e-focus-outline-color, #469fea);
+	background: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.efm-dropzone__title {
+	margin: 0;
+	font-weight: 500;
+	color: var(--e-text-color, #e1e1e5);
+}
+
+.efm-dropzone__hint {
+	margin: 0;
+	font-size: var(--e-font-size-s, 11px);
+}
+
+.efm-file-input {
+	display: none;
+}
+
+/* -------------------------------- Files -------------------------------- */
+
+.efm-files {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.efm-file {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 6px;
+	border-radius: var(--efm-radius);
+}
+
+.efm-file:hover {
+	background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.efm-file__name {
+	flex: 1;
+	min-inline-size: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: var(--e-font-size-s, 11px);
+}
+
+.efm-file__meta {
+	font-size: var(--e-font-size-s, 11px);
+	color: var(--efm-muted);
+}
+
+/* ------------------------------- Search -------------------------------- */
+
+.efm-search {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.efm-search svg {
+	position: absolute;
+	inset-inline-start: 8px;
+	color: var(--efm-muted);
+	pointer-events: none;
+}
+
+.efm-search .efm-input {
+	padding-inline-start: 26px;
+}
+
+/* ------------------------------ Results -------------------------------- */
+
+.efm-results {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.efm-result {
+	padding: 8px;
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+}
+
+.efm-result__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.efm-result__name {
+	font-weight: 500;
+}
+
+.efm-result__preview {
+	margin: 6px 0 4px;
+	font-size: 18px;
+	line-height: 1.3;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.efm-result__meta {
+	font-size: var(--e-font-size-s, 11px);
+	color: var(--efm-muted);
+}
+
+.efm-result__badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	font-size: var(--e-font-size-s, 11px);
+	color: var(--efm-muted);
+}
+
+/* ------------------------------ Buttons -------------------------------- */
+
+.efm-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	block-size: 28px;
+	padding-inline: 12px;
+	border: 1px solid transparent;
+	border-radius: var(--efm-radius);
+	background: color-mix(in srgb, currentColor 12%, transparent);
+	color: inherit;
+	font: inherit;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background-color .12s ease, opacity .12s ease;
+}
+
+.efm-btn:hover:not(:disabled) {
+	background: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.efm-btn:disabled {
+	opacity: .55;
+	cursor: default;
+}
+
+.efm-btn--primary {
+	background: var(--efm-accent);
+	color: var(--etch-panel-bg, #27272b);
+}
+
+.efm-btn--primary:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--efm-accent) 88%, #fff);
+}
+
+.efm-btn--ghost {
+	background: transparent;
+	border-color: var(--efm-line);
+	color: var(--efm-muted);
+}
+
+.efm-btn--ghost:hover:not(:disabled) {
+	background: color-mix(in srgb, currentColor 10%, transparent);
+	color: var(--e-text-color, #e1e1e5);
+}
+
+.efm-btn--block {
+	inline-size: 100%;
+}
+
+.efm-btn--xs {
+	block-size: 22px;
+	padding-inline: 8px;
+	font-size: var(--e-font-size-s, 11px);
+}
+
+.efm-icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 24px;
+	block-size: 24px;
+	flex: 0 0 auto;
+	border: 0;
+	border-radius: var(--efm-radius);
+	background: transparent;
+	color: var(--efm-muted);
+	cursor: pointer;
+	transition: background-color .12s ease, color .12s ease;
+}
+
+.efm-icon-btn:hover {
+	background: color-mix(in srgb, currentColor 14%, transparent);
+	color: var(--e-text-color, #e1e1e5);
+}
+
+.efm-icon-btn--danger:hover {
+	color: #ff6b6b;
+}
+
+/* ------------------------------- Empty --------------------------------- */
+
+.efm-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+	padding: 32px 12px;
+	text-align: center;
+}
+
+.efm-empty__title {
+	margin: 0;
+	font-weight: 500;
+}
+
+.efm-empty__hint {
+	margin: 0 0 6px;
+	color: var(--efm-muted);
+}
+
+/* ------------------------- Status and footer --------------------------- */
+
+.efm-status {
+	display: none;
+	padding: 6px 12px;
+	border-block-start: 1px solid var(--efm-line);
+	font-size: var(--e-font-size-s, 11px);
+	color: var(--efm-muted);
+}
+
+.efm-status.is-visible {
+	display: block;
+}
+
+.efm-status.is-error {
+	color: #ff8080;
+}
+
+.efm-footer {
+	display: none;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 12px;
+	border-block-start: 1px solid var(--efm-line);
+	flex: 0 0 auto;
+}
+
+.efm-footer.is-visible {
+	display: flex;
+}
+
+.efm-footer__label {
+	flex: 1;
+	font-size: var(--e-font-size-s, 11px);
+	color: var(--efm-muted);
+}
+
+/* -------------------------- Settings bar state ------------------------- */
+
+.settings-bar .efm-control[aria-expanded="true"] {
+	background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.efm-panel * {
+		transition: none !important;
+	}
+}

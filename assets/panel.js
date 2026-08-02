@@ -1,24 +1,30 @@
 /**
- * Etch Font Manager — in-builder Fonts panel.
+ * Etch Font Manager — full-screen font manager for the Etch builder.
  *
- * Registers a control in the Etch Settings Bar via the official
- * window.etchControls API and renders a docked panel that matches the
- * builder's own panel conventions.
+ * Registers a control in the Etch Settings Bar through the official
+ * window.etchControls API and opens a full-screen manager that follows Etch's
+ * own manager conventions: takeover surface beside the settings bar, a 40px
+ * header and a 256px inner navigation column.
+ *
+ * The manager is mounted on document.body and never inserts nodes into Etch's
+ * own Svelte-managed DOM.
  */
 (function () {
 	'use strict';
 
 	var cfg = window.efmConfig;
-	if (!cfg || window.__efmPanelBooted) {
+	if (!cfg || window.__efmBooted) {
 		return;
 	}
-
-	// The builder can evaluate enqueued assets more than once while mounting.
-	// A page-level guard prevents duplicate control IDs in Etch's keyed list.
-	window.__efmPanelBooted = true;
+	window.__efmBooted = true;
 
 	var t = cfg.i18n || {};
 	var CONTROL_ID = 'efm-fonts';
+
+	function s(key, fallback) {
+		return t[key] || fallback;
+	}
+
 	var state = {
 		families: (cfg.state && cfg.state.families) || [],
 		files: (cfg.state && cfg.state.files) || [],
@@ -26,18 +32,21 @@
 		cssUrl: (cfg.state && cfg.state.cssUrl) || '',
 		cssVersion: (cfg.state && cfg.state.cssVersion) || '',
 		acssActive: !!(cfg.state && cfg.state.acssActive),
-		tab: 'library',
-		expanded: {},
-		dirty: false,
-		busy: '',
-		status: null,
+		view: 'library',
+		editing: null,
+		filter: '',
 		query: '',
 		results: [],
-		searching: false
+		searching: false,
+		busy: '',
+		status: null,
+		dirty: false,
+		previewText: s('preview', 'The quick brown fox'),
+		previewSize: 30
 	};
 
 	/* --------------------------------------------------------------------- */
-	/* Helpers                                                                */
+	/* DOM helpers                                                            */
 	/* --------------------------------------------------------------------- */
 
 	function el(tag, attrs, children) {
@@ -52,8 +61,6 @@
 				node.className = value;
 			} else if (key === 'text') {
 				node.textContent = value;
-			} else if (key === 'html') {
-				node.innerHTML = value;
 			} else if (key.indexOf('on') === 0 && typeof value === 'function') {
 				node.addEventListener(key.slice(2).toLowerCase(), value);
 			} else if (key === 'style' && typeof value === 'object') {
@@ -75,15 +82,16 @@
 		return node;
 	}
 
-	var icons = {
-		close: '<path d="M4 4l8 8M12 4l-8 8"/>',
-		chevron: '<path d="M6 4l4 4-4 4"/>',
-		trash: '<path d="M3 4.5h10M6.5 4.5V3h3v1.5M5 4.5l.5 8h5l.5-8"/>',
+	var PATHS = {
+		back: '<path d="M10 3.5L5.5 8l4.5 4.5"/>',
 		plus: '<path d="M8 3.5v9M3.5 8h9"/>',
+		trash: '<path d="M3 4.5h10M6.5 4.5V3h3v1.5M5 4.5l.5 8h5l.5-8"/>',
 		upload: '<path d="M8 11V3M5 6l3-3 3 3M3 12.5h10"/>',
 		search: '<circle cx="7.2" cy="7.2" r="3.7"/><path d="M10.2 10.2L13 13"/>',
 		check: '<path d="M3.5 8.5l3 3 6-7"/>',
-		font: '<path d="M3 13l4.2-10h1.6L13 13M5.2 9.4h5.6"/>'
+		library: '<path d="M3 3.5h3v9H3zM7 3.5h3v9H7zM11.2 4l2 8.5"/>',
+		palette: '<circle cx="8" cy="8" r="5.5"/><circle cx="6" cy="6.4" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="6.4" r=".9" fill="currentColor" stroke="none"/><circle cx="8" cy="10.4" r=".9" fill="currentColor" stroke="none"/>',
+		google: '<circle cx="8" cy="8" r="5.5"/><path d="M2.6 8h10.8M8 2.6c1.6 1.7 2.4 3.5 2.4 5.4S9.6 11.7 8 13.4C6.4 11.7 5.6 9.9 5.6 8S6.4 4.3 8 2.6z"/>'
 	};
 
 	function icon(name, size) {
@@ -97,7 +105,7 @@
 		svg.setAttribute('stroke-linecap', 'round');
 		svg.setAttribute('stroke-linejoin', 'round');
 		svg.setAttribute('aria-hidden', 'true');
-		svg.innerHTML = icons[name] || '';
+		svg.innerHTML = PATHS[name] || '';
 		return svg;
 	}
 
@@ -113,10 +121,6 @@
 		};
 	}
 
-	function plural(count, singular, many) {
-		return count === 1 ? singular : many;
-	}
-
 	function formatSize(bytes) {
 		if (!bytes) {
 			return '';
@@ -124,6 +128,14 @@
 		return bytes > 1048576
 			? (bytes / 1048576).toFixed(1) + ' MB'
 			: Math.max(1, Math.round(bytes / 1024)) + ' KB';
+	}
+
+	function plural(count, one, many) {
+		return count === 1 ? one : many;
+	}
+
+	function familyStack(name) {
+		return name ? '"' + name + '", sans-serif' : 'inherit';
 	}
 
 	/* --------------------------------------------------------------------- */
@@ -147,18 +159,14 @@
 			headers: headers,
 			body: body
 		}).then(function (response) {
-			return response
-				.json()
-				.catch(function () {
-					return null;
-				})
-				.then(function (data) {
-					if (!response.ok) {
-						var message = (data && data.message) || t.error;
-						throw new Error(message);
-					}
-					return data;
-				});
+			return response.json().catch(function () {
+				return null;
+			}).then(function (data) {
+				if (!response.ok) {
+					throw new Error((data && data.message) || s('error', 'Something went wrong.'));
+				}
+				return data;
+			});
 		});
 	}
 
@@ -176,7 +184,7 @@
 	}
 
 	/* --------------------------------------------------------------------- */
-	/* Stylesheet refresh (builder shell + canvas iframes)                    */
+	/* Stylesheet refresh                                                     */
 	/* --------------------------------------------------------------------- */
 
 	function collectDocuments() {
@@ -198,11 +206,9 @@
 	}
 
 	/**
-	 * Reload the generated stylesheet in the builder shell and the canvas.
-	 *
 	 * Etch renders the canvas stylesheet list from a keyed each block, so the
-	 * link element it owns is only ever updated in place (href only, never its
-	 * id) and a replacement link is never inserted with Etch's own id.
+	 * link element it owns is only ever updated in place (href only) and is
+	 * never replaced or renamed.
 	 */
 	function refreshFontCss() {
 		if (!state.cssUrl) {
@@ -222,7 +228,6 @@
 			)[0];
 
 			if (etchOwned) {
-				// Attribute-only update on a node Etch manages.
 				etchOwned.href = href;
 				return;
 			}
@@ -241,104 +246,109 @@
 	}
 
 	/* --------------------------------------------------------------------- */
-	/* Panel shell                                                            */
+	/* Shell                                                                  */
 	/* --------------------------------------------------------------------- */
 
-	var panel = null;
-	var bodyEl = null;
-	var footerEl = null;
+	var manager = null;
+	var contentEl = null;
+	var navEl = null;
+	var headerActionsEl = null;
 	var statusEl = null;
 	var controlButton = null;
 	var isOpen = false;
+	var lastFocus = null;
 
-	function settingsBarWidth() {
-		var bar = document.querySelector('.settings-bar');
-		return bar ? Math.round(bar.getBoundingClientRect().width) : 47;
-	}
+	var VIEWS = [
+		{ key: 'library', icon: 'library', label: function () { return s('library', 'Library'); } },
+		{ key: 'upload', icon: 'upload', label: function () { return s('upload', 'Upload fonts'); } },
+		{ key: 'google', icon: 'google', label: function () { return s('googleFonts', 'Google Fonts'); } },
+		{ key: 'theme', icon: 'palette', label: function () { return s('theme', 'Theme'); } }
+	];
 
-	function buildPanel() {
-		statusEl = el('div', { class: 'efm-status', role: 'status', 'aria-live': 'polite' });
-		bodyEl = el('div', { class: 'efm-body' });
-		footerEl = el('div', { class: 'efm-footer' });
+	function build() {
+		navEl = el('nav', { class: 'efm-nav', 'aria-label': s('fonts', 'Fonts') });
+		contentEl = el('div', { class: 'efm-content' });
+		headerActionsEl = el('div', { class: 'efm-header__actions' });
+		statusEl = el('span', { class: 'efm-status', role: 'status', 'aria-live': 'polite' });
 
-		var tabs = ['library', 'add', 'theme'].map(function (key) {
-			return el('button', {
-				type: 'button',
-				class: 'efm-tab',
-				'data-tab': key,
-				role: 'tab',
-				text: t[key === 'add' ? 'add' : key] || key,
-				onclick: function () {
-					state.tab = key;
-					render();
-				}
-			});
-		});
-
-		panel = el(
-			'aside',
-			{
-				class: 'efm-panel',
-				id: 'efm-panel',
-				role: 'dialog',
-				'aria-label': t.fonts || 'Fonts',
-				'aria-hidden': 'true'
-			},
-			[
-				el('header', { class: 'efm-header' }, [
-					el('span', { class: 'efm-header__icon' }, [icon('font', 15)]),
-					el('h2', { class: 'efm-title', text: t.fonts || 'Fonts' }),
-					el('button', {
-						type: 'button',
-						class: 'efm-icon-btn',
-						'aria-label': t.close || 'Close',
-						title: t.close || 'Close',
-						onclick: close
-					}, [icon('close')])
-				]),
-				el('div', { class: 'efm-tabs', role: 'tablist' }, tabs),
-				bodyEl,
+		manager = el('section', {
+			class: 'efm-manager',
+			id: 'efm-manager',
+			role: 'dialog',
+			'aria-label': s('fonts', 'Fonts'),
+			hidden: true
+		}, [
+			el('header', { class: 'efm-header' }, [
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--outline efm-btn--icon',
+					'aria-label': s('close', 'Close'),
+					title: s('close', 'Close'),
+					onclick: close
+				}, [icon('back')]),
+				el('h1', { class: 'efm-header__title', text: s('fonts', 'Fonts') }),
 				statusEl,
-				footerEl
-			]
-		);
+				headerActionsEl
+			]),
+			el('div', { class: 'efm-body' }, [navEl, contentEl])
+		]);
 
-		panel.addEventListener('keydown', function (event) {
+		manager.addEventListener('keydown', function (event) {
 			if (event.key === 'Escape') {
 				event.stopPropagation();
 				close();
 			}
 		});
 
-		document.addEventListener('keydown', function (event) {
-			if (isOpen && event.key === 'Escape' && panel.contains(document.activeElement)) {
-				close();
+		window.addEventListener('resize', function () {
+			if (isOpen) {
+				syncBounds();
 			}
 		});
 
-		document.body.appendChild(panel);
+		document.body.appendChild(manager);
+	}
+
+	/**
+	 * Etch's managers stop above the element bar at the bottom of the builder.
+	 * The gap is measured from the settings bar so the manager lines up with
+	 * whatever chrome Etch is currently showing.
+	 */
+	function syncBounds() {
+		if (!manager) {
+			return;
+		}
+
+		var bar = document.querySelector('.settings-bar');
+		var gap = 48;
+
+		if (bar) {
+			gap = Math.max(0, Math.round(window.innerHeight - bar.getBoundingClientRect().bottom));
+		}
+
+		manager.style.setProperty('--efm-inset-bottom', gap + 'px');
 	}
 
 	function open() {
-		if (!panel) {
-			buildPanel();
+		if (!manager) {
+			build();
 		}
 
+		lastFocus = document.activeElement;
 		isOpen = true;
-		panel.style.setProperty('--efm-bar-width', settingsBarWidth() + 'px');
-		panel.classList.add('is-open');
-		panel.setAttribute('aria-hidden', 'false');
+		manager.hidden = false;
+		manager.classList.add('is-open');
+		syncBounds();
 
 		if (controlButton) {
 			controlButton.setAttribute('aria-expanded', 'true');
 			controlButton.setAttribute('selected', 'true');
-			controlButton.classList.add('efm-control--active');
 		}
 
 		render();
 		refreshFontCss();
 
-		var focusable = panel.querySelector('.efm-tab, button, input');
+		var focusable = manager.querySelector('.efm-nav__item');
 		if (focusable) {
 			focusable.focus({ preventScroll: true });
 		}
@@ -347,16 +357,18 @@
 	function close() {
 		isOpen = false;
 
-		if (panel) {
-			panel.classList.remove('is-open');
-			panel.setAttribute('aria-hidden', 'true');
+		if (manager) {
+			manager.classList.remove('is-open');
+			manager.hidden = true;
 		}
 
 		if (controlButton) {
 			controlButton.setAttribute('aria-expanded', 'false');
 			controlButton.setAttribute('selected', 'false');
-			controlButton.classList.remove('efm-control--active');
-			controlButton.focus({ preventScroll: true });
+		}
+
+		if (lastFocus && lastFocus.focus) {
+			lastFocus.focus({ preventScroll: true });
 		}
 	}
 
@@ -371,182 +383,298 @@
 	function setStatus(message, type) {
 		state.status = message ? { message: message, type: type || 'info' } : null;
 		renderStatus();
+
+		if (message && type !== 'error') {
+			window.clearTimeout(setStatus._timer);
+			setStatus._timer = window.setTimeout(function () {
+				state.status = null;
+				renderStatus();
+			}, 4000);
+		}
 	}
 
 	function renderStatus() {
 		if (!statusEl) {
 			return;
 		}
-
-		statusEl.innerHTML = '';
-		statusEl.classList.toggle('is-visible', !!state.status);
-
-		if (!state.status) {
-			return;
-		}
-
-		statusEl.classList.toggle('is-error', state.status.type === 'error');
-		statusEl.appendChild(document.createTextNode(state.status.message));
+		statusEl.textContent = state.status ? state.status.message : '';
+		statusEl.classList.toggle('is-error', !!state.status && state.status.type === 'error');
 	}
 
 	function fail(error) {
-		setStatus((error && error.message) || t.error, 'error');
+		setStatus((error && error.message) || s('error', 'Something went wrong.'), 'error');
+	}
+
+	function go(view) {
+		state.view = view;
+		state.editing = null;
+		render();
 	}
 
 	/* --------------------------------------------------------------------- */
-	/* Rendering                                                              */
+	/* Render                                                                 */
 	/* --------------------------------------------------------------------- */
 
 	function render() {
-		if (!panel) {
+		if (!manager) {
 			return;
 		}
 
-		Array.prototype.forEach.call(panel.querySelectorAll('.efm-tab'), function (tab) {
-			var active = tab.getAttribute('data-tab') === state.tab;
-			tab.classList.toggle('is-active', active);
-			tab.setAttribute('aria-selected', active ? 'true' : 'false');
-		});
+		renderNav();
+		renderHeaderActions();
+		renderStatus();
 
-		var scroll = bodyEl.scrollTop;
-		bodyEl.innerHTML = '';
+		contentEl.innerHTML = '';
 
-		if (state.tab === 'library') {
+		if (state.editing !== null && state.families[state.editing]) {
+			renderFamilyEditor(state.editing);
+		} else if (state.view === 'library') {
 			renderLibrary();
-		} else if (state.tab === 'add') {
-			renderAdd();
+		} else if (state.view === 'upload') {
+			renderUpload();
+		} else if (state.view === 'google') {
+			renderGoogle();
 		} else {
 			renderTheme();
 		}
-
-		bodyEl.scrollTop = scroll;
-		renderFooter();
-		renderStatus();
 	}
 
-	function renderFooter() {
-		footerEl.innerHTML = '';
-		footerEl.classList.toggle('is-visible', state.dirty);
+	function renderNav() {
+		navEl.innerHTML = '';
+		navEl.appendChild(el('span', { class: 'efm-nav__label', text: s('manage', 'Manage') }));
+
+		VIEWS.forEach(function (view) {
+			var active = state.view === view.key && state.editing === null;
+
+			navEl.appendChild(
+				el('button', {
+					type: 'button',
+					class: 'efm-nav__item' + (active ? ' is-active' : ''),
+					'aria-current': active ? 'true' : 'false',
+					onclick: function () {
+						go(view.key);
+					}
+				}, [icon(view.icon, 14), el('span', { text: view.label() })])
+			);
+		});
+
+		var variantCount = state.families.reduce(function (total, family) {
+			return total + (family.variants || []).length;
+		}, 0);
+
+		navEl.appendChild(
+			el('div', { class: 'efm-nav__meta' }, [
+				el('span', { text: state.families.length + ' ' + plural(state.families.length, s('familyLabel', 'family'), s('familiesLabel', 'families')) }),
+				el('span', { text: variantCount + ' ' + plural(variantCount, s('variant', 'variant'), s('variants', 'variants')) }),
+				el('span', { text: state.files.length + ' ' + plural(state.files.length, s('fileLabel', 'file'), s('filesLabel', 'files')) })
+			])
+		);
+	}
+
+	function renderHeaderActions() {
+		headerActionsEl.innerHTML = '';
 
 		if (!state.dirty) {
 			return;
 		}
 
-		footerEl.appendChild(el('span', { class: 'efm-footer__label', text: t.unsaved }));
-		footerEl.appendChild(
+		headerActionsEl.appendChild(
 			el('button', {
 				type: 'button',
-				class: 'efm-btn efm-btn--ghost',
-				text: t.discard,
+				class: 'efm-btn efm-btn--outline',
+				text: s('discard', 'Discard'),
 				onclick: reload
 			})
 		);
-		footerEl.appendChild(
+		headerActionsEl.appendChild(
 			el('button', {
 				type: 'button',
 				class: 'efm-btn efm-btn--primary',
-				text: state.busy === 'save' ? t.saving : t.save,
+				text: state.busy === 'save' ? s('saving', 'Saving…') : s('save', 'Save changes'),
 				disabled: state.busy === 'save',
 				onclick: saveFamilies
 			})
 		);
 	}
 
-	/* ------------------------------- Library ----------------------------- */
+	/* ------------------------------ Toolbar ------------------------------ */
+
+	function previewToolbar(lead) {
+		var sizeLabel = el('span', { class: 'efm-toolbar__size', text: state.previewSize + 'px' });
+
+		var textInput = el('input', {
+			type: 'text',
+			class: 'efm-input',
+			value: state.previewText,
+			'aria-label': s('previewText', 'Preview text'),
+			placeholder: s('previewText', 'Preview text'),
+			oninput: debounce(function (event) {
+				state.previewText = event.target.value;
+				Array.prototype.forEach.call(contentEl.querySelectorAll('[data-efm-specimen]'), function (node) {
+					node.textContent = state.previewText || s('preview', 'The quick brown fox');
+				});
+			}, 160)
+		});
+
+		var size = el('input', {
+			type: 'range',
+			class: 'efm-range',
+			min: '14',
+			max: '72',
+			step: '1',
+			value: String(state.previewSize),
+			'aria-label': s('previewSize', 'Preview size'),
+			oninput: function (event) {
+				state.previewSize = parseInt(event.target.value, 10);
+				sizeLabel.textContent = state.previewSize + 'px';
+				Array.prototype.forEach.call(contentEl.querySelectorAll('[data-efm-specimen]'), function (node) {
+					node.style.fontSize = state.previewSize + 'px';
+				});
+			}
+		});
+
+		return el('div', { class: 'efm-toolbar' }, [
+			lead || null,
+			el('div', { class: 'efm-toolbar__preview' }, [textInput, size, sizeLabel])
+		]);
+	}
+
+	function specimen(family) {
+		return el('p', {
+			class: 'efm-specimen',
+			'data-efm-specimen': 'true',
+			text: state.previewText || s('preview', 'The quick brown fox'),
+			style: { 'font-family': familyStack(family), 'font-size': state.previewSize + 'px' }
+		});
+	}
+
+	function emptyState(title, hint, cta, onCta) {
+		return el('div', { class: 'efm-empty' }, [
+			el('p', { class: 'efm-empty__title', text: title }),
+			el('p', { class: 'efm-empty__hint', text: hint }),
+			cta ? el('button', { type: 'button', class: 'efm-btn efm-btn--primary', text: cta, onclick: onCta }) : null
+		]);
+	}
+
+	/* ------------------------------ Library ------------------------------ */
 
 	function renderLibrary() {
+		var search = el('input', {
+			type: 'search',
+			class: 'efm-input',
+			placeholder: s('filterFamilies', 'Filter families'),
+			value: state.filter,
+			oninput: debounce(function (event) {
+				state.filter = event.target.value;
+				render();
+			}, 200)
+		});
+
+		contentEl.appendChild(previewToolbar(
+			el('div', { class: 'efm-toolbar__lead' }, [
+				el('div', { class: 'efm-search' }, [icon('search', 13), search]),
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--outline',
+					onclick: addFamily
+				}, [icon('plus', 12), el('span', { text: s('newFamily', 'New family') })])
+			])
+		));
+
 		if (!state.families.length) {
-			bodyEl.appendChild(
-				el('div', { class: 'efm-empty' }, [
-					el('p', { class: 'efm-empty__title', text: t.noFamilies }),
-					el('p', { class: 'efm-empty__hint', text: t.noFamiliesHint }),
-					el('button', {
-						type: 'button',
-						class: 'efm-btn efm-btn--primary',
-						text: t.add,
-						onclick: function () {
-							state.tab = 'add';
-							render();
-						}
-					})
-				])
-			);
+			contentEl.appendChild(emptyState(
+				s('noFamilies', 'No font families yet.'),
+				s('noFamiliesHint', 'Upload a font file or install one from Google Fonts.'),
+				s('googleFonts', 'Google Fonts'),
+				function () { go('google'); }
+			));
 			return;
 		}
 
-		var list = el('div', { class: 'efm-list' });
+		var needle = state.filter.trim().toLowerCase();
+		var list = state.families
+			.map(function (family, index) { return { family: family, index: index }; })
+			.filter(function (row) {
+				return !needle || (row.family.name || '').toLowerCase().indexOf(needle) !== -1;
+			});
 
-		state.families.forEach(function (family, index) {
-			list.appendChild(renderFamily(family, index));
-		});
-
-		bodyEl.appendChild(list);
-		bodyEl.appendChild(
-			el('button', {
-				type: 'button',
-				class: 'efm-btn efm-btn--ghost efm-btn--block',
-				onclick: addFamily
-			}, [icon('plus'), document.createTextNode(' ' + t.newFamily)])
-		);
-	}
-
-	function renderFamily(family, index) {
-		var expanded = !!state.expanded[index];
-		var count = (family.variants || []).length;
-
-		var head = el('div', { class: 'efm-item__head' }, [
-			el('button', {
-				type: 'button',
-				class: 'efm-item__toggle' + (expanded ? ' is-expanded' : ''),
-				'aria-expanded': expanded ? 'true' : 'false',
-				onclick: function () {
-					state.expanded[index] = !expanded;
-					render();
-				}
-			}, [
-				icon('chevron', 12),
-				el('span', {
-					class: 'efm-item__name',
-					text: family.name,
-					style: { 'font-family': '"' + family.name + '", sans-serif' }
-				})
-			]),
-			el('span', {
-				class: 'efm-item__meta',
-				text: count + ' ' + plural(count, t.variant, t.variants)
-			}),
-			el('button', {
-				type: 'button',
-				class: 'efm-icon-btn efm-icon-btn--danger',
-				'aria-label': t.removeFamily,
-				title: t.removeFamily,
-				onclick: function () {
-					state.families.splice(index, 1);
-					forgetExpanded(index);
-					state.dirty = true;
-					render();
-				}
-			}, [icon('trash')])
-		]);
-
-		var item = el('div', { class: 'efm-item' + (expanded ? ' is-expanded' : '') }, [head]);
-
-		if (!expanded) {
-			item.appendChild(
-				el('p', {
-					class: 'efm-item__preview',
-					text: t.preview,
-					style: { 'font-family': '"' + family.name + '", sans-serif' }
-				})
-			);
-			return item;
+		if (!list.length) {
+			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('noMatches', 'No families match that filter.') }));
+			return;
 		}
 
-		var editor = el('div', { class: 'efm-item__body' });
+		var grid = el('div', { class: 'efm-grid' });
 
-		editor.appendChild(
-			field(
-				t.familyName,
+		list.forEach(function (row) {
+			var family = row.family;
+			var variants = family.variants || [];
+			var weights = variants.map(function (v) { return v.weight; }).filter(function (w, i, arr) { return arr.indexOf(w) === i; }).sort();
+
+			grid.appendChild(
+				el('article', { class: 'efm-card' }, [
+					el('div', { class: 'efm-card__head' }, [
+						el('h2', { class: 'efm-card__title', text: family.name }),
+						el('div', { class: 'efm-card__actions' }, [
+							el('button', {
+								type: 'button',
+								class: 'efm-btn efm-btn--outline efm-btn--sm',
+								text: s('manageFamily', 'Manage'),
+								onclick: function () {
+									state.editing = row.index;
+									render();
+								}
+							}),
+							el('button', {
+								type: 'button',
+								class: 'efm-icon-btn efm-icon-btn--danger',
+								'aria-label': s('removeFamily', 'Remove family'),
+								title: s('removeFamily', 'Remove family'),
+								onclick: function () {
+									state.families.splice(row.index, 1);
+									state.dirty = true;
+									render();
+								}
+							}, [icon('trash', 13)])
+						])
+					]),
+					specimen(family.name),
+					el('div', { class: 'efm-card__meta' }, [
+						el('span', { text: variants.length + ' ' + plural(variants.length, s('variant', 'variant'), s('variants', 'variants')) }),
+						el('span', { class: 'efm-weights', text: weights.join(' · ') || '—' })
+					])
+				])
+			);
+		});
+
+		contentEl.appendChild(grid);
+	}
+
+	function renderFamilyEditor(index) {
+		var family = state.families[index];
+		var variants = family.variants || [];
+
+		contentEl.appendChild(
+			el('div', { class: 'efm-breadcrumb' }, [
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--outline efm-btn--icon',
+					'aria-label': s('back', 'Back'),
+					title: s('back', 'Back'),
+					onclick: function () {
+						state.editing = null;
+						render();
+					}
+				}, [icon('back', 13)]),
+				el('h2', { class: 'efm-breadcrumb__title', text: family.name })
+			])
+		);
+
+		contentEl.appendChild(previewToolbar(null));
+		contentEl.appendChild(specimen(family.name));
+
+		contentEl.appendChild(
+			el('label', { class: 'efm-field' }, [
+				el('span', { class: 'efm-field__label', text: s('familyName', 'Family name') }),
 				el('input', {
 					type: 'text',
 					class: 'efm-input',
@@ -554,20 +682,37 @@
 					oninput: function (event) {
 						state.families[index].name = event.target.value;
 						state.dirty = true;
-						renderFooter();
+						renderHeaderActions();
 					}
 				})
-			)
+			])
 		);
 
-		(family.variants || []).forEach(function (variant, vi) {
-			editor.appendChild(renderVariant(index, vi, variant));
-		});
+		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('variants', 'variants') }));
 
-		editor.appendChild(
+		if (!variants.length) {
+			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('noVariants', 'No variants mapped yet.') }));
+		} else {
+			var table = el('div', { class: 'efm-table' }, [
+				el('div', { class: 'efm-table__head' }, [
+					el('span', { text: s('file', 'File') }),
+					el('span', { text: s('weight', 'Weight') }),
+					el('span', { text: s('style', 'Style') }),
+					el('span', { text: '' })
+				])
+			]);
+
+			variants.forEach(function (variant, vi) {
+				table.appendChild(variantRow(index, vi, variant));
+			});
+
+			contentEl.appendChild(table);
+		}
+
+		contentEl.appendChild(
 			el('button', {
 				type: 'button',
-				class: 'efm-btn efm-btn--ghost efm-btn--block',
+				class: 'efm-btn efm-btn--outline',
 				onclick: function () {
 					state.families[index].variants = state.families[index].variants || [];
 					state.families[index].variants.push({
@@ -578,160 +723,90 @@
 					state.dirty = true;
 					render();
 				}
-			}, [icon('plus', 12), document.createTextNode(' ' + t.addVariant)])
+			}, [icon('plus', 12), el('span', { text: s('addVariant', 'Add variant') })])
 		);
-
-		item.appendChild(editor);
-		return item;
 	}
 
-	function renderVariant(familyIndex, variantIndex, variant) {
+	function variantRow(familyIndex, variantIndex, variant) {
 		var fileSelect = el('select', {
 			class: 'efm-input efm-input--select',
-			'aria-label': t.file,
+			'aria-label': s('file', 'File'),
 			onchange: function (event) {
 				state.families[familyIndex].variants[variantIndex].file = event.target.value;
 				state.dirty = true;
-				renderFooter();
+				renderHeaderActions();
 			}
 		});
 
 		if (!state.files.length) {
-			fileSelect.appendChild(el('option', { value: '', text: t.noFiles }));
+			fileSelect.appendChild(el('option', { value: '', text: s('noFiles', 'No files uploaded yet.') }));
 		}
 
 		state.files.forEach(function (file) {
-			fileSelect.appendChild(
-				el('option', {
-					value: file.name,
-					text: file.name,
-					selected: file.name === variant.file
-				})
-			);
+			fileSelect.appendChild(el('option', {
+				value: file.name,
+				text: file.name,
+				selected: file.name === variant.file
+			}));
 		});
 
 		var weightSelect = el('select', {
 			class: 'efm-input efm-input--select',
-			'aria-label': t.weight,
+			'aria-label': s('weight', 'Weight'),
 			onchange: function (event) {
 				state.families[familyIndex].variants[variantIndex].weight = event.target.value;
 				state.dirty = true;
-				renderFooter();
+				renderHeaderActions();
 			}
 		});
 
 		['100', '200', '300', '400', '500', '600', '700', '800', '900', '100 900'].forEach(function (weight) {
-			weightSelect.appendChild(
-				el('option', {
-					value: weight,
-					text: weight === '100 900' ? 'variable' : weight,
-					selected: weight === String(variant.weight)
-				})
-			);
+			weightSelect.appendChild(el('option', {
+				value: weight,
+				text: weight === '100 900' ? s('variable', 'variable') : weight,
+				selected: weight === String(variant.weight)
+			}));
 		});
 
 		var styleSelect = el('select', {
 			class: 'efm-input efm-input--select',
-			'aria-label': t.style,
+			'aria-label': s('style', 'Style'),
 			onchange: function (event) {
 				state.families[familyIndex].variants[variantIndex].style = event.target.value;
 				state.dirty = true;
-				renderFooter();
+				renderHeaderActions();
 			}
 		});
 
-		[['normal', t.normal], ['italic', t.italic]].forEach(function (pair) {
-			styleSelect.appendChild(
-				el('option', {
-					value: pair[0],
-					text: pair[1],
-					selected: pair[0] === variant.style
-				})
-			);
+		[['normal', s('normal', 'Normal')], ['italic', s('italic', 'Italic')]].forEach(function (pair) {
+			styleSelect.appendChild(el('option', {
+				value: pair[0],
+				text: pair[1],
+				selected: pair[0] === variant.style
+			}));
 		});
 
-		return el('div', { class: 'efm-variant' }, [
+		return el('div', { class: 'efm-table__row' }, [
 			fileSelect,
-			el('div', { class: 'efm-variant__row' }, [
-				weightSelect,
-				styleSelect,
-				el('button', {
-					type: 'button',
-					class: 'efm-icon-btn efm-icon-btn--danger',
-					'aria-label': t.removeVariant,
-					title: t.removeVariant,
-					onclick: function () {
-						state.families[familyIndex].variants.splice(variantIndex, 1);
-						state.dirty = true;
-						render();
-					}
-				}, [icon('trash', 12)])
-			])
+			weightSelect,
+			styleSelect,
+			el('button', {
+				type: 'button',
+				class: 'efm-icon-btn efm-icon-btn--danger',
+				'aria-label': s('removeVariant', 'Remove variant'),
+				title: s('removeVariant', 'Remove variant'),
+				onclick: function () {
+					state.families[familyIndex].variants.splice(variantIndex, 1);
+					state.dirty = true;
+					render();
+				}
+			}, [icon('trash', 13)])
 		]);
 	}
 
-	function field(label, control) {
-		return el('label', { class: 'efm-field' }, [
-			el('span', { class: 'efm-field__label', text: label }),
-			control
-		]);
-	}
+	/* ------------------------------- Upload ------------------------------ */
 
-	/**
-	 * Keep the expanded map aligned after a family is removed.
-	 *
-	 * @param {number} removed Index that was spliced out.
-	 */
-	function forgetExpanded(removed) {
-		var next = {};
-
-		Object.keys(state.expanded).forEach(function (key) {
-			var index = parseInt(key, 10);
-			if (index < removed) {
-				next[index] = state.expanded[key];
-			} else if (index > removed) {
-				next[index - 1] = state.expanded[key];
-			}
-		});
-
-		state.expanded = next;
-	}
-
-	function addFamily() {
-		state.families.push({ name: t.newFamily, variants: [] });
-		state.expanded[state.families.length - 1] = true;
-		state.dirty = true;
-		render();
-	}
-
-	function saveFamilies() {
-		state.busy = 'save';
-		renderFooter();
-
-		request('/families', { method: 'POST', body: { families: state.families } })
-			.then(function (next) {
-				applyState(next);
-				setStatus(t.saved);
-			})
-			.catch(fail)
-			.then(function () {
-				state.busy = '';
-				render();
-			});
-	}
-
-	function reload() {
-		request('/state')
-			.then(function (next) {
-				applyState(next);
-				render();
-			})
-			.catch(fail);
-	}
-
-	/* --------------------------------- Add ------------------------------- */
-
-	function renderAdd() {
+	function renderUpload() {
 		var input = el('input', {
 			type: 'file',
 			accept: '.woff2,.woff,.ttf,.otf',
@@ -747,10 +822,8 @@
 			class: 'efm-dropzone',
 			tabindex: '0',
 			role: 'button',
-			'aria-label': t.upload,
-			onclick: function () {
-				input.click();
-			},
+			'aria-label': s('upload', 'Upload font files'),
+			onclick: function () { input.click(); },
 			onkeydown: function (event) {
 				if (event.key === 'Enter' || event.key === ' ') {
 					event.preventDefault();
@@ -761,62 +834,67 @@
 				event.preventDefault();
 				dropzone.classList.add('is-dragover');
 			},
-			ondragleave: function () {
-				dropzone.classList.remove('is-dragover');
-			},
+			ondragleave: function () { dropzone.classList.remove('is-dragover'); },
 			ondrop: function (event) {
 				event.preventDefault();
 				dropzone.classList.remove('is-dragover');
 				uploadFiles(event.dataTransfer.files);
 			}
 		}, [
-			icon('upload', 18),
-			el('p', { class: 'efm-dropzone__title', text: t.upload }),
-			el('p', { class: 'efm-dropzone__hint', text: t.uploadHint }),
+			icon('upload', 22),
+			el('p', { class: 'efm-dropzone__title', text: s('upload', 'Upload font files') }),
+			el('p', { class: 'efm-dropzone__hint', text: s('uploadHint', 'Drop woff2, woff, ttf or otf files here, or click to browse.') }),
 			input
 		]);
 
-		bodyEl.appendChild(dropzone);
-
-		/* Uploaded files */
-		bodyEl.appendChild(el('h3', { class: 'efm-section-title', text: t.files }));
+		contentEl.appendChild(dropzone);
+		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('files', 'Uploaded files') }));
 
 		if (!state.files.length) {
-			bodyEl.appendChild(el('p', { class: 'efm-muted', text: t.noFiles }));
-		} else {
-			var files = el('ul', { class: 'efm-files' });
-
-			state.files.forEach(function (file) {
-				files.appendChild(
-					el('li', { class: 'efm-file' }, [
-						el('span', { class: 'efm-file__name', text: file.name, title: file.name }),
-						el('span', { class: 'efm-file__meta', text: formatSize(file.size) }),
-						el('button', {
-							type: 'button',
-							class: 'efm-icon-btn efm-icon-btn--danger',
-							'aria-label': t.deleteFile,
-							title: t.deleteFile,
-							onclick: function () {
-								if (!window.confirm(t.confirmDelete)) {
-									return;
-								}
-								deleteFile(file.name);
-							}
-						}, [icon('trash', 12)])
-					])
-				);
-			});
-
-			bodyEl.appendChild(files);
+			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('noFiles', 'No files uploaded yet.') }));
+			return;
 		}
 
-		/* Google Fonts */
-		bodyEl.appendChild(el('h3', { class: 'efm-section-title', text: t.googleFonts }));
+		var table = el('div', { class: 'efm-table efm-table--files' }, [
+			el('div', { class: 'efm-table__head' }, [
+				el('span', { text: s('file', 'File') }),
+				el('span', { text: s('type', 'Type') }),
+				el('span', { text: s('size', 'Size') }),
+				el('span', { text: '' })
+			])
+		]);
 
+		state.files.forEach(function (file) {
+			table.appendChild(
+				el('div', { class: 'efm-table__row' }, [
+					el('span', { class: 'efm-file__name', text: file.name, title: file.name }),
+					el('span', { class: 'efm-muted', text: (file.ext || '').toUpperCase() }),
+					el('span', { class: 'efm-muted', text: formatSize(file.size) }),
+					el('button', {
+						type: 'button',
+						class: 'efm-icon-btn efm-icon-btn--danger',
+						'aria-label': s('deleteFile', 'Delete file'),
+						title: s('deleteFile', 'Delete file'),
+						onclick: function () {
+							if (window.confirm(s('confirmDelete', 'Delete this file from the fonts folder?'))) {
+								deleteFile(file.name);
+							}
+						}
+					}, [icon('trash', 13)])
+				])
+			);
+		});
+
+		contentEl.appendChild(table);
+	}
+
+	/* ---------------------------- Google Fonts --------------------------- */
+
+	function renderGoogle() {
 		var search = el('input', {
 			type: 'search',
 			class: 'efm-input',
-			placeholder: t.searchGoogle,
+			placeholder: s('searchGoogle', 'Search Google Fonts'),
 			value: state.query,
 			oninput: debounce(function (event) {
 				state.query = event.target.value;
@@ -824,61 +902,191 @@
 			}, 320)
 		});
 
-		bodyEl.appendChild(el('div', { class: 'efm-search' }, [icon('search', 13), search]));
+		contentEl.appendChild(previewToolbar(
+			el('div', { class: 'efm-toolbar__lead' }, [
+				el('div', { class: 'efm-search' }, [icon('search', 13), search])
+			])
+		));
 
 		if (state.searching) {
-			bodyEl.appendChild(el('p', { class: 'efm-muted', text: t.searching }));
+			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('searching', 'Searching…') }));
 			return;
 		}
 
-		if (state.query && !state.results.length) {
-			bodyEl.appendChild(el('p', { class: 'efm-muted', text: t.noResults }));
+		if (!state.query) {
+			contentEl.appendChild(emptyState(
+				s('googleFonts', 'Google Fonts'),
+				s('googleHint', 'Search the Google Fonts library. Files are downloaded to your server, so visitors never call Google.'),
+				null
+			));
 			return;
 		}
 
 		if (!state.results.length) {
+			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('noResults', 'No fonts found.') }));
 			return;
 		}
 
 		loadGooglePreview(state.results);
 
-		var results = el('div', { class: 'efm-results' });
+		var grid = el('div', { class: 'efm-grid' });
 
 		state.results.forEach(function (font) {
 			var installed = state.families.some(function (family) {
-				return family.name.toLowerCase() === font.family.toLowerCase();
+				return (family.name || '').toLowerCase() === font.family.toLowerCase();
 			});
+			var busy = state.busy === 'install:' + font.family;
 
-			results.appendChild(
-				el('div', { class: 'efm-result' }, [
-					el('div', { class: 'efm-result__head' }, [
-						el('span', { class: 'efm-result__name', text: font.family }),
+			grid.appendChild(
+				el('article', { class: 'efm-card' }, [
+					el('div', { class: 'efm-card__head' }, [
+						el('h2', { class: 'efm-card__title', text: font.family }),
 						installed
-							? el('span', { class: 'efm-result__badge' }, [icon('check', 11), document.createTextNode(' ' + t.installed)])
+							? el('span', { class: 'efm-badge' }, [icon('check', 11), el('span', { text: s('installed', 'Installed') })])
 							: el('button', {
 								type: 'button',
-								class: 'efm-btn efm-btn--primary efm-btn--xs',
-								text: state.busy === 'install:' + font.family ? t.installing : t.install,
+								class: 'efm-btn efm-btn--primary efm-btn--sm',
+								text: busy ? s('installing', 'Installing…') : s('install', 'Install'),
 								disabled: state.busy.indexOf('install:') === 0,
-								onclick: function () {
-									installGoogleFont(font.family);
-								}
+								onclick: function () { installGoogleFont(font.family); }
 							})
 					]),
 					el('p', {
-						class: 'efm-result__preview',
-						text: t.preview,
-						style: { 'font-family': '"' + font.family + '", sans-serif' }
+						class: 'efm-specimen',
+						'data-efm-specimen': 'true',
+						text: state.previewText || s('preview', 'The quick brown fox'),
+						style: { 'font-family': familyStack(font.family), 'font-size': state.previewSize + 'px' }
 					}),
-					el('span', {
-						class: 'efm-result__meta',
-						text: font.category + ' · ' + (font.variants || []).length + ' ' + plural((font.variants || []).length, t.variant, t.variants)
-					})
+					el('div', { class: 'efm-card__meta' }, [
+						el('span', { text: font.category || '' }),
+						el('span', { text: (font.variants || []).length + ' ' + plural((font.variants || []).length, s('variant', 'variant'), s('variants', 'variants')) })
+					])
 				])
 			);
 		});
 
-		bodyEl.appendChild(results);
+		contentEl.appendChild(grid);
+	}
+
+	function loadGooglePreview(fonts) {
+		var families = fonts.slice(0, 24).map(function (font) {
+			return 'family=' + encodeURIComponent(font.family);
+		}).join('&');
+
+		var link = document.getElementById('efm-google-preview');
+
+		if (!link) {
+			link = document.createElement('link');
+			link.id = 'efm-google-preview';
+			link.rel = 'stylesheet';
+			document.head.appendChild(link);
+		}
+
+		link.href = 'https://fonts.googleapis.com/css2?' + families + '&display=swap';
+	}
+
+	/* -------------------------------- Theme ------------------------------ */
+
+	function renderTheme() {
+		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('acssMapping', 'Automatic.css mapping') }));
+		contentEl.appendChild(el('p', { class: 'efm-muted', text: s('acssHint', 'Maps the selected families to --heading-font-family and --text-font-family.') }));
+
+		if (!state.acssActive) {
+			contentEl.appendChild(el('p', { class: 'efm-notice', text: s('acssMissing', 'Automatic.css was not detected. The variables are still written.') }));
+		}
+
+		contentEl.appendChild(
+			el('div', { class: 'efm-fields' }, [
+				el('label', { class: 'efm-field' }, [
+					el('span', { class: 'efm-field__label', text: s('headingFont', 'Heading font') }),
+					familySelect('heading_font')
+				]),
+				el('label', { class: 'efm-field' }, [
+					el('span', { class: 'efm-field__label', text: s('textFont', 'Text font') }),
+					familySelect('text_font')
+				])
+			])
+		);
+
+		contentEl.appendChild(
+			el('div', { class: 'efm-sample' }, [
+				el('p', {
+					class: 'efm-sample__heading',
+					text: s('sampleHeading', 'Typography that ships'),
+					style: { 'font-family': familyStack(state.settings.heading_font) }
+				}),
+				el('p', {
+					class: 'efm-sample__body',
+					text: s('sampleBody', 'Body copy renders in the text family. Upload a font or install one from Google Fonts, map its weights, then assign it here.'),
+					style: { 'font-family': familyStack(state.settings.text_font) }
+				})
+			])
+		);
+
+		contentEl.appendChild(
+			el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--primary',
+				text: state.busy === 'settings' ? s('saving', 'Saving…') : s('save', 'Save changes'),
+				disabled: state.busy === 'settings',
+				onclick: saveSettings
+			})
+		);
+	}
+
+	function familySelect(key) {
+		var select = el('select', {
+			class: 'efm-input efm-input--select',
+			onchange: function (event) {
+				state.settings[key] = event.target.value;
+				render();
+			}
+		});
+
+		select.appendChild(el('option', { value: '', text: s('none', 'None'), selected: !state.settings[key] }));
+
+		state.families.forEach(function (family) {
+			select.appendChild(el('option', {
+				value: family.name,
+				text: family.name,
+				selected: state.settings[key] === family.name
+			}));
+		});
+
+		return select;
+	}
+
+	/* ------------------------------- Actions ----------------------------- */
+
+	function addFamily() {
+		state.families.push({ name: s('newFamily', 'New family'), variants: [] });
+		state.editing = state.families.length - 1;
+		state.dirty = true;
+		render();
+	}
+
+	function saveFamilies() {
+		state.busy = 'save';
+		renderHeaderActions();
+
+		request('/families', { method: 'POST', body: { families: state.families } })
+			.then(function (next) {
+				applyState(next);
+				setStatus(s('saved', 'Fonts saved.'));
+			})
+			.catch(fail)
+			.then(function () {
+				state.busy = '';
+				render();
+			});
+	}
+
+	function reload() {
+		request('/state').then(function (next) {
+			applyState(next);
+			state.editing = null;
+			render();
+		}).catch(fail);
 	}
 
 	function uploadFiles(fileList) {
@@ -887,7 +1095,7 @@
 			return;
 		}
 
-		setStatus(t.uploading);
+		setStatus(s('uploading', 'Uploading…'));
 
 		var chain = Promise.resolve();
 
@@ -895,19 +1103,15 @@
 			chain = chain.then(function () {
 				var form = new FormData();
 				form.append('file', file);
-
 				return request('/upload', { method: 'POST', body: form }).then(function (result) {
 					applyState(result && result.state);
 				});
 			});
 		});
 
-		chain
-			.then(function () {
-				setStatus(t.uploaded + ' · ' + files.length);
-			})
-			.catch(fail)
-			.then(render);
+		chain.then(function () {
+			setStatus(s('uploaded', 'Uploaded') + ' · ' + files.length);
+		}).catch(fail).then(render);
 	}
 
 	function deleteFile(filename) {
@@ -940,88 +1144,21 @@
 			});
 	}
 
-	function loadGooglePreview(fonts) {
-		var families = fonts
-			.slice(0, 12)
-			.map(function (font) {
-				return 'family=' + encodeURIComponent(font.family);
-			})
-			.join('&');
-
-		var link = document.getElementById('efm-google-preview');
-
-		if (!link) {
-			link = document.createElement('link');
-			link.id = 'efm-google-preview';
-			link.rel = 'stylesheet';
-			document.head.appendChild(link);
-		}
-
-		link.href = 'https://fonts.googleapis.com/css2?' + families + '&display=swap';
-	}
-
 	function installGoogleFont(family) {
 		state.busy = 'install:' + family;
-		setStatus(t.installing + ' ' + family);
+		setStatus(s('installing', 'Installing…') + ' ' + family);
 		render();
 
 		request('/google/install', { method: 'POST', body: { family: family } })
 			.then(function (data) {
 				applyState(data && data.state);
-				setStatus(t.installed + ' · ' + family);
+				setStatus(s('installed', 'Installed') + ' · ' + family);
 			})
 			.catch(fail)
 			.then(function () {
 				state.busy = '';
 				render();
 			});
-	}
-
-	/* -------------------------------- Theme ------------------------------ */
-
-	function renderTheme() {
-		bodyEl.appendChild(el('h3', { class: 'efm-section-title', text: t.acssMapping }));
-		bodyEl.appendChild(el('p', { class: 'efm-muted', text: t.acssHint }));
-
-		if (!state.acssActive) {
-			bodyEl.appendChild(el('p', { class: 'efm-notice', text: t.acssMissing }));
-		}
-
-		bodyEl.appendChild(field(t.headingFont, familySelect('heading_font')));
-		bodyEl.appendChild(field(t.textFont, familySelect('text_font')));
-
-		bodyEl.appendChild(
-			el('button', {
-				type: 'button',
-				class: 'efm-btn efm-btn--primary efm-btn--block',
-				text: state.busy === 'settings' ? t.saving : t.save,
-				disabled: state.busy === 'settings',
-				onclick: saveSettings
-			})
-		);
-	}
-
-	function familySelect(key) {
-		var select = el('select', {
-			class: 'efm-input efm-input--select',
-			onchange: function (event) {
-				state.settings[key] = event.target.value;
-			}
-		});
-
-		select.appendChild(el('option', { value: '', text: t.none, selected: !state.settings[key] }));
-
-		state.families.forEach(function (family) {
-			select.appendChild(
-				el('option', {
-					value: family.name,
-					text: family.name,
-					selected: state.settings[key] === family.name
-				})
-			);
-		});
-
-		return select;
 	}
 
 	function saveSettings() {
@@ -1038,7 +1175,7 @@
 		})
 			.then(function (next) {
 				applyState(next);
-				setStatus(t.saved);
+				setStatus(s('saved', 'Fonts saved.'));
 			})
 			.catch(fail)
 			.then(function () {
@@ -1053,43 +1190,29 @@
 
 	var registered = false;
 
-	function sectionFor(placement) {
-		if (placement.indexOf('top') === 0) {
-			return 'top';
+	function placement() {
+		var value = cfg.placement || 'top-end';
+
+		// Legacy value, mapped to a supported API position.
+		if (value === 'after-dark-mode') {
+			value = 'bottom-start';
 		}
-		if (placement.indexOf('center') === 0) {
-			return 'center';
-		}
-		return 'bottom';
+
+		var section = value.indexOf('top') === 0 ? 'top' : (value.indexOf('center') === 0 ? 'center' : 'bottom');
+
+		return { section: section, atEnd: value.indexOf('-end') !== -1 };
 	}
 
-	function topLevelNode(node, container) {
-		var current = node;
-		while (current && current.parentElement !== container) {
-			current = current.parentElement;
-		}
-		return current;
-	}
-
-	/**
-	 * The Settings Bar must be mounted before a control is registered.
-	 * Registering earlier makes Etch's keyed control list throw
-	 * (svelte each_key_duplicate), which stops every custom control from
-	 * rendering, including controls owned by other plugins.
-	 *
-	 * @return {boolean} True once the bar is mounted and the API is present.
-	 */
 	function settingsBarReady() {
 		var controls = window.etchControls;
-		var placement = cfg.placement || 'after-dark-mode';
-		var section = sectionFor(placement === 'after-dark-mode' ? 'bottom' : placement);
-		var container = document.querySelector('.settings-bar__section.' + section);
+		var target = placement().section;
+		var container = document.querySelector('.settings-bar__section.' + target);
 
 		return !!(
 			controls &&
 			controls.builder &&
 			controls.builder.settingsBar &&
-			controls.builder.settingsBar[section] &&
+			controls.builder.settingsBar[target] &&
 			container &&
 			container.querySelector('button')
 		);
@@ -1100,23 +1223,20 @@
 			return false;
 		}
 
-		var placement = cfg.placement || 'after-dark-mode';
-		var section = sectionFor(placement === 'after-dark-mode' ? 'bottom' : placement);
-		var api = window.etchControls.builder.settingsBar[section];
-		var container = document.querySelector('.settings-bar__section.' + section);
+		var target = placement();
+		var api = window.etchControls.builder.settingsBar[target.section];
+		var container = document.querySelector('.settings-bar__section.' + target.section);
 		var before = Array.prototype.slice.call(container.querySelectorAll('button'));
-		var useEnd = placement.indexOf('-end') !== -1;
 
-		// Etch stores controls before rendering them. Never call add twice: a
-		// duplicate id crashes its keyed Svelte list. Observe the single call
-		// until the corresponding button appears instead.
+		// Etch stores controls before rendering them, and its list is keyed by
+		// id, so the control is registered exactly once.
 		registered = true;
 
 		try {
-			(useEnd ? api.addAfter : api.addBefore).call(api, {
+			(target.atEnd ? api.addAfter : api.addBefore).call(api, {
 				id: CONTROL_ID,
 				icon: cfg.icon || 'ph:text-aa-duotone',
-				tooltip: t.fonts || 'Fonts',
+				tooltip: s('fonts', 'Fonts'),
 				callback: toggle
 			});
 		} catch (error) {
@@ -1129,7 +1249,7 @@
 
 		var finish = function () {
 			if (finished) {
-				return true;
+				return;
 			}
 
 			var buttons = Array.prototype.slice.call(container.querySelectorAll('button'));
@@ -1138,7 +1258,7 @@
 			})[0];
 
 			if (!controlButton) {
-				return false;
+				return;
 			}
 
 			finished = true;
@@ -1147,17 +1267,13 @@
 			}
 
 			controlButton.setAttribute('aria-expanded', 'false');
-			controlButton.setAttribute('aria-controls', 'efm-panel');
+			controlButton.setAttribute('aria-controls', 'efm-manager');
 			controlButton.classList.add('efm-control');
-
-			if (placement === 'after-dark-mode') {
-				pinAfterDarkMode(container, buttons, before);
-			}
-
-			return true;
 		};
 
-		if (!finish()) {
+		finish();
+
+		if (!finished) {
 			observer = new MutationObserver(finish);
 			observer.observe(container, { childList: true, subtree: true });
 			window.setTimeout(function () {
@@ -1170,48 +1286,6 @@
 		return true;
 	}
 
-	/**
-	 * The Controls API can only prepend or append within a section, so the
-	 * control is moved once to sit directly after the dark mode toggle and is
-	 * re-pinned if the builder re-renders the section.
-	 */
-	function pinAfterDarkMode(scope, buttonsAfter, buttonsBefore) {
-		var index = buttonsAfter.indexOf(controlButton);
-		var anchor = buttonsBefore[index];
-
-		if (!anchor || !scope.contains(anchor)) {
-			return;
-		}
-
-		var ourNode = topLevelNode(controlButton, scope);
-		var anchorNode = topLevelNode(anchor, scope);
-
-		if (!ourNode || !anchorNode || ourNode === anchorNode) {
-			return;
-		}
-
-		var moving = false;
-
-		var place = function () {
-			if (moving || !scope.contains(ourNode) || !scope.contains(anchorNode)) {
-				return;
-			}
-			if (anchorNode.nextElementSibling === ourNode) {
-				return;
-			}
-			moving = true;
-			anchorNode.after(ourNode);
-			window.setTimeout(function () {
-				moving = false;
-			}, 0);
-		};
-
-		place();
-
-		var observer = new MutationObserver(place);
-		observer.observe(scope, { childList: true });
-	}
-
 	function boot() {
 		var attempts = 0;
 
@@ -1221,8 +1295,7 @@
 			if (settingsBarReady()) {
 				window.clearInterval(timer);
 
-				// Let third-party controls (notably ACSS) register first, then use
-				// the official Controls API.
+				// Let third-party controls register first.
 				window.setTimeout(function () {
 					registerControl();
 					refreshFontCss();

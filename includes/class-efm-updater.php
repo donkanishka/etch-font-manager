@@ -22,13 +22,17 @@ class EFM_Updater {
 	const CACHE_KEY = 'efm_github_release';
 
 	/*
-	 * WordPress re-checks plugin updates roughly hourly while you are on the
-	 * Plugins screen, and twice daily on cron. Caching the release lookup for
-	 * longer than that is what makes a new release feel invisible, so the two
-	 * cadences are kept aligned.
+	 * WordPress asks plugins for update information on its own schedule:
+	 * roughly hourly on the Plugins screen, about every minute on the Updates
+	 * screen, and twice daily on cron. This cache only applies when WordPress
+	 * asks, so a short window mainly benefits the Updates screen.
+	 *
+	 * Ten minutes is a good default for a small number of sites. GitHub allows
+	 * 60 unauthenticated requests an hour per IP, so raise this with the
+	 * efm_release_cache_ttl filter when many sites share an outbound IP.
 	 */
-	const CACHE_TTL = 3600; // 1 hour.
-	const BACKOFF   = 900;  // 15 minutes after a failed lookup.
+	const CACHE_TTL = 600; // 10 minutes.
+	const BACKOFF   = 900; // 15 minutes after a failed lookup.
 
 	/**
 	 * Register hooks.
@@ -113,6 +117,25 @@ class EFM_Updater {
 	}
 
 	/**
+	 * How long a release lookup stays cached, in seconds.
+	 *
+	 * @return int
+	 */
+	protected static function cache_ttl() {
+		/**
+		 * Filter the release cache lifetime in seconds.
+		 *
+		 * Raise this on hosts where many sites share an outbound IP, to stay
+		 * inside GitHub's unauthenticated rate limit.
+		 *
+		 * @param int $ttl Seconds. Default 600.
+		 */
+		$ttl = (int) apply_filters( 'efm_release_cache_ttl', self::CACHE_TTL );
+
+		return max( 60, $ttl );
+	}
+
+	/**
 	 * Repository the releases are read from.
 	 *
 	 * @return string owner/repo
@@ -192,7 +215,7 @@ class EFM_Updater {
 			'date'    => (string) ( $data['published_at'] ?? '' ),
 		);
 
-		set_transient( self::CACHE_KEY, $release, self::CACHE_TTL );
+		set_transient( self::CACHE_KEY, $release, self::cache_ttl() );
 
 		return $release;
 	}

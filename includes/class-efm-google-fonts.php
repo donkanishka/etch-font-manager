@@ -14,7 +14,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class EFM_Google_Fonts {
 
-	const TRANSIENT   = 'efm_google_fonts_index';
+	/*
+	 * The cache key carries a shape version. Adding a field to the cached index
+	 * must bump it, otherwise sites that upgrade keep serving the old shape
+	 * until the transient expires.
+	 */
+	const TRANSIENT   = 'efm_google_fonts_index_v2';
+	const TRANSIENT_LEGACY = 'efm_google_fonts_index';
 	const METADATA    = 'https://fonts.google.com/metadata/fonts';
 	const CSS_API     = 'https://fonts.googleapis.com/css2';
 	const USER_AGENT  = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -75,10 +81,19 @@ class EFM_Google_Fonts {
 				);
 			}
 
+			$subsets = array();
+			foreach ( (array) ( $meta['subsets'] ?? array() ) as $subset ) {
+				$subset = sanitize_key( $subset );
+				if ( '' !== $subset && 'menu' !== $subset ) {
+					$subsets[] = $subset;
+				}
+			}
+
 			$fonts[] = array(
 				'family'   => $meta['family'] ?? '',
 				'category' => $meta['category'] ?? '',
 				'variants' => $variants,
+				'subsets'  => $subsets,
 			);
 		}
 
@@ -133,14 +148,21 @@ class EFM_Google_Fonts {
 	/**
 	 * Download a Google font locally and register it as a family.
 	 *
-	 * @param string $family Family name.
+	 * @param string   $family  Family name.
+	 * @param string[] $subsets Subsets to download. Defaults to latin.
 	 * @return array|WP_Error
 	 */
-	public static function install( $family ) {
+	public static function install( $family, $subsets = array() ) {
 		$family = EFM_Fonts::sanitize_family_name( $family );
 
 		if ( '' === $family ) {
 			return new WP_Error( 'efm_gf_no_family', __( 'No font family specified.', 'etch-font-manager' ), array( 'status' => 400 ) );
+		}
+
+		$subsets = array_values( array_filter( array_map( 'sanitize_key', (array) $subsets ) ) );
+
+		if ( empty( $subsets ) ) {
+			$subsets = array( 'latin' );
 		}
 
 		$url = add_query_arg(
@@ -169,10 +191,10 @@ class EFM_Google_Fonts {
 			return new WP_Error( 'efm_gf_empty', __( 'Google Fonts returned an empty response.', 'etch-font-manager' ), array( 'status' => 502 ) );
 		}
 
-		$parsed = self::parse_css( $css );
+		$parsed = self::parse_css( $css, $subsets );
 
 		if ( empty( $parsed ) ) {
-			return new WP_Error( 'efm_gf_no_variants', __( 'No downloadable variants were found for this font.', 'etch-font-manager' ), array( 'status' => 502 ) );
+			return new WP_Error( 'efm_gf_no_variants', __( 'No downloadable variants were found for the selected subsets.', 'etch-font-manager' ), array( 'status' => 502 ) );
 		}
 
 		EFM_Fonts::ensure_dir();
@@ -181,7 +203,10 @@ class EFM_Google_Fonts {
 		$variants = array();
 
 		foreach ( $parsed as $variant ) {
-			$filename    = $slug . '-' . $variant['weight'] . ( 'italic' === $variant['style'] ? 'i' : '' ) . '.woff2';
+			$filename = $slug . '-' . $variant['weight']
+				. ( 'italic' === $variant['style'] ? 'i' : '' )
+				. '-' . $variant['subset'] . '.woff2';
+
 			$destination = EFM_Fonts::dir() . $filename;
 
 			if ( ! EFM_Fonts::path_is_inside( $destination ) ) {
@@ -210,6 +235,8 @@ class EFM_Google_Fonts {
 				'file'   => $filename,
 				'weight' => $variant['weight'],
 				'style'  => $variant['style'],
+				'subset' => $variant['subset'],
+				'range'  => $variant['range'],
 			);
 		}
 
@@ -241,19 +268,22 @@ class EFM_Google_Fonts {
 		return array(
 			'family'   => $family,
 			'variants' => $variants,
+			'subsets'  => $subsets,
 		);
 	}
 
 	/**
-	 * Extract one woff2 URL per weight/style from a Google Fonts CSS payload.
+	 * Extract woff2 URLs from a Google Fonts CSS payload.
 	 *
-	 * Google returns one @font-face block per Unicode subset; only the "latin"
-	 * subset is kept so each variant downloads a single file.
+	 * Google returns one @font-face block per Unicode subset, labelled with a
+	 * comment such as "/* sinhala *\/". Every requested subset is kept, together
+	 * with its unicode-range, so scripts other than latin actually render.
 	 *
-	 * @param string $css CSS payload.
+	 * @param string   $css     CSS payload.
+	 * @param string[] $subsets Subsets to keep.
 	 * @return array<int,array<string,string>>
 	 */
-	protected static function parse_css( $css ) {
+	protected static function parse_css( $css, $subsets ) {
 		$variants = array();
 		$seen     = array();
 		$chunks   = preg_split( '/\/\*\s*([\w-]+)\s*\*\//', $css, -1, PREG_SPLIT_DELIM_CAPTURE );
@@ -263,14 +293,17 @@ class EFM_Google_Fonts {
 		}
 
 		for ( $i = 1; $i < count( $chunks ) - 1; $i += 2 ) {
-			if ( 'latin' !== trim( $chunks[ $i ] ) ) {
+			$subset = sanitize_key( trim( $chunks[ $i ] ) );
+
+			if ( ! in_array( $subset, $subsets, true ) ) {
 				continue;
 			}
 
 			$block  = $chunks[ $i + 1 ];
 			$style  = preg_match( '/font-style:\s*(italic|normal)/i', $block, $m ) ? strtolower( $m[1] ) : 'normal';
 			$weight = preg_match( '/font-weight:\s*(\d+)/i', $block, $m ) ? $m[1] : '400';
-			$key    = $weight . '-' . $style;
+			$range  = preg_match( '/unicode-range:\s*([^;}]+)/i', $block, $m ) ? EFM_Fonts::sanitize_unicode_range( $m[1] ) : '';
+			$key    = $weight . '-' . $style . '-' . $subset;
 
 			if ( isset( $seen[ $key ] ) ) {
 				continue;
@@ -281,6 +314,8 @@ class EFM_Google_Fonts {
 					'url'    => $m[1],
 					'weight' => $weight,
 					'style'  => $style,
+					'subset' => $subset,
+					'range'  => $range,
 				);
 				$seen[ $key ] = true;
 			}

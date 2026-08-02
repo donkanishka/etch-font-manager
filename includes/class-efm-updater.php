@@ -185,6 +185,24 @@ class EFM_Updater {
 	}
 
 	/**
+	 * Is this an explicit "check again" request?
+	 *
+	 * WordPress clears its own update transient on force-check, so the plugin
+	 * bypasses its release cache too. Without this a release published inside
+	 * the six hour window stays invisible even when the user asks to re-check.
+	 *
+	 * @return bool
+	 */
+	protected static function is_forced_check() {
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			return true;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		return isset( $_GET['force-check'] ) && current_user_can( 'update_plugins' );
+	}
+
+	/**
 	 * Prefer an uploaded release asset over the generated source zipball.
 	 *
 	 * @param array $data Release payload.
@@ -213,7 +231,7 @@ class EFM_Updater {
 			return $transient;
 		}
 
-		$release = self::release();
+		$release = self::release( self::is_forced_check() );
 
 		if ( empty( $release['version'] ) || empty( $release['package'] ) ) {
 			return $transient;

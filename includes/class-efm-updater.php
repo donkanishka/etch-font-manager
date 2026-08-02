@@ -27,12 +27,20 @@ class EFM_Updater {
 	 * screen, and twice daily on cron. This cache only applies when WordPress
 	 * asks, so a short window mainly benefits the Updates screen.
 	 *
-	 * Ten minutes is a good default for a small number of sites. GitHub allows
-	 * 60 unauthenticated requests an hour per IP, so raise this with the
-	 * efm_release_cache_ttl filter when many sites share an outbound IP.
+	 * Six hours is a deliberately conservative default for public use: the
+	 * routine check reads a manifest from the raw CDN, and both the manual
+	 * check and a forced check bypass this cache, so an active check is always
+	 * live. Lower it with efm_release_cache_ttl on sites you control.
 	 */
-	const CACHE_TTL = 600; // 10 minutes.
-	const BACKOFF   = 900; // 15 minutes after a failed lookup.
+	const CACHE_TTL = 21600; // 6 hours.
+	const BACKOFF   = 900;   // 15 minutes after a failed lookup.
+
+	/**
+	 * Seconds to wait before retrying, when the API reported a rate limit.
+	 *
+	 * @var int
+	 */
+	protected static $retry_after = 0;
 
 	/**
 	 * Register hooks.
@@ -128,7 +136,7 @@ class EFM_Updater {
 		 * Raise this on hosts where many sites share an outbound IP, to stay
 		 * inside GitHub's unauthenticated rate limit.
 		 *
-		 * @param int $ttl Seconds. Default 600.
+		 * @param int $ttl Seconds. Default 21600.
 		 */
 		$ttl = (int) apply_filters( 'efm_release_cache_ttl', self::CACHE_TTL );
 
@@ -174,27 +182,126 @@ class EFM_Updater {
 	 * @return array Empty array when no usable release is available.
 	 */
 	public static function release( $force = false ) {
-		if ( ! $force ) {
-			$cached = get_transient( self::CACHE_KEY );
+		$cached = get_transient( self::CACHE_KEY );
 
-			if ( is_array( $cached ) ) {
-				return $cached;
-			}
+		// An existing transient is respected even when empty, so a failing
+		// lookup is not repeated on every admin page load.
+		if ( ! $force && false !== $cached ) {
+			return is_array( $cached ) ? $cached : array();
 		}
 
+		self::$retry_after = 0;
+
+		// The manifest is served by the raw CDN, which has no API rate limit.
+		$release = self::fetch_manifest();
+
+		if ( empty( $release['version'] ) ) {
+			$release = self::fetch_api();
+		}
+
+		if ( empty( $release['version'] ) ) {
+			/*
+			 * A failed lookup must never discard a release we already know
+			 * about. On a shared host that has exhausted the API rate limit
+			 * that would silently hide an available update.
+			 */
+			$fallback = ( is_array( $cached ) && ! empty( $cached['version'] ) ) ? $cached : array();
+
+			set_transient( self::CACHE_KEY, $fallback, self::backoff() );
+
+			return $fallback;
+		}
+
+		set_transient( self::CACHE_KEY, $release, self::cache_ttl() );
+
+		return $release;
+	}
+
+	/**
+	 * Branch the update manifest is read from.
+	 *
+	 * @return string
+	 */
+	protected static function branch() {
+		/**
+		 * Filter the branch holding update.json.
+		 *
+		 * @param string $branch Branch name.
+		 */
+		return (string) apply_filters( 'efm_updater_branch', 'main' );
+	}
+
+	/**
+	 * Read update.json from the raw CDN.
+	 *
+	 * GitHub's REST API allows only 60 unauthenticated requests an hour per IP,
+	 * which is shared by every site behind that address. The raw CDN carries no
+	 * such limit, so the routine check uses it and the API is only a fallback.
+	 *
+	 * @return array
+	 */
+	protected static function fetch_manifest() {
+		$response = wp_remote_get(
+			'https://raw.githubusercontent.com/' . self::repo() . '/' . self::branch() . '/update.json',
+			array(
+				'timeout' => 12,
+				'headers' => array(
+					'Accept'     => 'application/json',
+					'User-Agent' => self::user_agent(),
+				),
+			)
+		);
+
+		if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+			return array();
+		}
+
+		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+
+		if ( empty( $data['version'] ) || empty( $data['package'] ) ) {
+			return array();
+		}
+
+		$package = esc_url_raw( (string) $data['package'] );
+
+		if ( ! self::is_trusted_package( $package ) ) {
+			return array();
+		}
+
+		return array(
+			'version' => sanitize_text_field( (string) $data['version'] ),
+			'package' => $package,
+			'url'     => esc_url_raw( (string) ( $data['url'] ?? '' ) ),
+			'notes'   => (string) ( $data['notes'] ?? '' ),
+			'date'    => sanitize_text_field( (string) ( $data['date'] ?? '' ) ),
+		);
+	}
+
+	/**
+	 * Read the latest release from the REST API.
+	 *
+	 * @return array
+	 */
+	protected static function fetch_api() {
 		$response = wp_remote_get(
 			'https://api.github.com/repos/' . self::repo() . '/releases/latest',
 			array(
 				'timeout' => 15,
 				'headers' => array(
 					'Accept'     => 'application/vnd.github+json',
-					'User-Agent' => 'EtchFontManager/' . EFM_VERSION . '; ' . home_url( '/' ),
+					'User-Agent' => self::user_agent(),
 				),
 			)
 		);
 
-		if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
-			set_transient( self::CACHE_KEY, array(), self::BACKOFF );
+		if ( is_wp_error( $response ) ) {
+			return array();
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+
+		if ( 200 !== $code ) {
+			self::note_rate_limit( $response );
 
 			return array();
 		}
@@ -202,22 +309,83 @@ class EFM_Updater {
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );
 
 		if ( empty( $data['tag_name'] ) ) {
-			set_transient( self::CACHE_KEY, array(), self::BACKOFF );
-
 			return array();
 		}
 
-		$release = array(
+		$package = self::package_url( $data );
+
+		if ( ! self::is_trusted_package( $package ) ) {
+			return array();
+		}
+
+		return array(
 			'version' => ltrim( (string) $data['tag_name'], 'vV' ),
-			'package' => self::package_url( $data ),
+			'package' => $package,
 			'url'     => (string) ( $data['html_url'] ?? '' ),
 			'notes'   => (string) ( $data['body'] ?? '' ),
 			'date'    => (string) ( $data['published_at'] ?? '' ),
 		);
+	}
 
-		set_transient( self::CACHE_KEY, $release, self::cache_ttl() );
+	/**
+	 * User agent sent with update lookups.
+	 *
+	 * @return string
+	 */
+	protected static function user_agent() {
+		return 'EtchFontManager/' . EFM_VERSION . '; ' . home_url( '/' );
+	}
 
-		return $release;
+	/**
+	 * Only ever hand WordPress a package from this repository's releases.
+	 *
+	 * @param string $package Package URL.
+	 * @return bool
+	 */
+	protected static function is_trusted_package( $package ) {
+		if ( empty( $package ) ) {
+			return false;
+		}
+
+		$prefixes = array(
+			'https://github.com/' . self::repo() . '/releases/download/',
+			'https://api.github.com/repos/' . self::repo() . '/zipball/',
+			'https://github.com/' . self::repo() . '/archive/',
+		);
+
+		foreach ( $prefixes as $prefix ) {
+			if ( 0 === strpos( $package, $prefix ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Remember when the API said the rate limit resets.
+	 *
+	 * @param array $response HTTP response.
+	 */
+	protected static function note_rate_limit( $response ) {
+		if ( '0' !== (string) wp_remote_retrieve_header( $response, 'x-ratelimit-remaining' ) ) {
+			return;
+		}
+
+		$reset = (int) wp_remote_retrieve_header( $response, 'x-ratelimit-reset' );
+
+		if ( $reset > time() ) {
+			self::$retry_after = min( DAY_IN_SECONDS, $reset - time() + 60 );
+		}
+	}
+
+	/**
+	 * How long to wait after a failed lookup.
+	 *
+	 * @return int
+	 */
+	protected static function backoff() {
+		return self::$retry_after > 0 ? self::$retry_after : self::BACKOFF;
 	}
 
 	/**

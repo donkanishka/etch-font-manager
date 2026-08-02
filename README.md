@@ -40,8 +40,12 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 After the first install the plugin updates itself from GitHub releases. New versions show up on the normal
 **Dashboard > Updates** screen with the release notes in the details modal, so there is no zip to upload again.
 
-Release lookups are cached for six hours, with a thirty minute back-off after a failed request. Point the
-updater at a fork with `efm_updater_repo`, or turn it off entirely with `efm_enable_updates`.
+Release lookups are cached for ten minutes, with a fifteen minute back-off after a failed request. WordPress
+itself only asks for update information roughly hourly on the Plugins screen, about every minute on the
+Updates screen, and twice daily on cron, so that is the real cadence you will see.
+
+Point the updater at a fork with `efm_updater_repo`, turn it off with `efm_enable_updates`, or widen the cache
+with `efm_release_cache_ttl` when many sites share an outbound IP.
 
 On activation, existing data from the older *Etch Custom Fonts* plugin is imported automatically when present.
 
@@ -98,6 +102,7 @@ The static stylesheet uses **relative** `src` URLs, which avoids cross-origin is
 | `efm_fonts_url` | Change the public URL corresponding to `efm_fonts_dir`. |
 | `efm_updater_repo` | GitHub repository used for updates, in `owner/repo` form. |
 | `efm_enable_updates` | Return `false` to disable GitHub updates. |
+| `efm_release_cache_ttl` | Seconds to cache the release lookup. Default 600. |
 
 ### Placement note
 

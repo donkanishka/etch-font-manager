@@ -38,6 +38,12 @@
 		query: '',
 		results: [],
 		searching: false,
+		category: '',
+		sort: 'popularity',
+		categories: [],
+		total: 0,
+		loadingMore: false,
+		variable: {},
 		busy: '',
 		status: null,
 		dirty: false,
@@ -455,6 +461,12 @@
 		state.view = view;
 		state.editing = null;
 		render();
+
+		// Opening Google Fonts browses the library straight away rather than
+		// waiting for a search term.
+		if ('google' === view && !state.results.length && !state.searching) {
+			searchGoogle();
+		}
 	}
 
 	/* --------------------------------------------------------------------- */
@@ -1076,9 +1088,36 @@
 			}, 320)
 		});
 
+		var categorySelect = el('select', {
+			class: 'efm-input efm-input--select',
+			'aria-label': s('category', 'Category'),
+			onchange: function (event) {
+				state.category = event.target.value;
+				searchGoogle();
+			}
+		}, [el('option', { value: '', text: s('allCategories', 'All categories'), selected: !state.category })]);
+
+		state.categories.forEach(function (cat) {
+			categorySelect.appendChild(el('option', { value: cat, text: cat, selected: state.category === cat }));
+		});
+
+		var sortSelect = el('select', {
+			class: 'efm-input efm-input--select',
+			'aria-label': s('sortBy', 'Sort by'),
+			onchange: function (event) {
+				state.sort = event.target.value;
+				searchGoogle();
+			}
+		}, [
+			el('option', { value: 'popularity', text: s('sortPopular', 'Most popular'), selected: state.sort === 'popularity' }),
+			el('option', { value: 'alphabetical', text: s('sortAlpha', 'A to Z'), selected: state.sort === 'alphabetical' })
+		]);
+
 		contentEl.appendChild(previewToolbar(
 			el('div', { class: 'efm-toolbar__lead' }, [
-				el('div', { class: 'efm-search' }, [icon('search', 13), search])
+				el('div', { class: 'efm-search' }, [icon('search', 13), search]),
+				categorySelect,
+				sortSelect
 			])
 		));
 
@@ -1087,21 +1126,15 @@
 			return;
 		}
 
-		if (!state.query) {
-			contentEl.appendChild(emptyState(
-				s('googleFonts', 'Google Fonts'),
-				s('googleHint', 'Search the Google Fonts library. Files are downloaded to your server, so visitors never call Google.'),
-				null
-			));
-			return;
-		}
-
 		if (!state.results.length) {
 			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('noResults', 'No fonts found.') }));
 			return;
 		}
 
-		loadGooglePreview(state.results);
+		contentEl.appendChild(el('p', {
+			class: 'efm-muted',
+			text: state.results.length + ' / ' + state.total + ' ' + s('familiesLabel', 'families')
+		}));
 
 		var grid = el('div', { class: 'efm-grid' });
 
@@ -1112,9 +1145,11 @@
 			var busy = state.busy === 'install:' + font.family;
 			var available = font.subsets && font.subsets.length ? font.subsets : ['latin'];
 			var chosen = selectedSubsets(font);
+			var hasVariable = !!(font.wght && font.wght.min);
+			var useVariable = hasVariable && state.variable[font.family] !== false;
 
 			grid.appendChild(
-				el('article', { class: 'efm-card' }, [
+				el('article', { class: 'efm-card', 'data-family': font.family }, [
 					el('div', { class: 'efm-card__head' }, [
 						el('h2', { class: 'efm-card__title', text: font.family }),
 						el('div', { class: 'efm-card__actions' }, [
@@ -1126,7 +1161,7 @@
 									? s('installing', 'Installing…')
 									: (installed ? s('reinstall', 'Reinstall') : s('install', 'Install')),
 								disabled: state.busy.indexOf('install:') === 0 || !chosen.length,
-								onclick: function () { installGoogleFont(font.family, chosen); }
+								onclick: function () { installGoogleFont(font.family, chosen, useVariable); }
 							})
 						])
 					]),
@@ -1136,6 +1171,24 @@
 						text: state.previewText || s('preview', 'The quick brown fox'),
 						style: { 'font-family': familyStack(font.family), 'font-size': state.previewSize + 'px' }
 					}),
+					hasVariable ? el('label', { class: 'efm-toggle efm-toggle--inline' }, [
+						el('input', {
+							type: 'checkbox',
+							class: 'efm-checkbox',
+							checked: useVariable,
+							onchange: function (event) {
+								state.variable[font.family] = event.target.checked;
+								render();
+							}
+						}),
+						el('span', {}, [
+							el('span', { class: 'efm-toggle__label', text: s('variableCut', 'Variable') }),
+							el('span', {
+								class: 'efm-field__hint',
+								text: font.wght.min + '–' + font.wght.max + ' · ' + s('variableHint', 'one file per subset instead of one per weight')
+							})
+						])
+					]) : null,
 					available.length > 1 ? el('div', { class: 'efm-subsets' }, [
 						el('span', { class: 'efm-subsets__label', text: s('subsets', 'Subsets') }),
 						el('div', { class: 'efm-chips' }, available.map(function (sub) {
@@ -1161,6 +1214,19 @@
 		});
 
 		contentEl.appendChild(grid);
+		observePreviews(grid);
+
+		if (state.results.length < state.total) {
+			contentEl.appendChild(
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--ghost efm-btn--block',
+					text: state.loadingMore ? s('loading', 'Loading…') : s('loadMore', 'Load more'),
+					disabled: state.loadingMore,
+					onclick: loadMoreGoogle
+				})
+			);
+		}
 	}
 
 	/**
@@ -1198,21 +1264,84 @@
 		render();
 	}
 
-	function loadGooglePreview(fonts) {
-		var families = fonts.slice(0, 24).map(function (font) {
-			return 'family=' + encodeURIComponent(font.family);
-		}).join('&');
+	var previewed = {};
+	var previewQueue = [];
+	var previewObserver = null;
 
-		var link = document.getElementById('efm-google-preview');
-
-		if (!link) {
-			link = document.createElement('link');
-			link.id = 'efm-google-preview';
-			link.rel = 'stylesheet';
-			document.head.appendChild(link);
+	/**
+	 * Load specimen webfonts only for cards that are actually on screen.
+	 *
+	 * Requesting every result up front pulled a stylesheet for two dozen
+	 * families whether or not they were ever seen, which is slow and wasteful
+	 * once the library can be browsed rather than only searched.
+	 *
+	 * @param {HTMLElement} grid Result grid.
+	 */
+	function observePreviews(grid) {
+		if (!('IntersectionObserver' in window)) {
+			queuePreviews(state.results.map(function (font) { return font.family; }));
+			return;
 		}
 
-		link.href = 'https://fonts.googleapis.com/css2?' + families + '&display=swap';
+		if (previewObserver) {
+			previewObserver.disconnect();
+		}
+
+		previewObserver = new IntersectionObserver(function (entries) {
+			var families = [];
+
+			entries.forEach(function (entry) {
+				if (!entry.isIntersecting) {
+					return;
+				}
+
+				families.push(entry.target.getAttribute('data-family'));
+				previewObserver.unobserve(entry.target);
+			});
+
+			if (families.length) {
+				queuePreviews(families);
+			}
+		}, { root: contentEl, rootMargin: '200px' });
+
+		Array.prototype.forEach.call(grid.querySelectorAll('[data-family]'), function (card) {
+			previewObserver.observe(card);
+		});
+	}
+
+	function queuePreviews(families) {
+		var fresh = families.filter(function (family) {
+			return family && !previewed[family];
+		});
+
+		if (!fresh.length) {
+			return;
+		}
+
+		fresh.forEach(function (family) {
+			previewed[family] = true;
+			previewQueue.push(family);
+		});
+
+		window.clearTimeout(queuePreviews._timer);
+		queuePreviews._timer = window.setTimeout(flushPreviews, 120);
+	}
+
+	function flushPreviews() {
+		var batch = previewQueue.splice(0, previewQueue.length);
+
+		if (!batch.length) {
+			return;
+		}
+
+		var link = document.createElement('link');
+		link.rel = 'stylesheet';
+		link.className = 'efm-google-preview';
+		link.href = 'https://fonts.googleapis.com/css2?' + batch.map(function (family) {
+			return 'family=' + encodeURIComponent(family);
+		}).join('&') + '&display=swap';
+
+		document.head.appendChild(link);
 	}
 
 	/* -------------------------------- Theme ------------------------------ */
@@ -1353,19 +1482,25 @@
 			.catch(fail);
 	}
 
-	function searchGoogle() {
-		if (!state.query) {
-			state.results = [];
-			render();
-			return;
-		}
+	function googleQuery(offset) {
+		return '/google/search?query=' + encodeURIComponent(state.query) +
+			'&category=' + encodeURIComponent(state.category) +
+			'&sort=' + encodeURIComponent(state.sort) +
+			'&limit=24&offset=' + offset;
+	}
 
+	function searchGoogle() {
 		state.searching = true;
 		render();
 
-		request('/google/search?query=' + encodeURIComponent(state.query))
+		request(googleQuery(0))
 			.then(function (data) {
 				state.results = (data && data.results) || [];
+				state.total = (data && data.total) || 0;
+
+				if (data && data.categories && data.categories.length) {
+					state.categories = data.categories;
+				}
 			})
 			.catch(fail)
 			.then(function () {
@@ -1374,12 +1509,31 @@
 			});
 	}
 
-	function installGoogleFont(family, subsets) {
+	function loadMoreGoogle() {
+		state.loadingMore = true;
+		render();
+
+		request(googleQuery(state.results.length))
+			.then(function (data) {
+				state.results = state.results.concat((data && data.results) || []);
+				state.total = (data && data.total) || state.total;
+			})
+			.catch(fail)
+			.then(function () {
+				state.loadingMore = false;
+				render();
+			});
+	}
+
+	function installGoogleFont(family, subsets, variable) {
 		state.busy = 'install:' + family;
 		setStatus(s('installing', 'Installing…') + ' ' + family);
 		render();
 
-		request('/google/install', { method: 'POST', body: { family: family, subsets: subsets || ['latin'] } })
+		request('/google/install', {
+			method: 'POST',
+			body: { family: family, subsets: subsets || ['latin'], variable: !!variable }
+		})
 			.then(function (data) {
 				applyState(data && data.state);
 				setStatus(s('installed', 'Installed') + ' · ' + family);

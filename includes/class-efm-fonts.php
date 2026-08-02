@@ -39,6 +39,34 @@ class EFM_Fonts {
 	const WEIGHTS = array( '100', '200', '300', '400', '500', '600', '700', '800', '900', '100 900' );
 
 	/**
+	 * Weight keywords used in font file names, longest first so that
+	 * "extrabold" is matched before "bold".
+	 *
+	 * @var array<string,string>
+	 */
+	const WEIGHT_KEYWORDS = array(
+		'extrablack'  => '900',
+		'ultrablack'  => '900',
+		'extrabold'   => '800',
+		'ultrabold'   => '800',
+		'extralight'  => '200',
+		'ultralight'  => '200',
+		'semibold'    => '600',
+		'demibold'    => '600',
+		'semilight'   => '300',
+		'regular'     => '400',
+		'medium'      => '500',
+		'normal'      => '400',
+		'black'       => '900',
+		'heavy'       => '900',
+		'light'       => '300',
+		'thin'        => '100',
+		'hairline'    => '100',
+		'book'        => '400',
+		'bold'        => '700',
+	);
+
+	/**
 	 * Hook up nothing heavy; this class is mostly static helpers.
 	 */
 	public static function init() {
@@ -54,6 +82,11 @@ class EFM_Fonts {
 		}
 
 		self::write_css_file();
+
+		// Cached remote data may predate the current index shape.
+		delete_transient( EFM_Google_Fonts::TRANSIENT );
+		delete_transient( EFM_Google_Fonts::TRANSIENT_LEGACY );
+
 		update_option( 'efm_version', EFM_VERSION, false );
 	}
 
@@ -210,6 +243,7 @@ class EFM_Fonts {
 		$clean = self::sanitize_families( $families );
 
 		update_option( self::OPTION_FAMILIES, $clean, false );
+		self::prune_settings( $clean );
 		self::write_css_file();
 
 		/**
@@ -220,6 +254,35 @@ class EFM_Fonts {
 		do_action( 'efm_families_saved', $clean );
 
 		return $clean;
+	}
+
+	/**
+	 * Clear font assignments that point at a family which no longer exists, so
+	 * the generated CSS never references a missing family.
+	 *
+	 * @param array $families Current families.
+	 */
+	protected static function prune_settings( $families ) {
+		$settings = self::settings();
+		$names    = array_map(
+			static function ( $family ) {
+				return strtolower( $family['name'] ?? '' );
+			},
+			$families
+		);
+
+		$changed = false;
+
+		foreach ( array( 'heading_font', 'text_font' ) as $key ) {
+			if ( ! empty( $settings[ $key ] ) && ! in_array( strtolower( $settings[ $key ] ), $names, true ) ) {
+				$settings[ $key ] = '';
+				$changed          = true;
+			}
+		}
+
+		if ( $changed ) {
+			update_option( self::OPTION_SETTINGS, $settings, false );
+		}
 	}
 
 	/**
@@ -299,6 +362,95 @@ class EFM_Fonts {
 	 * @param string $name Raw name.
 	 * @return string
 	 */
+	/**
+	 * Validate a unicode-range value before it is written into CSS.
+	 *
+	 * @param string $range Raw range, e.g. "U+0D80-0DFF, U+200C-200D".
+	 * @return string Empty string when the value is not a valid range list.
+	 */
+	public static function sanitize_unicode_range( $range ) {
+		$range = trim( (string) $range );
+
+		if ( '' === $range ) {
+			return '';
+		}
+
+		if ( ! preg_match( '/^[Uu]\+[0-9A-Fa-f?]+(-[0-9A-Fa-f]+)?(\s*,\s*[Uu]\+[0-9A-Fa-f?]+(-[0-9A-Fa-f]+)?)*$/', $range ) ) {
+			return '';
+		}
+
+		return $range;
+	}
+
+	/**
+	 * Guess a weight and style from a font file name.
+	 *
+	 * Recognises numeric weights (Roboto-300.woff2), keywords
+	 * (Inter-SemiBoldItalic.woff2) and variable fonts (Inter[wght].woff2).
+	 *
+	 * @param string $filename Font file name.
+	 * @return array{weight:string,style:string}
+	 */
+	public static function guess_variant( $filename ) {
+		$name   = strtolower( pathinfo( (string) $filename, PATHINFO_FILENAME ) );
+		$narrow = preg_replace( '/[^a-z0-9]/', '', $name );
+
+		$style = ( false !== strpos( $narrow, 'italic' ) || false !== strpos( $narrow, 'oblique' ) ) ? 'italic' : 'normal';
+
+		// Variable fonts expose an axis rather than a single weight.
+		if ( false !== strpos( $narrow, 'variablefont' ) || false !== strpos( $narrow, 'wght' ) ) {
+			return array(
+				'weight' => '100 900',
+				'style'  => $style,
+			);
+		}
+
+		if ( preg_match( '/(?<!\d)([1-9]00)(?!\d)/', $name, $matches ) ) {
+			return array(
+				'weight' => $matches[1],
+				'style'  => $style,
+			);
+		}
+
+		/*
+		 * Match on the keyword that ends last, preferring the longest on a tie.
+		 * The weight is normally the suffix, so "Blackout-Bold" resolves to bold
+		 * rather than black, while "SemiBold" still beats the "bold" inside it.
+		 */
+		$best_weight = '';
+		$best_end    = -1;
+		$best_length = 0;
+
+		foreach ( self::WEIGHT_KEYWORDS as $keyword => $weight ) {
+			$position = strrpos( $narrow, $keyword );
+
+			if ( false === $position ) {
+				continue;
+			}
+
+			$length = strlen( $keyword );
+			$end    = $position + $length;
+
+			if ( $end > $best_end || ( $end === $best_end && $length > $best_length ) ) {
+				$best_weight = $weight;
+				$best_end    = $end;
+				$best_length = $length;
+			}
+		}
+
+		if ( '' !== $best_weight ) {
+			return array(
+				'weight' => $best_weight,
+				'style'  => $style,
+			);
+		}
+
+		return array(
+			'weight' => '400',
+			'style'  => $style,
+		);
+	}
+
 	public static function sanitize_family_name( $name ) {
 		$name = sanitize_text_field( (string) $name );
 		$name = preg_replace( '/["\'\{\};\\\\\/\(\)<>]/', '', $name );
@@ -346,11 +498,23 @@ class EFM_Fonts {
 					$weight = sanitize_text_field( (string) ( $variant['weight'] ?? '400' ) );
 					$style  = strtolower( sanitize_text_field( (string) ( $variant['style'] ?? 'normal' ) ) );
 
-					$variants[] = array(
+					$clean_variant = array(
 						'file'   => $file,
 						'weight' => in_array( $weight, self::WEIGHTS, true ) ? $weight : '400',
 						'style'  => in_array( $style, array( 'normal', 'italic' ), true ) ? $style : 'normal',
 					);
+
+					$subset = sanitize_key( $variant['subset'] ?? '' );
+					if ( '' !== $subset ) {
+						$clean_variant['subset'] = $subset;
+					}
+
+					$range = self::sanitize_unicode_range( $variant['range'] ?? '' );
+					if ( '' !== $range ) {
+						$clean_variant['range'] = $range;
+					}
+
+					$variants[] = $clean_variant;
 				}
 			}
 
@@ -391,11 +555,15 @@ class EFM_Fonts {
 				continue;
 			}
 
+			$guess = self::guess_variant( $file->getFilename() );
+
 			$files[] = array(
-				'name' => $file->getFilename(),
-				'ext'  => $ext,
-				'size' => $file->getSize(),
-				'url'  => self::url() . $file->getFilename(),
+				'name'   => $file->getFilename(),
+				'ext'    => $ext,
+				'size'   => $file->getSize(),
+				'url'    => self::url() . $file->getFilename(),
+				'weight' => $guess['weight'],
+				'style'  => $guess['style'],
 			);
 		}
 
@@ -499,11 +667,15 @@ class EFM_Fonts {
 			return new WP_Error( 'efm_move_failed', __( 'Could not save the uploaded file.', 'etch-font-manager' ), array( 'status' => 500 ) );
 		}
 
+		$guess = self::guess_variant( $filename );
+
 		return array(
-			'name' => $filename,
-			'ext'  => $ext,
-			'size' => filesize( $destination ),
-			'url'  => self::url() . $filename,
+			'name'   => $filename,
+			'ext'    => $ext,
+			'size'   => filesize( $destination ),
+			'url'    => self::url() . $filename,
+			'weight' => $guess['weight'],
+			'style'  => $guess['style'],
 		);
 	}
 
@@ -576,6 +748,12 @@ class EFM_Fonts {
 				$css .= "\tfont-weight: {$weight};\n";
 				$css .= "\tfont-style: {$style};\n";
 				$css .= "\tfont-display: swap;\n";
+
+				$range = self::sanitize_unicode_range( $variant['range'] ?? '' );
+				if ( '' !== $range ) {
+					$css .= "\tunicode-range: {$range};\n";
+				}
+
 				$css .= "}\n\n";
 			}
 		}

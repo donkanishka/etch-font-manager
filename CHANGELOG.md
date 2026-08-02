@@ -2,6 +2,10 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.3.2
+
+- A forced update check now bypasses the plugin's own release cache. Clicking **Check again** on the Updates screen, or running WP-CLI, previously kept returning the cached lookup for up to six hours, so a release published in that window stayed invisible.
+
 ## 1.3.1
 
 - Added a **Check for updates** link to the plugin row, so a release can be picked up immediately instead of waiting for the six hour cache to expire. It reports whether a newer version is available.

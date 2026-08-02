@@ -89,11 +89,26 @@ class EFM_Google_Fonts {
 				}
 			}
 
+			// A wght axis means the family has a variable cut, which installs as
+			// one file per subset instead of one per weight.
+			$wght = array();
+
+			foreach ( (array) ( $meta['axes'] ?? array() ) as $axis ) {
+				if ( 'wght' === ( $axis['tag'] ?? '' ) ) {
+					$wght = array(
+						'min' => (int) $axis['min'],
+						'max' => (int) $axis['max'],
+					);
+				}
+			}
+
 			$fonts[] = array(
-				'family'   => $meta['family'] ?? '',
-				'category' => $meta['category'] ?? '',
-				'variants' => $variants,
-				'subsets'  => $subsets,
+				'family'     => $meta['family'] ?? '',
+				'category'   => $meta['category'] ?? '',
+				'variants'   => $variants,
+				'subsets'    => $subsets,
+				'popularity' => (int) ( $meta['popularity'] ?? PHP_INT_MAX ),
+				'wght'       => $wght,
 			);
 		}
 
@@ -103,24 +118,38 @@ class EFM_Google_Fonts {
 	}
 
 	/**
-	 * Search the Google Fonts index.
+	 * Search or browse the Google Fonts index.
+	 *
+	 * With no search term this browses the whole library, which is why the
+	 * category filter, sort order and paging all live here rather than in the
+	 * panel: the index is nearly two thousand families.
 	 *
 	 * @param string $query Search term.
-	 * @param int    $limit Maximum results.
+	 * @param array  $args  category, sort, limit, offset.
 	 * @return array|WP_Error
 	 */
-	public static function search( $query, $limit = self::RESULTS_MAX ) {
+	public static function search( $query, $args = array() ) {
 		$fonts = self::index();
 
 		if ( is_wp_error( $fonts ) ) {
 			return $fonts;
 		}
 
-		$query = trim( (string) $query );
+		$args = wp_parse_args(
+			$args,
+			array(
+				'category' => '',
+				'sort'     => 'popularity',
+				'limit'    => self::RESULTS_MAX,
+				'offset'   => 0,
+			)
+		);
 
-		if ( '' !== $query ) {
-			$needle = strtolower( $query );
+		$query    = trim( (string) $query );
+		$needle   = strtolower( $query );
+		$category = strtolower( trim( (string) $args['category'] ) );
 
+		if ( '' !== $needle ) {
 			$fonts = array_values(
 				array_filter(
 					$fonts,
@@ -129,20 +158,77 @@ class EFM_Google_Fonts {
 					}
 				)
 			);
+		}
 
-			// Prefix matches first.
-			usort(
-				$fonts,
-				static function ( $a, $b ) use ( $needle ) {
-					$pa = 0 === strpos( strtolower( $a['family'] ), $needle ) ? 0 : 1;
-					$pb = 0 === strpos( strtolower( $b['family'] ), $needle ) ? 0 : 1;
-
-					return $pa === $pb ? strcasecmp( $a['family'], $b['family'] ) : $pa - $pb;
-				}
+		if ( '' !== $category ) {
+			$fonts = array_values(
+				array_filter(
+					$fonts,
+					static function ( $font ) use ( $category ) {
+						return strtolower( (string) $font['category'] ) === $category;
+					}
+				)
 			);
 		}
 
-		return array_slice( $fonts, 0, max( 1, (int) $limit ) );
+		$alphabetical = 'alphabetical' === $args['sort'];
+
+		usort(
+			$fonts,
+			static function ( $a, $b ) use ( $needle, $alphabetical ) {
+				// However the list is sorted, an exact prefix match ranks first.
+				if ( '' !== $needle ) {
+					$pa = 0 === strpos( strtolower( $a['family'] ), $needle ) ? 0 : 1;
+					$pb = 0 === strpos( strtolower( $b['family'] ), $needle ) ? 0 : 1;
+
+					if ( $pa !== $pb ) {
+						return $pa - $pb;
+					}
+				}
+
+				if ( $alphabetical ) {
+					return strcasecmp( $a['family'], $b['family'] );
+				}
+
+				return $a['popularity'] <=> $b['popularity'];
+			}
+		);
+
+		$total  = count( $fonts );
+		$limit  = max( 1, min( 60, (int) $args['limit'] ) );
+		$offset = max( 0, (int) $args['offset'] );
+
+		return array(
+			'results' => array_slice( $fonts, $offset, $limit ),
+			'total'   => $total,
+			'offset'  => $offset,
+			'limit'   => $limit,
+		);
+	}
+
+	/**
+	 * Categories present in the index.
+	 *
+	 * @return string[]
+	 */
+	public static function categories() {
+		$fonts = self::index();
+
+		if ( is_wp_error( $fonts ) ) {
+			return array();
+		}
+
+		$categories = array();
+
+		foreach ( $fonts as $font ) {
+			if ( ! empty( $font['category'] ) && ! in_array( $font['category'], $categories, true ) ) {
+				$categories[] = $font['category'];
+			}
+		}
+
+		sort( $categories );
+
+		return $categories;
 	}
 
 	/**
@@ -152,7 +238,7 @@ class EFM_Google_Fonts {
 	 * @param string[] $subsets Subsets to download. Defaults to latin.
 	 * @return array|WP_Error
 	 */
-	public static function install( $family, $subsets = array() ) {
+	public static function install( $family, $subsets = array(), $variable = false ) {
 		$family = EFM_Fonts::sanitize_family_name( $family );
 
 		if ( '' === $family ) {
@@ -165,27 +251,40 @@ class EFM_Google_Fonts {
 			$subsets = array( 'latin' );
 		}
 
-		$url = add_query_arg(
-			array(
-				'family'  => rawurlencode( $family ) . ':ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900',
-				'display' => 'swap',
-			),
-			self::CSS_API
-		);
+		// The weight axis is read from the index rather than trusted from the
+		// request, so a family without a variable cut cannot be forced into one.
+		$axis = $variable ? self::weight_axis( $family ) : array();
 
-		$response = wp_remote_get(
-			$url,
-			array(
-				'timeout'    => 20,
-				'user-agent' => self::USER_AGENT,
-			)
-		);
+		$specs = self::css_specs( $axis );
+		$css   = '';
 
-		if ( is_wp_error( $response ) ) {
-			return $response;
+		foreach ( $specs as $spec ) {
+			$response = wp_remote_get(
+				add_query_arg(
+					array(
+						'family'  => rawurlencode( $family ) . $spec,
+						'display' => 'swap',
+					),
+					self::CSS_API
+				),
+				array(
+					'timeout'    => 20,
+					'user-agent' => self::USER_AGENT,
+				)
+			);
+
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			if ( 200 === (int) wp_remote_retrieve_response_code( $response ) ) {
+				$css = wp_remote_retrieve_body( $response );
+
+				if ( ! empty( $css ) ) {
+					break;
+				}
+			}
 		}
-
-		$css = wp_remote_retrieve_body( $response );
 
 		if ( empty( $css ) ) {
 			return new WP_Error( 'efm_gf_empty', __( 'Google Fonts returned an empty response.', 'etch-font-manager' ), array( 'status' => 502 ) );
@@ -203,7 +302,9 @@ class EFM_Google_Fonts {
 		$variants = array();
 
 		foreach ( $parsed as $variant ) {
-			$filename = $slug . '-' . $variant['weight']
+			$cut = false !== strpos( $variant['weight'], ' ' ) ? 'variable' : $variant['weight'];
+
+			$filename = $slug . '-' . $cut
 				. ( 'italic' === $variant['style'] ? 'i' : '' )
 				. '-' . $variant['subset'] . '.woff2';
 
@@ -269,6 +370,54 @@ class EFM_Google_Fonts {
 			'family'   => $family,
 			'variants' => $variants,
 			'subsets'  => $subsets,
+			'variable' => ! empty( $axis ),
+		);
+	}
+
+	/**
+	 * The weight axis of a family, when it has a variable cut.
+	 *
+	 * @param string $family Family name.
+	 * @return array{min:int,max:int}|array
+	 */
+	protected static function weight_axis( $family ) {
+		$fonts = self::index();
+
+		if ( is_wp_error( $fonts ) ) {
+			return array();
+		}
+
+		foreach ( $fonts as $font ) {
+			if ( 0 === strcasecmp( $font['family'], $family ) ) {
+				return ! empty( $font['wght'] ) ? $font['wght'] : array();
+			}
+		}
+
+		return array();
+	}
+
+	/**
+	 * Family specs to try against the CSS API, best first.
+	 *
+	 * Not every family offers italics, and asking for one that does not exist
+	 * returns an error, so each spec is tried until one responds.
+	 *
+	 * @param array $axis Weight axis, empty for a static install.
+	 * @return string[]
+	 */
+	protected static function css_specs( $axis ) {
+		if ( ! empty( $axis ) ) {
+			$range = $axis['min'] . '..' . $axis['max'];
+
+			return array(
+				':ital,wght@0,' . $range . ';1,' . $range,
+				':wght@' . $range,
+			);
+		}
+
+		return array(
+			':ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900',
+			':wght@100;200;300;400;500;600;700;800;900',
 		);
 	}
 
@@ -300,8 +449,12 @@ class EFM_Google_Fonts {
 			}
 
 			$block  = $chunks[ $i + 1 ];
-			$style  = preg_match( '/font-style:\s*(italic|normal)/i', $block, $m ) ? strtolower( $m[1] ) : 'normal';
-			$weight = preg_match( '/font-weight:\s*(\d+)/i', $block, $m ) ? $m[1] : '400';
+			$style = preg_match( '/font-style:\s*(italic|normal)/i', $block, $m ) ? strtolower( $m[1] ) : 'normal';
+
+			// A variable cut declares a range, e.g. "font-weight: 100 900".
+			$weight = preg_match( '/font-weight:\s*(\d+(?:\s+\d+)?)/i', $block, $m )
+				? preg_replace( '/\s+/', ' ', trim( $m[1] ) )
+				: '400';
 			$range  = preg_match( '/unicode-range:\s*([^;}]+)/i', $block, $m ) ? EFM_Fonts::sanitize_unicode_range( $m[1] ) : '';
 			$key    = $weight . '-' . $style . '-' . $subset;
 

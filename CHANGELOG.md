@@ -2,6 +2,21 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.6.0
+
+Google Fonts is now a browser rather than a search box.
+
+### Added
+
+- **Browse the full library.** Opening Google Fonts lists the most popular families straight away instead of waiting for a search term. The index carries close to two thousand families.
+- **Category filter** (Sans Serif, Serif, Display, Handwriting, Monospace) and **sort** by popularity or A to Z.
+- **Paging.** Results load 24 at a time with a Load more button, and the header shows how many of the total you are looking at.
+- **Variable fonts.** Families with a weight axis install as one file per subset with `font-weight: 100 900`, instead of one file per weight. For Inter with latin that is 2 files rather than 18. The toggle is on by default where a variable cut exists, and the axis is read from the index rather than trusted from the request.
+
+### Changed
+
+- **Specimen webfonts load lazily.** Previously every result pulled a Google stylesheet whether or not it was ever seen; now they load per card as it scrolls into view, batched.
+
 ## 1.5.0
 
 Typography and delivery controls, per family, in a new **Delivery** section of the family editor.

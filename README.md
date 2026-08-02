@@ -69,7 +69,7 @@ the header while there are unsaved changes.
 **Upload fonts** — drag and drop `.woff2`, `.woff`, `.ttf` or `.otf` files, and review everything currently in
 the fonts folder with type, size and delete.
 
-**Google Fonts** — search the library and preview candidates as full specimens before installing. Pick the
+**Google Fonts** — browse the whole library by category and popularity, or search it. Results page in 24 at a time and specimen webfonts load lazily as cards scroll into view. Families with a weight axis can be installed as a **variable** cut: one file per subset instead of one per weight. Pick the
 subsets you need first: `latin` is preselected, and families that carry other scripts expose them as toggles.
 Installing downloads every weight and style for the chosen subsets locally and wires the family up for you.
 Already installed? Use **Reinstall** to add a subset later.

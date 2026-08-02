@@ -2,6 +2,25 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.4.0
+
+Hardening for public distribution, where many sites can sit behind one outbound IP.
+
+### Fixed
+
+- **A failed update lookup no longer discards a release that was already known.** Previously any failure, including a GitHub rate limit, cached an empty result, so an available update silently disappeared until the next successful check.
+
+### Changed
+
+- The routine update check now reads `update.json` from the raw CDN, which carries no API rate limit. The REST API is only a fallback. GitHub allows 60 unauthenticated API requests an hour **per IP**, shared by every site behind that address, so shared hosting could exhaust it.
+- A rate-limited response now backs off until the reported reset time instead of a fixed window.
+- The update package is only accepted when it comes from this repository's releases, so a tampered manifest cannot point WordPress at another download.
+- Default cache raised to six hours. Both the manual check and a forced check bypass the cache, so an active check is still live.
+
+### Note
+
+Conditional requests do **not** help here. Testing against the live API showed 304 responses still decrement the rate limit.
+
 ## 1.3.5
 
 ### Fixed

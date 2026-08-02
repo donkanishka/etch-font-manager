@@ -2,6 +2,10 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.3.1
+
+- Added a **Check for updates** link to the plugin row, so a release can be picked up immediately instead of waiting for the six hour cache to expire. It reports whether a newer version is available.
+
 ## 1.3.0
 
 ### Added

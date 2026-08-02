@@ -41,6 +41,7 @@
 		busy: '',
 		status: null,
 		dirty: false,
+		subsets: {},
 		previewText: s('preview', 'The quick brown fox'),
 		previewSize: 30
 	};
@@ -136,6 +137,42 @@
 
 	function familyStack(name) {
 		return name ? '"' + name + '", sans-serif' : 'inherit';
+	}
+
+	/**
+	 * Where a family is assigned, so destructive actions can warn first.
+	 *
+	 * @param {string} name Family name.
+	 * @return {string[]} Human readable roles.
+	 */
+	function familyRoles(name) {
+		var roles = [];
+		var lower = (name || '').toLowerCase();
+
+		if (lower && (state.settings.heading_font || '').toLowerCase() === lower) {
+			roles.push(s('headingFont', 'Heading font'));
+		}
+		if (lower && (state.settings.text_font || '').toLowerCase() === lower) {
+			roles.push(s('textFont', 'Text font'));
+		}
+
+		return roles;
+	}
+
+	/**
+	 * Families that map a given file, so deleting it can warn first.
+	 *
+	 * @param {string} filename File name.
+	 * @return {string[]} Family names.
+	 */
+	function fileUsedBy(filename) {
+		return state.families.filter(function (family) {
+			return (family.variants || []).some(function (variant) {
+				return variant.file === filename;
+			});
+		}).map(function (family) {
+			return family.name;
+		});
 	}
 
 	/* --------------------------------------------------------------------- */
@@ -355,6 +392,15 @@
 	}
 
 	function close() {
+		if (state.dirty && !window.confirm(s('confirmDiscard', 'You have unsaved font changes. Close and discard them?'))) {
+			return;
+		}
+
+		if (state.dirty) {
+			state.dirty = false;
+			reload();
+		}
+
 		isOpen = false;
 
 		if (manager) {
@@ -609,6 +655,10 @@
 			var family = row.family;
 			var variants = family.variants || [];
 			var weights = variants.map(function (v) { return v.weight; }).filter(function (w, i, arr) { return arr.indexOf(w) === i; }).sort();
+			var roles = familyRoles(family.name);
+			var subsetList = variants.map(function (v) { return v.subset; }).filter(function (sub, i, arr) {
+				return sub && arr.indexOf(sub) === i;
+			}).sort();
 
 			grid.appendChild(
 				el('article', { class: 'efm-card' }, [
@@ -630,6 +680,15 @@
 								'aria-label': s('removeFamily', 'Remove family'),
 								title: s('removeFamily', 'Remove family'),
 								onclick: function () {
+									var roles = familyRoles(family.name);
+
+									if (roles.length && !window.confirm(
+										s('confirmRemoveAssigned', 'This family is assigned as:') + ' ' + roles.join(', ') + '.\n' +
+										s('confirmRemoveAssignedHint', 'Removing it will clear that assignment. Continue?')
+									)) {
+										return;
+									}
+
 									state.families.splice(row.index, 1);
 									state.dirty = true;
 									render();
@@ -638,6 +697,12 @@
 						])
 					]),
 					specimen(family.name),
+					roles.length ? el('div', { class: 'efm-chips' }, roles.map(function (role) {
+						return el('span', { class: 'efm-chip efm-chip--role', text: role });
+					})) : null,
+					subsetList.length ? el('div', { class: 'efm-chips' }, subsetList.map(function (sub) {
+						return el('span', { class: 'efm-chip', text: sub });
+					})) : null,
 					el('div', { class: 'efm-card__meta' }, [
 						el('span', { text: variants.length + ' ' + plural(variants.length, s('variant', 'variant'), s('variants', 'variants')) }),
 						el('span', { class: 'efm-weights', text: weights.join(' · ') || '—' })
@@ -715,10 +780,13 @@
 				class: 'efm-btn efm-btn--outline',
 				onclick: function () {
 					state.families[index].variants = state.families[index].variants || [];
+					var used = (state.families[index].variants || []).map(function (v) { return v.file; });
+					var next = state.files.filter(function (f) { return used.indexOf(f.name) === -1; })[0] || state.files[0];
+
 					state.families[index].variants.push({
-						file: state.files.length ? state.files[0].name : '',
-						weight: '400',
-						style: 'normal'
+						file: next ? next.name : '',
+						weight: next && next.weight ? next.weight : '400',
+						style: next && next.style ? next.style : 'normal'
 					});
 					state.dirty = true;
 					render();
@@ -732,9 +800,20 @@
 			class: 'efm-input efm-input--select',
 			'aria-label': s('file', 'File'),
 			onchange: function (event) {
-				state.families[familyIndex].variants[variantIndex].file = event.target.value;
+				var target = state.families[familyIndex].variants[variantIndex];
+				var picked = state.files.filter(function (f) { return f.name === event.target.value; })[0];
+
+				target.file = event.target.value;
+
+				// Weight and style are read from the file name so mapping a
+				// freshly uploaded file is a single step.
+				if (picked && picked.weight) {
+					target.weight = picked.weight;
+					target.style = picked.style || 'normal';
+				}
+
 				state.dirty = true;
-				renderHeaderActions();
+				render();
 			}
 		});
 
@@ -868,15 +947,23 @@
 			table.appendChild(
 				el('div', { class: 'efm-table__row' }, [
 					el('span', { class: 'efm-file__name', text: file.name, title: file.name }),
-					el('span', { class: 'efm-muted', text: (file.ext || '').toUpperCase() }),
-					el('span', { class: 'efm-muted', text: formatSize(file.size) }),
+					el('span', { class: 'efm-muted', text: (file.ext || '').toUpperCase() + ' · ' + (file.weight || '400') + (file.style === 'italic' ? ' ' + s('italic', 'Italic') : '') }),
+					el('span', { class: 'efm-muted', text: formatSize(file.size) + (fileUsedBy(file.name).length ? ' · ' + s('inUse', 'in use') : '') }),
 					el('button', {
 						type: 'button',
 						class: 'efm-icon-btn efm-icon-btn--danger',
 						'aria-label': s('deleteFile', 'Delete file'),
 						title: s('deleteFile', 'Delete file'),
 						onclick: function () {
-							if (window.confirm(s('confirmDelete', 'Delete this file from the fonts folder?'))) {
+							var users = fileUsedBy(file.name);
+							var message = s('confirmDelete', 'Delete this file from the fonts folder?');
+
+							if (users.length) {
+								message += '\n\n' + s('confirmDeleteUsed', 'It is mapped by:') + ' ' + users.join(', ') +
+									'.\n' + s('confirmDeleteUsedHint', 'Those variants will be removed too.');
+							}
+
+							if (window.confirm(message)) {
 								deleteFile(file.name);
 							}
 						}
@@ -936,20 +1023,25 @@
 				return (family.name || '').toLowerCase() === font.family.toLowerCase();
 			});
 			var busy = state.busy === 'install:' + font.family;
+			var available = font.subsets && font.subsets.length ? font.subsets : ['latin'];
+			var chosen = selectedSubsets(font);
 
 			grid.appendChild(
 				el('article', { class: 'efm-card' }, [
 					el('div', { class: 'efm-card__head' }, [
 						el('h2', { class: 'efm-card__title', text: font.family }),
-						installed
-							? el('span', { class: 'efm-badge' }, [icon('check', 11), el('span', { text: s('installed', 'Installed') })])
-							: el('button', {
+						el('div', { class: 'efm-card__actions' }, [
+							installed ? el('span', { class: 'efm-badge' }, [icon('check', 11), el('span', { text: s('installed', 'Installed') })]) : null,
+							el('button', {
 								type: 'button',
-								class: 'efm-btn efm-btn--primary efm-btn--sm',
-								text: busy ? s('installing', 'Installing…') : s('install', 'Install'),
-								disabled: state.busy.indexOf('install:') === 0,
-								onclick: function () { installGoogleFont(font.family); }
+								class: 'efm-btn efm-btn--sm ' + (installed ? 'efm-btn--outline' : 'efm-btn--primary'),
+								text: busy
+									? s('installing', 'Installing…')
+									: (installed ? s('reinstall', 'Reinstall') : s('install', 'Install')),
+								disabled: state.busy.indexOf('install:') === 0 || !chosen.length,
+								onclick: function () { installGoogleFont(font.family, chosen); }
 							})
+						])
 					]),
 					el('p', {
 						class: 'efm-specimen',
@@ -957,6 +1049,22 @@
 						text: state.previewText || s('preview', 'The quick brown fox'),
 						style: { 'font-family': familyStack(font.family), 'font-size': state.previewSize + 'px' }
 					}),
+					available.length > 1 ? el('div', { class: 'efm-subsets' }, [
+						el('span', { class: 'efm-subsets__label', text: s('subsets', 'Subsets') }),
+						el('div', { class: 'efm-chips' }, available.map(function (sub) {
+							var on = chosen.indexOf(sub) !== -1;
+
+							return el('button', {
+								type: 'button',
+								class: 'efm-chip efm-chip--toggle' + (on ? ' is-on' : ''),
+								'aria-pressed': on ? 'true' : 'false',
+								text: sub,
+								onclick: function () {
+									toggleSubset(font, sub);
+								}
+							});
+						}))
+					]) : null,
 					el('div', { class: 'efm-card__meta' }, [
 						el('span', { text: font.category || '' }),
 						el('span', { text: (font.variants || []).length + ' ' + plural((font.variants || []).length, s('variant', 'variant'), s('variants', 'variants')) })
@@ -966,6 +1074,41 @@
 		});
 
 		contentEl.appendChild(grid);
+	}
+
+	/**
+	 * Subsets chosen for a family. Latin is preselected because it carries the
+	 * numerals and punctuation most scripts still rely on.
+	 *
+	 * @param {object} font Search result.
+	 * @return {string[]}
+	 */
+	function selectedSubsets(font) {
+		if (!state.subsets[font.family]) {
+			var available = font.subsets && font.subsets.length ? font.subsets : ['latin'];
+			state.subsets[font.family] = available.filter(function (sub) {
+				return sub === 'latin';
+			});
+
+			if (!state.subsets[font.family].length) {
+				state.subsets[font.family] = available.slice(0, 1);
+			}
+		}
+
+		return state.subsets[font.family];
+	}
+
+	function toggleSubset(font, subset) {
+		var chosen = selectedSubsets(font);
+		var at = chosen.indexOf(subset);
+
+		if (at === -1) {
+			chosen.push(subset);
+		} else {
+			chosen.splice(at, 1);
+		}
+
+		render();
 	}
 
 	function loadGooglePreview(fonts) {
@@ -1144,12 +1287,12 @@
 			});
 	}
 
-	function installGoogleFont(family) {
+	function installGoogleFont(family, subsets) {
 		state.busy = 'install:' + family;
 		setStatus(s('installing', 'Installing…') + ' ' + family);
 		render();
 
-		request('/google/install', { method: 'POST', body: { family: family } })
+		request('/google/install', { method: 'POST', body: { family: family, subsets: subsets || ['latin'] } })
 			.then(function (data) {
 				applyState(data && data.state);
 				setStatus(s('installed', 'Installed') + ' · ' + family);

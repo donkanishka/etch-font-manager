@@ -146,9 +146,14 @@ class EFM_Rest {
 				'callback'            => array( __CLASS__, 'google_install' ),
 				'permission_callback' => $auth,
 				'args'                => array(
-					'family' => array(
+					'family'  => array(
 						'type'     => 'string',
 						'required' => true,
+					),
+					'subsets' => array(
+						'type'    => 'array',
+						'default' => array( 'latin' ),
+						'items'   => array( 'type' => 'string' ),
 					),
 				),
 			)
@@ -301,7 +306,10 @@ class EFM_Rest {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function google_install( WP_REST_Request $request ) {
-		$installed = EFM_Google_Fonts::install( (string) $request->get_param( 'family' ) );
+		$installed = EFM_Google_Fonts::install(
+			(string) $request->get_param( 'family' ),
+			(array) $request->get_param( 'subsets' )
+		);
 
 		if ( is_wp_error( $installed ) ) {
 			return $installed;

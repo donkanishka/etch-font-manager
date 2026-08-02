@@ -15,6 +15,7 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 - **Google Fonts** — search, live preview, and one-click install. Files are downloaded locally, so the frontend makes no requests to Google.
 - **Subset support** — choose which subsets to download (latin, latin-ext, sinhala, tamil, cyrillic, greek, vietnamese and so on). Each `@font-face` gets a matching `unicode-range`, so browsers only fetch the scripts a page actually uses.
 - **Filename detection** — weight and style are read from uploaded file names (`Inter-SemiBoldItalic.woff2`, `Roboto-300.woff2`, variable axes) and applied when the file is mapped.
+- **Delivery controls** — per-family `font-display`, a preload toggle for above-the-fold fonts, and a fallback stack that is written into the Automatic.css variables.
 - **Guard rails** — warnings before closing with unsaved edits, removing a family that is assigned as the heading or text font, or deleting a file that variants still map.
 - **Family and variant mapping** — assign files to weights and styles, all inline in the panel.
 - **Automatic.css integration** — map families to `--heading-font-family` and `--text-font-family`.
@@ -75,6 +76,8 @@ Already installed? Use **Reinstall** to add a subset later.
 
 > Subsets matter. A family such as Noto Sans Sinhala carries `sinhala`, `latin-ext` and `latin`. Installing
 > latin alone gives you a font with no Sinhala glyphs, and the browser silently falls back to a system font.
+
+**Family editor → Delivery** — set `font-display`, opt a family into preloading, and give it a fallback stack.
 
 **Theme** — pick the heading and text families and see them applied to a live sample. These are written as
 `--heading-font-family` and `--text-font-family`, which Automatic.css consumes directly.

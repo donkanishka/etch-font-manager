@@ -348,6 +348,62 @@
 	color: var(--efm-muted);
 }
 
+/* -------------------------------- Chips -------------------------------- */
+
+.efm-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.efm-chip {
+	display: inline-flex;
+	align-items: center;
+	block-size: 20px;
+	padding-inline: 8px;
+	border: 1px solid var(--efm-line);
+	border-radius: 999px;
+	background: transparent;
+	color: var(--efm-muted);
+	font: inherit;
+	font-size: var(--e-font-size-s, 11px);
+}
+
+.efm-chip--role {
+	border-color: color-mix(in srgb, var(--efm-accent) 45%, transparent);
+	color: var(--efm-accent);
+}
+
+.efm-chip--toggle {
+	cursor: pointer;
+	transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+}
+
+.efm-chip--toggle:hover {
+	color: var(--efm-text);
+	border-color: var(--efm-text);
+}
+
+.efm-chip--toggle.is-on {
+	background: var(--efm-accent);
+	border-color: var(--efm-accent);
+	color: var(--efm-surface);
+}
+
+.efm-subsets {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.efm-subsets__label {
+	font-size: var(--e-font-size-s, 11px);
+	letter-spacing: .04em;
+	text-transform: uppercase;
+	color: var(--efm-muted);
+}
+
 /* ------------------------------ Breadcrumb ----------------------------- */
 
 .efm-breadcrumb {

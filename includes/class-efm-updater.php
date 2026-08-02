@@ -20,8 +20,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 class EFM_Updater {
 
 	const CACHE_KEY = 'efm_github_release';
-	const CACHE_TTL = 21600; // 6 hours.
-	const BACKOFF   = 1800;  // 30 minutes after a failed lookup.
+
+	/*
+	 * WordPress re-checks plugin updates roughly hourly while you are on the
+	 * Plugins screen, and twice daily on cron. Caching the release lookup for
+	 * longer than that is what makes a new release feel invisible, so the two
+	 * cadences are kept aligned.
+	 */
+	const CACHE_TTL = 3600; // 1 hour.
+	const BACKOFF   = 900;  // 15 minutes after a failed lookup.
 
 	/**
 	 * Register hooks.
@@ -37,6 +44,7 @@ class EFM_Updater {
 		}
 
 		add_filter( 'pre_set_site_transient_update_plugins', array( __CLASS__, 'inject_update' ) );
+		add_filter( 'site_transient_update_plugins', array( __CLASS__, 'correct_stale_update' ) );
 		add_filter( 'plugins_api', array( __CLASS__, 'plugin_details' ), 20, 3 );
 		add_filter( 'upgrader_source_selection', array( __CLASS__, 'rename_source' ), 10, 4 );
 		add_action( 'upgrader_process_complete', array( __CLASS__, 'flush_cache' ), 10, 0 );
@@ -96,7 +104,7 @@ class EFM_Updater {
 		}
 
 		$release = self::release();
-		$message = ! empty( $release['version'] ) && version_compare( $release['version'], EFM_VERSION, '>' )
+		$message = ! empty( $release['version'] ) && version_compare( $release['version'], self::installed_version(), '>' )
 			/* translators: %s: version number. */
 			? sprintf( __( 'Etch Font Manager %s is available.', 'etch-font-manager' ), $release['version'] )
 			: __( 'Etch Font Manager is up to date.', 'etch-font-manager' );
@@ -190,6 +198,57 @@ class EFM_Updater {
 	}
 
 	/**
+	 * Version currently on disk.
+	 *
+	 * EFM_VERSION is the constant defined by the copy of the plugin that was
+	 * loaded at the start of the request. Immediately after an update the files
+	 * on disk are newer than that constant, and comparing against the stale
+	 * value makes WordPress believe the update still needs installing. Reading
+	 * the header from disk avoids that.
+	 *
+	 * @return string
+	 */
+	public static function installed_version() {
+		$data = get_file_data( EFM_FILE, array( 'Version' => 'Version' ) );
+
+		return ! empty( $data['Version'] ) ? $data['Version'] : EFM_VERSION;
+	}
+
+	/**
+	 * Drop a stored update entry that the installed version already satisfies.
+	 *
+	 * @param mixed $transient Update transient.
+	 * @return mixed
+	 */
+	public static function correct_stale_update( $transient ) {
+		if ( ! is_object( $transient ) || empty( $transient->response ) ) {
+			return $transient;
+		}
+
+		$file = self::plugin_file();
+
+		if ( ! isset( $transient->response[ $file ] ) ) {
+			return $transient;
+		}
+
+		$offered = $transient->response[ $file ];
+
+		if ( empty( $offered->new_version ) || version_compare( $offered->new_version, self::installed_version(), '>' ) ) {
+			return $transient;
+		}
+
+		unset( $transient->response[ $file ] );
+
+		if ( ! isset( $transient->no_update ) || ! is_array( $transient->no_update ) ) {
+			$transient->no_update = array();
+		}
+
+		$transient->no_update[ $file ] = $offered;
+
+		return $transient;
+	}
+
+	/**
 	 * Is this an explicit "check again" request?
 	 *
 	 * WordPress clears its own update transient on force-check, so the plugin
@@ -257,7 +316,9 @@ class EFM_Updater {
 			'banners_rtl'  => array(),
 		);
 
-		if ( version_compare( $release['version'], EFM_VERSION, '>' ) ) {
+		$installed = self::installed_version();
+
+		if ( version_compare( $release['version'], $installed, '>' ) ) {
 			$transient->response[ $file ] = $item;
 
 			if ( isset( $transient->no_update[ $file ] ) ) {
@@ -267,7 +328,12 @@ class EFM_Updater {
 			return $transient;
 		}
 
-		$item->new_version            = EFM_VERSION;
+		$item->new_version = $installed;
+
+		if ( isset( $transient->response[ $file ] ) ) {
+			unset( $transient->response[ $file ] );
+		}
+
 		$transient->no_update[ $file ] = $item;
 
 		return $transient;
@@ -351,5 +417,13 @@ class EFM_Updater {
 	 */
 	public static function flush_cache() {
 		delete_transient( self::CACHE_KEY );
+
+		// Remove any entry the just-replaced copy left behind.
+		$transient = get_site_transient( 'update_plugins' );
+
+		if ( is_object( $transient ) && isset( $transient->response[ self::plugin_file() ] ) ) {
+			unset( $transient->response[ self::plugin_file() ] );
+			set_site_transient( 'update_plugins', $transient );
+		}
 	}
 }

@@ -2,6 +2,19 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.3.5
+
+### Fixed
+
+- **The update notice stayed after updating.** The version check compared the latest release against `EFM_VERSION`, which is the constant from the copy of the plugin loaded at the start of the request. During an update the files on disk are already newer than that constant, so WordPress was told the update still needed installing and cached that answer. The installed version is now read from the plugin header on disk.
+- A stored update entry that the installed version already satisfies is now corrected when the transient is read, so a stale notice clears on the next page load instead of lingering for hours.
+- Finishing an update also removes the plugin's own entry from the update transient.
+
+### Changed
+
+- Release lookups are cached for ten minutes instead of six hours, and a failed lookup backs off for fifteen minutes instead of thirty, so a new release surfaces on its own instead of waiting for a long cache to expire.
+- New `efm_release_cache_ttl` filter to tune that window. Raise it when many sites share an outbound IP, since GitHub allows 60 unauthenticated requests an hour per IP.
+
 ## 1.3.4
 
 - Restored the **Check for updates** plugin row link, which 1.3.3 removed. Testing showed a forced check from the WordPress Updates screen did not reliably reach the plugin with a fresh lookup, while this action clears both the release cache and the WordPress update transient before re-checking. 1.3.3 is superseded, do not run it.

@@ -32,8 +32,6 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 2. Activate **Etch Font Manager** in Plugins.
 3. Open the Etch builder. The **Fonts** icon appears in the Settings Bar, right after the dark mode toggle.
 
-On activation, existing data from the older *Etch Custom Fonts* plugin is imported automatically when present.
-
 ## Usage
 
 The manager opens from the **Fonts** icon in the Settings Bar and has four sections.

@@ -2,6 +2,17 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.1.0
+
+- Rebuilt the interface as a **full-screen font manager** matching Etch's own manager pattern: takeover surface beside the settings bar, 40px header and a 256px inner navigation column.
+- Navigation split into Library, Upload fonts, Google Fonts and Theme.
+- Library is now a specimen grid with a family filter, plus a dedicated family editor screen for renaming and mapping variants.
+- Google Fonts results render as a large specimen grid with live previews.
+- Added a shared preview toolbar: editable specimen text and a 14-72px size slider.
+- Theme view gained a live heading and body sample rendered in the selected families.
+- Moved the Settings Bar control to the end of Etch's manager group (top-end) via the official Controls API.
+- Removed the DOM pinning logic entirely; the plugin no longer moves or inserts anything inside Etch's own DOM.
+
 ## 1.0.4
 
 - **Fix builder-breaking bug:** register the canvas stylesheet only through `etch/canvas/additional_stylesheets`.

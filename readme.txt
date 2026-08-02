@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.4
+Stable tag: 1.1.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,8 +16,8 @@ Etch Font Manager adds a Fonts control to the Etch builder Settings Bar using Et
 
 Features:
 
-* Native Settings Bar control, placed after the dark mode toggle by default
-* Docked panel styled from Etch's own design tokens
+* Native Settings Bar control, grouped with Etch's own managers
+* Full-screen manager styled from Etch's own design tokens
 * Drag and drop uploads for woff2, woff, ttf and otf
 * Google Fonts search, preview and one-click local install
 * Automatic.css mapping for --heading-font-family and --text-font-family
@@ -45,6 +45,12 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.1.0 =
+* Rebuilt as a full-screen font manager matching Etch's native manager pattern.
+* Library, Upload fonts, Google Fonts and Theme sections with an inner navigation column.
+* Specimen grids with editable preview text and a size slider.
+* The Fonts control now sits with Etch's other managers at the top of the Settings Bar.
 
 = 1.0.4 =
 * Fix a builder-breaking conflict: the canvas stylesheet was registered twice, producing duplicate keys in Etch's canvas stylesheet list and freezing the builder.

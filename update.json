@@ -1,0 +1,10 @@
+{
+  "version": "1.4.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.4.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.4.0",
+  "requires": "6.0",
+  "requires_php": "7.4",
+  "tested": "6.8",
+  "date": "2026-08-02",
+  "notes": "Update checks read a manifest from the raw CDN instead of the GitHub API, so sites sharing an outbound IP are not blocked by the API rate limit. A failed lookup no longer discards a release that was already known."
+}

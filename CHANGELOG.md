@@ -2,6 +2,10 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.3.3
+
+- Removed the **Check for updates** plugin row link. It existed to work around the cache bug fixed in 1.3.2; now that a forced check bypasses the release cache, WordPress's own **Check again** on the Updates screen does the same job. This also removes an `admin-post` endpoint, a nonce flow and an admin notice.
+
 ## 1.3.2
 
 - A forced update check now bypasses the plugin's own release cache. Clicking **Check again** on the Updates screen, or running WP-CLI, previously kept returning the cached lookup for up to six hours, so a release published in that window stayed invisible.

@@ -13,6 +13,9 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 - **Specimen-first browsing** — Library and Google Fonts render as specimen grids with editable preview text and a 14-72px size slider.
 - **Upload fonts** — drag and drop `.woff2`, `.woff`, `.ttf`, `.otf` files.
 - **Google Fonts** — search, live preview, and one-click install. Files are downloaded locally, so the frontend makes no requests to Google.
+- **Subset support** — choose which subsets to download (latin, latin-ext, sinhala, tamil, cyrillic, greek, vietnamese and so on). Each `@font-face` gets a matching `unicode-range`, so browsers only fetch the scripts a page actually uses.
+- **Filename detection** — weight and style are read from uploaded file names (`Inter-SemiBoldItalic.woff2`, `Roboto-300.woff2`, variable axes) and applied when the file is mapped.
+- **Guard rails** — warnings before closing with unsaved edits, removing a family that is assigned as the heading or text font, or deleting a file that variants still map.
 - **Family and variant mapping** — assign files to weights and styles, all inline in the panel.
 - **Automatic.css integration** — map families to `--heading-font-family` and `--text-font-family`.
 - **Instant canvas refresh** — the generated stylesheet is reloaded in the builder shell and canvas iframe after every change; no page reload.
@@ -32,6 +35,8 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 2. Activate **Etch Font Manager** in Plugins.
 3. Open the Etch builder. The **Fonts** icon appears in the Settings Bar, right after the dark mode toggle.
 
+On activation, existing data from the older *Etch Custom Fonts* plugin is imported automatically when present.
+
 ## Usage
 
 The manager opens from the **Fonts** icon in the Settings Bar and has four sections.
@@ -43,8 +48,13 @@ the header while there are unsaved changes.
 **Upload fonts** — drag and drop `.woff2`, `.woff`, `.ttf` or `.otf` files, and review everything currently in
 the fonts folder with type, size and delete.
 
-**Google Fonts** — search the library and preview candidates as full specimens before installing. Installing
-downloads every available latin variant locally and wires the family up for you.
+**Google Fonts** — search the library and preview candidates as full specimens before installing. Pick the
+subsets you need first: `latin` is preselected, and families that carry other scripts expose them as toggles.
+Installing downloads every weight and style for the chosen subsets locally and wires the family up for you.
+Already installed? Use **Reinstall** to add a subset later.
+
+> Subsets matter. A family such as Noto Sans Sinhala carries `sinhala`, `latin-ext` and `latin`. Installing
+> latin alone gives you a font with no Sinhala glyphs, and the browser silently falls back to a system font.
 
 **Theme** — pick the heading and text families and see them applied to a live sample. These are written as
 `--heading-font-family` and `--text-font-family`, which Automatic.css consumes directly.

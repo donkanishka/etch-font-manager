@@ -130,9 +130,26 @@ class EFM_Rest {
 				'callback'            => array( __CLASS__, 'google_search' ),
 				'permission_callback' => $auth,
 				'args'                => array(
-					'query' => array(
+					'query'    => array(
 						'type'    => 'string',
 						'default' => '',
+					),
+					'category' => array(
+						'type'    => 'string',
+						'default' => '',
+					),
+					'sort'     => array(
+						'type'    => 'string',
+						'default' => 'popularity',
+						'enum'    => array( 'popularity', 'alphabetical' ),
+					),
+					'limit'    => array(
+						'type'    => 'integer',
+						'default' => 24,
+					),
+					'offset'   => array(
+						'type'    => 'integer',
+						'default' => 0,
 					),
 				),
 			)
@@ -150,10 +167,14 @@ class EFM_Rest {
 						'type'     => 'string',
 						'required' => true,
 					),
-					'subsets' => array(
+					'subsets'  => array(
 						'type'    => 'array',
 						'default' => array( 'latin' ),
 						'items'   => array( 'type' => 'string' ),
+					),
+					'variable' => array(
+						'type'    => 'boolean',
+						'default' => false,
 					),
 				),
 			)
@@ -290,13 +311,23 @@ class EFM_Rest {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function google_search( WP_REST_Request $request ) {
-		$results = EFM_Google_Fonts::search( (string) $request->get_param( 'query' ) );
+		$results = EFM_Google_Fonts::search(
+			(string) $request->get_param( 'query' ),
+			array(
+				'category' => (string) $request->get_param( 'category' ),
+				'sort'     => (string) $request->get_param( 'sort' ),
+				'limit'    => (int) $request->get_param( 'limit' ),
+				'offset'   => (int) $request->get_param( 'offset' ),
+			)
+		);
 
 		if ( is_wp_error( $results ) ) {
 			return $results;
 		}
 
-		return rest_ensure_response( array( 'results' => $results ) );
+		$results['categories'] = EFM_Google_Fonts::categories();
+
+		return rest_ensure_response( $results );
 	}
 
 	/**
@@ -308,7 +339,8 @@ class EFM_Rest {
 	public static function google_install( WP_REST_Request $request ) {
 		$installed = EFM_Google_Fonts::install(
 			(string) $request->get_param( 'family' ),
-			(array) $request->get_param( 'subsets' )
+			(array) $request->get_param( 'subsets' ),
+			(bool) $request->get_param( 'variable' )
 		);
 
 		if ( is_wp_error( $installed ) ) {

@@ -2,6 +2,20 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.5.0
+
+Typography and delivery controls, per family, in a new **Delivery** section of the family editor.
+
+### Added
+
+- **Loading behaviour** per family (`font-display`). `swap` stays the default; `optional` skips the font entirely on slow connections, which removes the layout shift it would have caused.
+- **Preload** toggle per family. It emits a `<link rel="preload" ... crossorigin>` early in `wp_head` for that family's regular upright weight, preferring the latin subset. Capped at four hints in total, because preloading everything delays the rest of the page.
+- **Fallback stack** per family, shown while the font loads and if it fails. The stack is written into `--heading-font-family` and `--text-font-family`, so Automatic.css now receives a complete stack rather than a bare family name.
+
+### Security
+
+- Fallback stacks are stripped of every character a font stack does not need, so the value cannot terminate the declaration it is written into.
+
 ## 1.4.0
 
 Hardening for public distribution, where many sites can sit behind one outbound IP.

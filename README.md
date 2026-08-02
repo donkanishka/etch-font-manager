@@ -8,8 +8,9 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 
 ## Features
 
-- **Native Settings Bar control** — registered through `window.etchControls.builder.settingsBar`, placed directly after the dark mode toggle by default.
-- **Docked panel** — matches Etch's own panel geometry (53px header, 28px controls, 6px radii, Inter 12/13px) and reads Etch CSS custom properties, so it follows the builder's colour scheme.
+- **Native Settings Bar control** — registered through `window.etchControls.builder.settingsBar`, grouped with Etch's own managers at the end of the top section.
+- **Full-screen manager** — mirrors Etch's native manager pattern (Content Hub, Style Manager, Asset Manager): a takeover surface beside the settings bar, a 40px header and a 256px inner navigation column, all built from Etch's own design tokens so it follows the builder's colour scheme.
+- **Specimen-first browsing** — Library and Google Fonts render as specimen grids with editable preview text and a 14-72px size slider.
 - **Upload fonts** — drag and drop `.woff2`, `.woff`, `.ttf`, `.otf` files.
 - **Google Fonts** — search, live preview, and one-click install. Files are downloaded locally, so the frontend makes no requests to Google.
 - **Family and variant mapping** — assign files to weights and styles, all inline in the panel.
@@ -35,14 +36,20 @@ On activation, existing data from the older *Etch Custom Fonts* plugin is import
 
 ## Usage
 
-**Library tab** — lists your font families. Expand one to rename it, map files to weights and styles, add or
-remove variants. Changes are buffered, and a save bar appears while there are unsaved edits.
+The manager opens from the **Fonts** icon in the Settings Bar and has four sections.
 
-**Add tab** — drop font files into the upload zone, or search Google Fonts and install a family with one
-click. Installing downloads every available latin variant and wires the family up for you.
+**Library** — a specimen grid of your font families with a filter box. *Manage* opens a family editor for
+renaming the family and mapping files to weights and styles. Edits are buffered; Save and Discard appear in
+the header while there are unsaved changes.
 
-**Theme tab** — pick the heading and text families. These are written as `--heading-font-family` and
-`--text-font-family`, which Automatic.css consumes directly.
+**Upload fonts** — drag and drop `.woff2`, `.woff`, `.ttf` or `.otf` files, and review everything currently in
+the fonts folder with type, size and delete.
+
+**Google Fonts** — search the library and preview candidates as full specimens before installing. Installing
+downloads every available latin variant locally and wires the family up for you.
+
+**Theme** — pick the heading and text families and see them applied to a live sample. These are written as
+`--heading-font-family` and `--text-font-family`, which Automatic.css consumes directly.
 
 ## How fonts are delivered
 
@@ -68,7 +75,7 @@ The static stylesheet uses **relative** `src` URLs, which avoids cross-origin is
 | Filter | Purpose |
 | --- | --- |
 | `efm_capability` | Capability required to manage fonts. Default `manage_options`. |
-| `efm_control_placement` | `after-dark-mode` (default), `top-start`, `top-end`, `center-start`, `center-end`, `bottom-start`, `bottom-end`. |
+| `efm_control_placement` | `top-end` (default), `top-start`, `center-start`, `center-end`, `bottom-start`, `bottom-end`. |
 | `efm_control_icon` | Iconify icon for the control. Default `ph:text-aa-duotone`. |
 | `efm_font_css` | Filter the generated CSS before it is written. |
 | `efm_fonts_dir` | Change the absolute font-storage directory. Default `wp-content/fonts/`. |
@@ -76,10 +83,9 @@ The static stylesheet uses **relative** `src` URLs, which avoids cross-origin is
 
 ### Placement note
 
-Etch's Controls API can only add a control at the **start** or **end** of a Settings Bar section. To place the
-icon exactly after the dark mode toggle, the plugin registers the control officially and then pins its
-position once, re-applying it if the builder re-renders that section. Any other placement value uses the
-plain API behaviour with no DOM adjustment.
+Etch's Controls API adds a control at the **start** or **end** of a Settings Bar section. The default
+`top-end` appends the Fonts control after Loop Manager, so it sits with Etch's other managers. The plugin
+never moves or inserts nodes inside Etch's own DOM.
 
 ### Canvas stylesheet registration
 

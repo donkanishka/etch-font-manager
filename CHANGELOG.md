@@ -2,6 +2,24 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.2.0
+
+### Fixed
+
+- **Non-latin scripts were silently broken.** Google Fonts installs only ever downloaded the `latin` subset, so families such as Noto Sans Sinhala or Noto Sans Tamil installed without their Sinhala or Tamil glyphs and fell back to a system font. Installs now download every selected subset.
+- Font assignments that pointed at a deleted family are cleared automatically, so the generated CSS never references a missing family.
+- The cached Google Fonts index is versioned and flushed on upgrade, so sites that update do not keep serving an index without subset data.
+
+### Added
+
+- Subset selection per family in Google Fonts, with `unicode-range` written into each `@font-face` so browsers only download the scripts a page needs.
+- Reinstall action to add subsets to an already installed family.
+- Weight and style are detected from font file names on upload (`Inter-SemiBoldItalic.woff2`, `Roboto-300.woff2`, variable axes), and applied automatically when a file is mapped to a variant.
+- Guard when closing the manager with unsaved changes.
+- Warning when removing a family that is assigned as the heading or text font.
+- Warning when deleting a file that variants still map, listing the affected families.
+- Library cards show assignment and subset chips; file rows show detected weight and an in-use marker.
+
 ## 1.1.0
 
 - Rebuilt the interface as a **full-screen font manager** matching Etch's own manager pattern: takeover surface beside the settings bar, 40px header and a 256px inner navigation column.

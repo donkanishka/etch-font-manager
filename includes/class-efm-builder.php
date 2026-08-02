@@ -103,12 +103,14 @@ class EFM_Builder {
 		/**
 		 * Filter where the Fonts control is placed in the Etch Settings Bar.
 		 *
-		 * Accepted values: after-dark-mode, top-start, top-end, center-start,
-		 * center-end, bottom-start, bottom-end.
+		 * Accepted values: top-start, top-end, center-start, center-end,
+		 * bottom-start, bottom-end. Defaults to top-end, which appends the
+		 * control to Etch's manager group (Content Hub, Templates, Asset
+		 * Manager, Style Manager, Loop Manager).
 		 *
 		 * @param string $placement Placement key.
 		 */
-		$placement = apply_filters( 'efm_control_placement', 'after-dark-mode' );
+		$placement = apply_filters( 'efm_control_placement', 'top-end' );
 
 		/**
 		 * Filter the Iconify icon used for the Fonts control.
@@ -143,6 +145,24 @@ class EFM_Builder {
 			'add'            => __( 'Add', 'etch-font-manager' ),
 			'theme'          => __( 'Theme', 'etch-font-manager' ),
 			'close'          => __( 'Close', 'etch-font-manager' ),
+			'back'           => __( 'Back', 'etch-font-manager' ),
+			'manage'         => __( 'Manage', 'etch-font-manager' ),
+			'manageFamily'   => __( 'Manage', 'etch-font-manager' ),
+			'familyLabel'    => __( 'family', 'etch-font-manager' ),
+			'familiesLabel'  => __( 'families', 'etch-font-manager' ),
+			'fileLabel'      => __( 'file', 'etch-font-manager' ),
+			'filesLabel'     => __( 'files', 'etch-font-manager' ),
+			'filterFamilies' => __( 'Filter families', 'etch-font-manager' ),
+			'noMatches'      => __( 'No families match that filter.', 'etch-font-manager' ),
+			'noVariants'     => __( 'No variants mapped yet.', 'etch-font-manager' ),
+			'previewText'    => __( 'Preview text', 'etch-font-manager' ),
+			'previewSize'    => __( 'Preview size', 'etch-font-manager' ),
+			'variable'       => __( 'variable', 'etch-font-manager' ),
+			'type'           => __( 'Type', 'etch-font-manager' ),
+			'size'           => __( 'Size', 'etch-font-manager' ),
+			'googleHint'     => __( 'Search the Google Fonts library. Files are downloaded to your server, so visitors never call Google.', 'etch-font-manager' ),
+			'sampleHeading'  => __( 'Typography that ships', 'etch-font-manager' ),
+			'sampleBody'     => __( 'Body copy renders in the text family. Upload a font or install one from Google Fonts, map its weights, then assign it here.', 'etch-font-manager' ),
 			'noFamilies'     => __( 'No font families yet.', 'etch-font-manager' ),
 			'noFamiliesHint' => __( 'Upload a font file or install one from Google Fonts.', 'etch-font-manager' ),
 			'newFamily'      => __( 'New family', 'etch-font-manager' ),
@@ -156,7 +176,7 @@ class EFM_Builder {
 			'saving'         => __( 'Saving…', 'etch-font-manager' ),
 			'saved'          => __( 'Fonts saved.', 'etch-font-manager' ),
 			'discard'        => __( 'Discard', 'etch-font-manager' ),
-			'upload'         => __( 'Upload font files', 'etch-font-manager' ),
+			'upload'         => __( 'Upload fonts', 'etch-font-manager' ),
 			'uploadHint'     => __( 'Drop woff2, woff, ttf or otf files here, or click to browse.', 'etch-font-manager' ),
 			'uploading'      => __( 'Uploading…', 'etch-font-manager' ),
 			'uploaded'       => __( 'Uploaded', 'etch-font-manager' ),

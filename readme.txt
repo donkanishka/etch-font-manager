@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.4
+Stable tag: 1.3.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,11 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.3.5 =
+* Fixed the update notice remaining visible after the plugin had already been updated.
+* A stale update entry is now corrected on read instead of lingering.
+* Release lookups are cached for ten minutes, so new releases appear on their own, with a filter to tune the window.
 
 = 1.3.4 =
 * Restored the Check for updates plugin row link. It is the reliable way to pick up a release immediately; 1.3.3 is superseded.

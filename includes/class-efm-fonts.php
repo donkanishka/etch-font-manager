@@ -39,6 +39,20 @@ class EFM_Fonts {
 	const WEIGHTS = array( '100', '200', '300', '400', '500', '600', '700', '800', '900', '100 900' );
 
 	/**
+	 * Allowed font-display values.
+	 *
+	 * @var string[]
+	 */
+	const DISPLAY_VALUES = array( 'auto', 'block', 'swap', 'fallback', 'optional' );
+
+	/**
+	 * Preloading more than a couple of files delays the rest of the page, so
+	 * the number of preload hints is capped regardless of how many families
+	 * ask for one.
+	 */
+	const MAX_PRELOADS = 4;
+
+	/**
 	 * Weight keywords used in font file names, longest first so that
 	 * "extrabold" is matched before "bold".
 	 *
@@ -451,6 +465,94 @@ class EFM_Fonts {
 		);
 	}
 
+	/**
+	 * Sanitize a CSS font stack used as a fallback.
+	 *
+	 * Only the characters a font stack legitimately needs are kept, so the
+	 * value can never terminate the declaration it is written into.
+	 *
+	 * @param string $stack Raw stack, e.g. "Georgia, 'Times New Roman', serif".
+	 * @return string
+	 */
+	public static function sanitize_font_stack( $stack ) {
+		$stack = sanitize_text_field( (string) $stack );
+		$stack = preg_replace( '/[^A-Za-z0-9 ,\'"_-]/', '', $stack );
+		$stack = preg_replace( '/\s+/', ' ', (string) $stack );
+
+		return trim( (string) $stack, " ,\t\n" );
+	}
+
+	/**
+	 * The font stack a family should fall back to.
+	 *
+	 * @param array $family Family record.
+	 * @return string
+	 */
+	public static function family_stack( $family ) {
+		$name     = $family['name'] ?? '';
+		$fallback = self::sanitize_font_stack( $family['fallback'] ?? '' );
+
+		if ( '' === $name ) {
+			return $fallback;
+		}
+
+		return '' === $fallback ? '"' . $name . '"' : '"' . $name . '", ' . $fallback;
+	}
+
+	/**
+	 * Files that should be preloaded.
+	 *
+	 * Only one file per opted-in family is returned: the regular upright
+	 * weight, preferring the latin subset, because that is the cut a page
+	 * almost always needs first.
+	 *
+	 * @return array<int,array{url:string,ext:string}>
+	 */
+	public static function preload_files() {
+		$preloads = array();
+
+		foreach ( self::families() as $family ) {
+			if ( empty( $family['preload'] ) || empty( $family['variants'] ) ) {
+				continue;
+			}
+
+			$chosen = null;
+
+			foreach ( $family['variants'] as $variant ) {
+				if ( empty( $variant['file'] ) || 'italic' === ( $variant['style'] ?? 'normal' ) ) {
+					continue;
+				}
+
+				$is_regular = in_array( (string) ( $variant['weight'] ?? '400' ), array( '400', '100 900' ), true );
+				$is_latin   = ! isset( $variant['subset'] ) || 'latin' === $variant['subset'];
+
+				if ( $is_regular && $is_latin ) {
+					$chosen = $variant;
+					break;
+				}
+
+				if ( null === $chosen && $is_regular ) {
+					$chosen = $variant;
+				}
+			}
+
+			if ( null === $chosen ) {
+				continue;
+			}
+
+			$preloads[] = array(
+				'url' => self::url() . $chosen['file'],
+				'ext' => strtolower( pathinfo( $chosen['file'], PATHINFO_EXTENSION ) ),
+			);
+
+			if ( count( $preloads ) >= self::MAX_PRELOADS ) {
+				break;
+			}
+		}
+
+		return $preloads;
+	}
+
 	public static function sanitize_family_name( $name ) {
 		$name = sanitize_text_field( (string) $name );
 		$name = preg_replace( '/["\'\{\};\\\\\/\(\)<>]/', '', $name );
@@ -518,9 +620,14 @@ class EFM_Fonts {
 				}
 			}
 
+			$display = strtolower( sanitize_text_field( (string) ( $family['display'] ?? 'swap' ) ) );
+
 			$clean[] = array(
 				'name'     => $name,
 				'variants' => $variants,
+				'display'  => in_array( $display, self::DISPLAY_VALUES, true ) ? $display : 'swap',
+				'preload'  => ! empty( $family['preload'] ),
+				'fallback' => self::sanitize_font_stack( $family['fallback'] ?? '' ),
 			);
 		}
 
@@ -745,9 +852,12 @@ class EFM_Fonts {
 				$css .= "@font-face {\n";
 				$css .= "\tfont-family: \"{$family['name']}\";\n";
 				$css .= "\tsrc: url(\"{$src}\") format(\"{$format}\");\n";
+				$display = strtolower( (string) ( $family['display'] ?? 'swap' ) );
+				$display = in_array( $display, self::DISPLAY_VALUES, true ) ? $display : 'swap';
+
 				$css .= "\tfont-weight: {$weight};\n";
 				$css .= "\tfont-style: {$style};\n";
-				$css .= "\tfont-display: swap;\n";
+				$css .= "\tfont-display: {$display};\n";
 
 				$range = self::sanitize_unicode_range( $variant['range'] ?? '' );
 				if ( '' !== $range ) {
@@ -762,11 +872,13 @@ class EFM_Fonts {
 			$css .= "/* Automatic.css font variable mapping */\n:root {\n";
 
 			if ( ! empty( $settings['heading_font'] ) ) {
-				$css .= "\t--heading-font-family: \"{$settings['heading_font']}\" !important;\n";
+				$stack = self::stack_for_name( $settings['heading_font'], $families );
+				$css  .= "\t--heading-font-family: {$stack} !important;\n";
 			}
 
 			if ( ! empty( $settings['text_font'] ) ) {
-				$css .= "\t--text-font-family: \"{$settings['text_font']}\" !important;\n";
+				$stack = self::stack_for_name( $settings['text_font'], $families );
+				$css  .= "\t--text-font-family: {$stack} !important;\n";
 			}
 
 			$css .= "}\n";
@@ -779,6 +891,23 @@ class EFM_Fonts {
 		 * @param array  $families Font families.
 		 */
 		return apply_filters( 'efm_font_css', $css, $families );
+	}
+
+	/**
+	 * Resolve a family name to its full stack, including any fallback.
+	 *
+	 * @param string $name     Family name.
+	 * @param array  $families Families to search.
+	 * @return string
+	 */
+	protected static function stack_for_name( $name, $families ) {
+		foreach ( $families as $family ) {
+			if ( isset( $family['name'] ) && 0 === strcasecmp( $family['name'], $name ) ) {
+				return self::family_stack( $family );
+			}
+		}
+
+		return '"' . $name . '"';
 	}
 
 	/**

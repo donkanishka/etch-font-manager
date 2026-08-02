@@ -18,6 +18,7 @@ class EFM_Builder {
 	 * Register hooks.
 	 */
 	public static function init() {
+		add_action( 'wp_head', array( __CLASS__, 'print_preloads' ), 1 );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_fonts' ), 20 );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_panel' ), 30 );
 		add_action( 'enqueue_block_assets', array( __CLASS__, 'enqueue_fonts' ), 20 );
@@ -57,6 +58,36 @@ class EFM_Builder {
 	 */
 	public static function acss_active() {
 		return defined( 'ACSS_VERSION' ) || defined( 'AUTOMATIC_CSS_VERSION' ) || class_exists( 'Automatic_CSS\Plugin' );
+	}
+
+	/**
+	 * Print preload hints for families that asked for one.
+	 *
+	 * Runs early in wp_head so the browser can start the font request before it
+	 * discovers the stylesheet. Fonts are always fetched in CORS mode, so the
+	 * crossorigin attribute is required even though the file is same-origin.
+	 */
+	public static function print_preloads() {
+		if ( is_admin() || self::is_builder_request() ) {
+			return;
+		}
+
+		$types = array(
+			'woff2' => 'font/woff2',
+			'woff'  => 'font/woff',
+			'ttf'   => 'font/ttf',
+			'otf'   => 'font/otf',
+		);
+
+		foreach ( EFM_Fonts::preload_files() as $file ) {
+			$type = $types[ $file['ext'] ] ?? 'font/woff2';
+
+			printf(
+				'<link rel="preload" href="%1$s" as="font" type="%2$s" crossorigin>' . "\n",
+				esc_url( $file['url'] ),
+				esc_attr( $type )
+			);
+		}
 	}
 
 	/**
@@ -162,6 +193,13 @@ class EFM_Builder {
 			'size'           => __( 'Size', 'etch-font-manager' ),
 			'googleHint'     => __( 'Search the Google Fonts library. Files are downloaded to your server, so visitors never call Google.', 'etch-font-manager' ),
 			'subsets'        => __( 'Subsets', 'etch-font-manager' ),
+			'delivery'       => __( 'Delivery', 'etch-font-manager' ),
+			'fontDisplay'    => __( 'Loading behaviour', 'etch-font-manager' ),
+			'fontDisplayHint' => __( 'swap shows a fallback until the font arrives. optional skips the font entirely on slow connections, which removes layout shift.', 'etch-font-manager' ),
+			'preload'        => __( 'Preload this family', 'etch-font-manager' ),
+			'preloadHint'    => __( 'Fetches the regular weight early. Use it only for fonts visible above the fold; preloading everything slows the page down.', 'etch-font-manager' ),
+			'fallbackStack'  => __( 'Fallback stack', 'etch-font-manager' ),
+			'fallbackHint'   => __( 'Shown while the font loads, and if it fails. A close match reduces layout shift.', 'etch-font-manager' ),
 			'reinstall'      => __( 'Reinstall', 'etch-font-manager' ),
 			'inUse'          => __( 'in use', 'etch-font-manager' ),
 			'confirmDiscard' => __( 'You have unsaved font changes. Close and discard them?', 'etch-font-manager' ),

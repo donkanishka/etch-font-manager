@@ -31,9 +31,17 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 
 ## Installation
 
-1. Download or clone this repository into `/wp-content/plugins/etch-font-manager/`.
-2. Activate **Etch Font Manager** in Plugins.
-3. Open the Etch builder. The **Fonts** icon appears in the Settings Bar, right after the dark mode toggle.
+1. Download the zip from the [latest release](https://github.com/donkanishka/etch-font-manager/releases/latest).
+2. In WordPress go to **Plugins > Add New > Upload Plugin**, upload it and activate.
+3. Open the Etch builder. The **Fonts** icon appears in the Settings Bar with Etch's other managers.
+
+## Updates
+
+After the first install the plugin updates itself from GitHub releases. New versions show up on the normal
+**Dashboard > Updates** screen with the release notes in the details modal, so there is no zip to upload again.
+
+Release lookups are cached for six hours, with a thirty minute back-off after a failed request. Point the
+updater at a fork with `efm_updater_repo`, or turn it off entirely with `efm_enable_updates`.
 
 On activation, existing data from the older *Etch Custom Fonts* plugin is imported automatically when present.
 
@@ -88,6 +96,8 @@ The static stylesheet uses **relative** `src` URLs, which avoids cross-origin is
 | `efm_font_css` | Filter the generated CSS before it is written. |
 | `efm_fonts_dir` | Change the absolute font-storage directory. Default `wp-content/fonts/`. |
 | `efm_fonts_url` | Change the public URL corresponding to `efm_fonts_dir`. |
+| `efm_updater_repo` | GitHub repository used for updates, in `owner/repo` form. |
+| `efm_enable_updates` | Return `false` to disable GitHub updates. |
 
 ### Placement note
 

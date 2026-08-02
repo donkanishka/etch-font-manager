@@ -40,63 +40,6 @@ class EFM_Updater {
 		add_filter( 'plugins_api', array( __CLASS__, 'plugin_details' ), 20, 3 );
 		add_filter( 'upgrader_source_selection', array( __CLASS__, 'rename_source' ), 10, 4 );
 		add_action( 'upgrader_process_complete', array( __CLASS__, 'flush_cache' ), 10, 0 );
-		add_filter( 'plugin_action_links_' . self::plugin_file(), array( __CLASS__, 'action_links' ) );
-		add_action( 'admin_post_efm_check_updates', array( __CLASS__, 'handle_manual_check' ) );
-		add_action( 'admin_notices', array( __CLASS__, 'checked_notice' ) );
-	}
-
-	/**
-	 * Add a manual check to the plugin row, since the release lookup is cached.
-	 *
-	 * @param string[] $links Row action links.
-	 * @return string[]
-	 */
-	public static function action_links( $links ) {
-		if ( ! current_user_can( 'update_plugins' ) ) {
-			return $links;
-		}
-
-		$url = wp_nonce_url( admin_url( 'admin-post.php?action=efm_check_updates' ), 'efm_check_updates' );
-
-		$links[] = '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Check for updates', 'etch-font-manager' ) . '</a>';
-
-		return $links;
-	}
-
-	/**
-	 * Drop the cached release and let WordPress rebuild the update list.
-	 */
-	public static function handle_manual_check() {
-		if ( ! current_user_can( 'update_plugins' ) ) {
-			wp_die( esc_html__( 'You are not allowed to check for updates.', 'etch-font-manager' ) );
-		}
-
-		check_admin_referer( 'efm_check_updates' );
-
-		self::flush_cache();
-		delete_site_transient( 'update_plugins' );
-		wp_update_plugins();
-
-		wp_safe_redirect( admin_url( 'plugins.php?efm-checked=1' ) );
-		exit;
-	}
-
-	/**
-	 * Confirm the manual check ran.
-	 */
-	public static function checked_notice() {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		if ( empty( $_GET['efm-checked'] ) ) {
-			return;
-		}
-
-		$release = self::release();
-		$message = ! empty( $release['version'] ) && version_compare( $release['version'], EFM_VERSION, '>' )
-			/* translators: %s: version number. */
-			? sprintf( __( 'Etch Font Manager %s is available.', 'etch-font-manager' ), $release['version'] )
-			: __( 'Etch Font Manager is up to date.', 'etch-font-manager' );
-
-		echo '<div class="notice notice-info is-dismissible"><p>' . esc_html( $message ) . '</p></div>';
 	}
 
 	/**

@@ -2,6 +2,18 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.3.0
+
+### Added
+
+- **Updates from GitHub.** The plugin now appears in the normal WordPress Updates screen and installs new versions from the latest GitHub release, so distributing a fix no longer means uploading a zip by hand.
+- Release notes are shown in the plugin details modal.
+- The extracted folder is renamed to the installed directory name, so an update replaces the existing plugin instead of installing a second copy next to it.
+- `Update URI` header, so a plugin on wordpress.org with a matching slug can never hijack updates.
+- Filters: `efm_updater_repo` to point at a fork, and `efm_enable_updates` to switch the behaviour off.
+
+Release lookups are cached for six hours, with a thirty minute back-off after a failed request, so the GitHub API rate limit is never a concern.
+
 ## 1.2.0
 
 ### Fixed

@@ -753,6 +753,9 @@
 			])
 		);
 
+		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('delivery', 'Delivery') }));
+		contentEl.appendChild(deliverySection(index));
+
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('variants', 'variants') }));
 
 		if (!variants.length) {
@@ -793,6 +796,90 @@
 				}
 			}, [icon('plus', 12), el('span', { text: s('addVariant', 'Add variant') })])
 		);
+	}
+
+	/**
+	 * How a family is delivered: loading behaviour, preload and fallback stack.
+	 *
+	 * @param {number} index Family index.
+	 * @return {HTMLElement}
+	 */
+	function deliverySection(index) {
+		var family = state.families[index];
+
+		var displaySelect = el('select', {
+			class: 'efm-input efm-input--select',
+			onchange: function (event) {
+				state.families[index].display = event.target.value;
+				state.dirty = true;
+				renderHeaderActions();
+			}
+		});
+
+		['swap', 'optional', 'fallback', 'block', 'auto'].forEach(function (value) {
+			displaySelect.appendChild(el('option', {
+				value: value,
+				text: value,
+				selected: value === (family.display || 'swap')
+			}));
+		});
+
+		var stackInput = el('input', {
+			type: 'text',
+			class: 'efm-input',
+			list: 'efm-stacks',
+			placeholder: 'sans-serif',
+			value: family.fallback || '',
+			oninput: function (event) {
+				state.families[index].fallback = event.target.value;
+				state.dirty = true;
+				renderHeaderActions();
+			}
+		});
+
+		var stacks = el('datalist', { id: 'efm-stacks' });
+		[
+			'system-ui, sans-serif',
+			'Arial, Helvetica, sans-serif',
+			'Georgia, "Times New Roman", serif',
+			'ui-monospace, SFMono-Regular, monospace'
+		].forEach(function (value) {
+			stacks.appendChild(el('option', { value: value }));
+		});
+
+		var preloadInput = el('input', {
+			type: 'checkbox',
+			class: 'efm-checkbox',
+			checked: !!family.preload,
+			onchange: function (event) {
+				state.families[index].preload = event.target.checked;
+				state.dirty = true;
+				renderHeaderActions();
+			}
+		});
+
+		return el('div', { class: 'efm-delivery' }, [
+			stacks,
+			el('div', { class: 'efm-fields' }, [
+				el('label', { class: 'efm-field' }, [
+					el('span', { class: 'efm-field__label', text: s('fontDisplay', 'Loading behaviour') }),
+					displaySelect,
+					el('span', { class: 'efm-field__hint', text: s('fontDisplayHint', 'swap shows a fallback until the font arrives. optional skips the font entirely on slow connections, which removes layout shift.') })
+				]),
+				el('label', { class: 'efm-field' }, [
+					el('span', { class: 'efm-field__label', text: s('fallbackStack', 'Fallback stack') }),
+					stackInput,
+					el('span', { class: 'efm-field__hint', text: s('fallbackHint', 'Shown while the font loads, and if it fails. A close match reduces layout shift.') })
+				])
+			]),
+			el('label', { class: 'efm-toggle' }, [
+				preloadInput,
+				el('span', {}, [
+					el('span', { class: 'efm-toggle__label', text: s('preload', 'Preload this family') }),
+					el('span', { class: 'efm-field__hint', text: s('preloadHint', 'Fetches the regular weight early. Use it only for fonts visible above the fold; preloading everything slows the page down.') })
+				])
+			])
+		]);
 	}
 
 	function variantRow(familyIndex, variantIndex, variant) {
@@ -1202,7 +1289,7 @@
 	/* ------------------------------- Actions ----------------------------- */
 
 	function addFamily() {
-		state.families.push({ name: s('newFamily', 'New family'), variants: [] });
+		state.families.push({ name: s('newFamily', 'New family'), variants: [], display: 'swap', preload: false, fallback: '' });
 		state.editing = state.families.length - 1;
 		state.dirty = true;
 		render();

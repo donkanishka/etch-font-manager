@@ -17,6 +17,7 @@ delete_option( 'efm_font_families' );
 delete_option( 'efm_settings' );
 delete_option( 'efm_version' );
 delete_transient( 'efm_google_fonts_index' );
+delete_transient( 'efm_google_fonts_index_v2' );
 
 $efm_css = trailingslashit( WP_CONTENT_DIR . '/fonts' ) . 'efm-fonts.css';
 

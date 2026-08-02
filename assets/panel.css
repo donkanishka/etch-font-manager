@@ -476,6 +476,49 @@
 	color: var(--efm-muted);
 }
 
+.efm-field__hint {
+	font-size: var(--e-font-size-s, 11px);
+	line-height: 1.4;
+	color: color-mix(in srgb, currentColor 45%, transparent);
+}
+
+/* ------------------------------- Delivery ------------------------------ */
+
+.efm-delivery {
+	display: flex;
+	flex-direction: column;
+	gap: var(--e-space-m, 12px);
+	padding: var(--e-space-m, 12px);
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+	background: var(--efm-surface);
+}
+
+.efm-toggle {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	cursor: pointer;
+}
+
+.efm-toggle > span {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.efm-toggle__label {
+	color: var(--efm-text);
+}
+
+.efm-checkbox {
+	inline-size: 14px;
+	block-size: 14px;
+	margin-block-start: 2px;
+	accent-color: var(--efm-accent);
+	cursor: pointer;
+}
+
 .efm-input {
 	inline-size: 100%;
 	block-size: 28px;

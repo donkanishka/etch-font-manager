@@ -124,6 +124,37 @@ class EFM_Rest {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/export',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( __CLASS__, 'export' ),
+				'permission_callback' => $auth,
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/import',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'import' ),
+				'permission_callback' => $auth,
+				'args'                => array(
+					'data' => array(
+						'type'     => 'object',
+						'required' => true,
+					),
+					'mode' => array(
+						'type'    => 'string',
+						'default' => 'replace',
+						'enum'    => array( 'replace', 'merge' ),
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/google/search',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -302,6 +333,39 @@ class EFM_Rest {
 		EFM_Fonts::save_families( $families );
 
 		return rest_ensure_response( self::state() );
+	}
+
+	/**
+	 * GET /export
+	 *
+	 * @return WP_REST_Response
+	 */
+	public static function export() {
+		return rest_ensure_response( EFM_Fonts::export_payload() );
+	}
+
+	/**
+	 * POST /import
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function import( WP_REST_Request $request ) {
+		$report = EFM_Fonts::import_payload(
+			(array) $request->get_param( 'data' ),
+			(string) $request->get_param( 'mode' )
+		);
+
+		if ( is_wp_error( $report ) ) {
+			return $report;
+		}
+
+		return rest_ensure_response(
+			array(
+				'report' => $report,
+				'state'  => self::state(),
+			)
+		);
 	}
 
 	/**

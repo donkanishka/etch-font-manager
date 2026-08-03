@@ -11,7 +11,12 @@
 .efm-manager {
 	--efm-surface: var(--e-base, #27272b);
 	--efm-surface-raised: var(--e-base-light, #36363a);
-	--efm-line: var(--e-base-light, #36363a);
+	/*
+	 * A hairline derived from the foreground, not from --e-base-light: the
+	 * content surface already uses that value, so an outline button sitting on
+	 * it would have an invisible border.
+	 */
+	--efm-line: color-mix(in srgb, var(--e-foreground-color, #e1e1e5) 16%, transparent);
 	--efm-text: var(--e-foreground-color, #e1e1e5);
 	--efm-muted: var(--e-foreground-color-muted, color-mix(in lab, #e1e1e5, transparent 35%));
 	--efm-accent: var(--e-primary, #deff38);

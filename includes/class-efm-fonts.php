@@ -339,6 +339,85 @@ class EFM_Fonts {
 	}
 
 	/**
+	 * The whole font configuration, for moving between sites.
+	 *
+	 * Font files are not included: they can be large, and a family installed
+	 * from Google can simply be reinstalled on the destination.
+	 *
+	 * @return array
+	 */
+	public static function export_payload() {
+		return array(
+			'plugin'   => 'etch-font-manager',
+			'version'  => EFM_VERSION,
+			'exported' => gmdate( 'c' ),
+			'site'     => home_url( '/' ),
+			'families' => self::families(),
+			'settings' => self::settings(),
+			'files'    => wp_list_pluck( self::files(), 'name' ),
+		);
+	}
+
+	/**
+	 * Restore a configuration produced by export_payload().
+	 *
+	 * @param array  $data Decoded payload.
+	 * @param string $mode replace or merge.
+	 * @return array|WP_Error Report of what was imported.
+	 */
+	public static function import_payload( $data, $mode = 'replace' ) {
+		if ( ! is_array( $data ) || ! isset( $data['families'] ) || ! is_array( $data['families'] ) ) {
+			return new WP_Error(
+				'efm_import_invalid',
+				__( 'That file does not look like an Etch Font Manager export.', 'etch-font-manager' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$incoming = self::sanitize_families( $data['families'] );
+
+		if ( 'merge' === $mode ) {
+			$by_name = array();
+
+			foreach ( self::families() as $family ) {
+				$by_name[ strtolower( $family['name'] ) ] = $family;
+			}
+
+			// A family of the same name in the import wins.
+			foreach ( $incoming as $family ) {
+				$by_name[ strtolower( $family['name'] ) ] = $family;
+			}
+
+			$families = array_values( $by_name );
+		} else {
+			$families = $incoming;
+		}
+
+		// Families first: saving settings prunes assignments whose family is gone.
+		self::save_families( $families );
+
+		if ( ! empty( $data['settings'] ) && is_array( $data['settings'] ) ) {
+			self::save_settings( $data['settings'] );
+		}
+
+		$present = wp_list_pluck( self::files(), 'name' );
+		$missing = array();
+
+		foreach ( $families as $family ) {
+			foreach ( (array) $family['variants'] as $variant ) {
+				if ( ! empty( $variant['file'] ) && ! in_array( $variant['file'], $present, true ) ) {
+					$missing[] = $variant['file'];
+				}
+			}
+		}
+
+		return array(
+			'families' => count( $families ),
+			'missing'  => array_values( array_unique( $missing ) ),
+		);
+	}
+
+	/**
 	 * Import data from the legacy "Etch Custom Fonts" plugin, if present.
 	 */
 	public static function maybe_import_legacy() {

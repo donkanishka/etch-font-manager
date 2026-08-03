@@ -234,8 +234,9 @@ class EFM_Google_Fonts {
 	/**
 	 * Download a Google font locally and register it as a family.
 	 *
-	 * @param string   $family  Family name.
-	 * @param string[] $subsets Subsets to download. Defaults to latin.
+	 * @param string   $family   Family name.
+	 * @param string[] $subsets  Subsets to download. Defaults to latin.
+	 * @param bool     $variable Install the variable cut when the family has one.
 	 * @return array|WP_Error
 	 */
 	public static function install( $family, $subsets = array(), $variable = false ) {
@@ -441,7 +442,9 @@ class EFM_Google_Fonts {
 			return array();
 		}
 
-		for ( $i = 1; $i < count( $chunks ) - 1; $i += 2 ) {
+		$last = count( $chunks ) - 1;
+
+		for ( $i = 1; $i < $last; $i += 2 ) {
 			$subset = sanitize_key( trim( $chunks[ $i ] ) );
 
 			if ( ! in_array( $subset, $subsets, true ) ) {

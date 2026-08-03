@@ -75,7 +75,7 @@ class EFM_Fonts {
 		'heavy'       => '900',
 		'light'       => '300',
 		'thin'        => '100',
-		'hairline'    => '100',
+		'hairline'   => '100',
 		'book'        => '400',
 		'bold'        => '700',
 	);
@@ -104,9 +104,7 @@ class EFM_Fonts {
 		update_option( 'efm_version', EFM_VERSION, false );
 	}
 
-	/* --------------------------------------------------------------------- */
-	/* Paths                                                                  */
-	/* --------------------------------------------------------------------- */
+	// Paths.
 
 	/**
 	 * Absolute path to the fonts directory (trailing slash).
@@ -232,9 +230,7 @@ class EFM_Fonts {
 		return 0 === strpos( $real, $base . DIRECTORY_SEPARATOR );
 	}
 
-	/* --------------------------------------------------------------------- */
-	/* Data                                                                   */
-	/* --------------------------------------------------------------------- */
+	// Data.
 
 	/**
 	 * Get stored font families.
@@ -445,9 +441,7 @@ class EFM_Fonts {
 		);
 	}
 
-	/* --------------------------------------------------------------------- */
-	/* Sanitizing                                                             */
-	/* --------------------------------------------------------------------- */
+	// Sanitizing.
 
 	/**
 	 * Sanitize a font family name for safe use inside CSS.
@@ -632,6 +626,12 @@ class EFM_Fonts {
 		return $preloads;
 	}
 
+	/**
+	 * Sanitize a font family name for safe use inside CSS.
+	 *
+	 * @param string $name Raw name.
+	 * @return string
+	 */
 	public static function sanitize_family_name( $name ) {
 		$name = sanitize_text_field( (string) $name );
 		$name = preg_replace( '/["\'\{\};\\\\\/\(\)<>]/', '', $name );
@@ -713,9 +713,7 @@ class EFM_Fonts {
 		return $clean;
 	}
 
-	/* --------------------------------------------------------------------- */
-	/* Files                                                                  */
-	/* --------------------------------------------------------------------- */
+	// Files.
 
 	/**
 	 * List uploaded font files.
@@ -893,9 +891,7 @@ class EFM_Fonts {
 		return true;
 	}
 
-	/* --------------------------------------------------------------------- */
-	/* CSS                                                                    */
-	/* --------------------------------------------------------------------- */
+	// CSS.
 
 	/**
 	 * Build the @font-face CSS.

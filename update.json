@@ -1,10 +1,10 @@
 {
-  "version": "1.7.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.7.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.7.0",
+  "version": "1.7.1",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.7.1/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.7.1",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
   "date": "2026-08-03",
-  "notes": "Import and export the whole font configuration as JSON, plus translation support, a focus trap in the manager and continuous integration."
+  "notes": "Coding standards fixes reported by the new CI run. No functional change."
 }

@@ -843,9 +843,19 @@ class EFM_Fonts {
 			return new WP_Error( 'efm_bad_path', __( 'Invalid destination path.', 'etch-font-manager' ), array( 'status' => 400 ) );
 		}
 
-		$moved = is_uploaded_file( $file['tmp_name'] )
-			? move_uploaded_file( $file['tmp_name'], $destination ) // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_move_uploaded_file
-			: rename( $file['tmp_name'], $destination ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rename
+		if ( is_uploaded_file( $file['tmp_name'] ) ) {
+			$moved = move_uploaded_file( $file['tmp_name'], $destination ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_move_uploaded_file
+		} else {
+			// Not a real upload, e.g. a file handed over by another plugin.
+			global $wp_filesystem;
+
+			if ( ! $wp_filesystem ) {
+				require_once ABSPATH . 'wp-admin/includes/file.php';
+				WP_Filesystem();
+			}
+
+			$moved = $wp_filesystem ? $wp_filesystem->move( $file['tmp_name'], $destination, true ) : false;
+		}
 
 		if ( ! $moved ) {
 			return new WP_Error( 'efm_move_failed', __( 'Could not save the uploaded file.', 'etch-font-manager' ), array( 'status' => 500 ) );

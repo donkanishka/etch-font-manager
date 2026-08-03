@@ -2,6 +2,11 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.7.3
+
+- Use `WP_Filesystem::move()` rather than `rename()` when a font file that is not a real upload is moved into place, so hosts with restricted filesystem access are respected.
+- Continuous integration now fails on coding standard **errors** and reports warnings without blocking. Almost all remaining warnings are whitespace alignment, which `phpcbf` applies automatically.
+
 ## 1.7.2
 
 - Cleared the last two coding standards violations, so continuous integration is green. No functional change.

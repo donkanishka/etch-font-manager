@@ -35,5 +35,14 @@
 				<element value="EFM"/>
 			</property>
 		</properties>
+
+		<!--
+			The standard asks for four characters or more. This plugin has always
+			used the three character efm prefix, including in stored option names
+			such as efm_font_families. Renaming now would orphan the settings of
+			every existing install, which is a far worse outcome than a short
+			prefix, so the check is deliberately excluded rather than satisfied.
+		-->
+		<exclude name="WordPress.NamingConventions.PrefixAllGlobals.ShortPrefixPassed"/>
 	</rule>
 </ruleset>

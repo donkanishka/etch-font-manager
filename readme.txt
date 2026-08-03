@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.6.0
+Stable tag: 1.7.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,12 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.7.0 =
+* Added import and export of the whole font configuration as JSON, with replace or merge modes and a missing-file report.
+* Added translation support and a POT file.
+* Fixed outline buttons having an invisible border on the content surface.
+* Keyboard focus is now trapped inside the manager while it is open.
 
 = 1.6.0 =
 * Browse the whole Google Fonts library with category and sort filters and paging.

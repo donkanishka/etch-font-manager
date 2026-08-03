@@ -312,7 +312,7 @@ class EFM_Builder {
 	 * Register font family names in theme.json so block editor pickers list them.
 	 *
 	 * No fontFace/src is provided, so WordPress will not emit duplicate
-	 * @font-face rules; this plugin's stylesheet already loads the files.
+	 * font face rules; this plugin's stylesheet already loads the files.
 	 *
 	 * @param WP_Theme_JSON_Data $theme_json Theme JSON data.
 	 * @return WP_Theme_JSON_Data

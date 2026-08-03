@@ -1,10 +1,10 @@
 {
-  "version": "1.7.2",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.7.2/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.7.2",
+  "version": "1.7.3",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.7.3/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.7.3",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
   "date": "2026-08-03",
-  "notes": "Final coding standards fixes. Continuous integration is green. No functional change."
+  "notes": "Use WP_Filesystem when moving a non-upload font file into place, and make continuous integration fail on errors while still reporting warnings."
 }

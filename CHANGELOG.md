@@ -2,6 +2,10 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.7.2
+
+- Cleared the last two coding standards violations, so continuous integration is green. No functional change.
+
 ## 1.7.1
 
 - Fixed the coding standards violations the new CI run reported: block comment formatting, a missing doc comment on `sanitize_family_name()`, an undocumented `$variable` parameter, and `count()` evaluated inside a loop condition. No functional change.

@@ -55,11 +55,18 @@ jobs:
             phpcompatibility/phpcompatibility-wp
           echo "$HOME/.composer/vendor/bin" >> "$GITHUB_PATH"
 
-      # Errors fail the build. Warnings, which are almost all whitespace
-      # alignment, are still reported as annotations but do not block a
-      # release; run `phpcbf` locally to apply them.
-      - name: Run PHPCS
-        run: phpcs -q --report=checkstyle --runtime-set ignore_warnings_on_exit 1 | cs2pr --graceful-warnings
+      # Warnings, which are almost all whitespace alignment, are surfaced as
+      # annotations but do not block a release. Run `phpcbf` locally to apply
+      # them. Errors are fatal, and are checked separately so that the exit
+      # code cannot be masked by the pipe.
+      - name: Collect coding standard report
+        run: phpcs -q --report=checkstyle > phpcs-report.xml || true
+
+      - name: Annotate the pull request
+        run: cs2pr --graceful-warnings phpcs-report.xml
+
+      - name: Fail on errors
+        run: phpcs -q --warning-severity=0
 
   javascript:
     name: JavaScript syntax

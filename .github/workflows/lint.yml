@@ -44,7 +44,7 @@ jobs:
         with:
           php-version: '8.3'
           coverage: none
-          tools: composer, cs2pr
+          tools: composer
 
       - name: Install PHPCS and the WordPress standards
         run: |
@@ -55,18 +55,16 @@ jobs:
             phpcompatibility/phpcompatibility-wp
           echo "$HOME/.composer/vendor/bin" >> "$GITHUB_PATH"
 
-      # Warnings, which are almost all whitespace alignment, are surfaced as
-      # annotations but do not block a release. Run `phpcbf` locally to apply
-      # them. Errors are fatal, and are checked separately so that the exit
-      # code cannot be masked by the pipe.
-      - name: Collect coding standard report
-        run: phpcs -q --report=checkstyle > phpcs-report.xml || true
+      # Warnings are almost all whitespace alignment, which `phpcbf` applies
+      # automatically, so they are reported without blocking a release.
+      - name: Report warnings
+        continue-on-error: true
+        run: phpcs -q --report=summary
 
-      - name: Annotate the pull request
-        run: cs2pr --graceful-warnings phpcs-report.xml
-
+      # Errors are fatal. Suppressing warnings here keeps the exit code
+      # meaningful rather than red on cosmetics.
       - name: Fail on errors
-        run: phpcs -q --warning-severity=0
+        run: phpcs -q --warning-severity=0 --report=full
 
   javascript:
     name: JavaScript syntax

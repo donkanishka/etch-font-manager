@@ -2,6 +2,22 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.7.0
+
+### Added
+
+- **Import & export.** A new section downloads every family, variant mapping and assignment as a JSON file, and loads one back on another site. Import runs in **replace** or **merge** mode, and reports any file a family references that is not present in the fonts folder, so a half-migrated setup is obvious rather than silent. Font files are deliberately not included: a family installed from Google can simply be reinstalled.
+- **Translation support.** `load_plugin_textdomain()` on `init`, plus a generated `languages/etch-font-manager.pot` covering all 125 strings.
+- **Continuous integration.** A GitHub Action runs `php -l` on 7.4 and 8.3, PHPCS against the WordPress standard, and checks that `panel.js` parses and `update.json` is valid. `phpcs.xml.dist` ships with the plugin.
+
+### Fixed
+
+- **Outline buttons had an invisible border.** The hairline colour resolved to the same value as the raised content surface, so *New family*, *Add variant*, *Load more* and *Choose a file* had no visible edge. The hairline is now derived from the foreground colour.
+
+### Accessibility
+
+- The manager is a takeover, so keyboard focus is now trapped inside it while open and wraps at both ends.
+
 ## 1.6.0
 
 Google Fonts is now a browser rather than a search box.

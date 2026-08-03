@@ -13,7 +13,6 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Class EFM_Google_Fonts
  */
 class EFM_Google_Fonts {
-
 	/*
 	 * The cache key carries a shape version. Adding a field to the cached index
 	 * must bump it, otherwise sites that upgrade keep serving the old shape

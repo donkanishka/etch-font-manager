@@ -44,6 +44,8 @@
 		total: 0,
 		loadingMore: false,
 		variable: {},
+		importMode: 'replace',
+		importReport: null,
 		busy: '',
 		status: null,
 		dirty: false,
@@ -305,7 +307,8 @@
 		{ key: 'library', icon: 'library', label: function () { return s('library', 'Library'); } },
 		{ key: 'upload', icon: 'upload', label: function () { return s('upload', 'Upload fonts'); } },
 		{ key: 'google', icon: 'google', label: function () { return s('googleFonts', 'Google Fonts'); } },
-		{ key: 'theme', icon: 'palette', label: function () { return s('theme', 'Theme'); } }
+		{ key: 'theme', icon: 'palette', label: function () { return s('theme', 'Theme'); } },
+		{ key: 'tools', icon: 'file', label: function () { return s('tools', 'Import & export'); } }
 	];
 
 	function build() {
@@ -340,6 +343,34 @@
 			if (event.key === 'Escape') {
 				event.stopPropagation();
 				close();
+				return;
+			}
+
+			if (event.key !== 'Tab') {
+				return;
+			}
+
+			// The manager covers the builder, so keyboard focus stays inside it.
+			var focusable = Array.prototype.filter.call(
+				manager.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+				function (node) {
+					return node.offsetParent !== null;
+				}
+			);
+
+			if (!focusable.length) {
+				return;
+			}
+
+			var first = focusable[0];
+			var last = focusable[focusable.length - 1];
+
+			if (event.shiftKey && document.activeElement === first) {
+				event.preventDefault();
+				last.focus();
+			} else if (!event.shiftKey && document.activeElement === last) {
+				event.preventDefault();
+				first.focus();
 			}
 		});
 
@@ -492,6 +523,8 @@
 			renderUpload();
 		} else if (state.view === 'google') {
 			renderGoogle();
+		} else if (state.view === 'tools') {
+			renderTools();
 		} else {
 			renderTheme();
 		}
@@ -1391,6 +1424,152 @@
 				onclick: saveSettings
 			})
 		);
+	}
+
+	/* -------------------------------- Tools ------------------------------ */
+
+	function renderTools() {
+		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('exportTitle', 'Export') }));
+		contentEl.appendChild(el('p', { class: 'efm-muted', text: s('exportHint', 'Download every family, variant mapping and assignment as a JSON file. Font files are not included; a family installed from Google can be reinstalled on the other site.') }));
+		contentEl.appendChild(
+			el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--primary',
+				text: state.busy === 'export' ? s('loading', 'Loading…') : s('exportButton', 'Download configuration'),
+				disabled: state.busy === 'export',
+				onclick: exportConfig
+			})
+		);
+
+		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('importTitle', 'Import') }));
+		contentEl.appendChild(el('p', { class: 'efm-muted', text: s('importHint', 'Load a configuration exported from another site.') }));
+
+		var modeSelect = el('select', {
+			class: 'efm-input efm-input--select',
+			'aria-label': s('importMode', 'Import mode'),
+			onchange: function (event) {
+				state.importMode = event.target.value;
+			}
+		}, [
+			el('option', { value: 'replace', text: s('importReplace', 'Replace everything'), selected: state.importMode !== 'merge' }),
+			el('option', { value: 'merge', text: s('importMerge', 'Merge with existing families'), selected: state.importMode === 'merge' })
+		]);
+
+		var fileInput = el('input', {
+			type: 'file',
+			accept: '.json,application/json',
+			class: 'efm-file-input',
+			onchange: function (event) {
+				var file = event.target.files && event.target.files[0];
+				event.target.value = '';
+
+				if (file) {
+					importConfig(file);
+				}
+			}
+		});
+
+		contentEl.appendChild(
+			el('div', { class: 'efm-fields' }, [
+				el('label', { class: 'efm-field' }, [
+					el('span', { class: 'efm-field__label', text: s('importMode', 'Import mode') }),
+					modeSelect
+				])
+			])
+		);
+
+		contentEl.appendChild(
+			el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--outline',
+				text: state.busy === 'import' ? s('loading', 'Loading…') : s('importButton', 'Choose a file…'),
+				disabled: state.busy === 'import',
+				onclick: function () { fileInput.click(); }
+			})
+		);
+		contentEl.appendChild(fileInput);
+
+		if (state.importReport) {
+			var report = state.importReport;
+			var lines = [
+				el('p', { class: 'efm-muted', text: report.families + ' ' + plural(report.families, s('familyLabel', 'family'), s('familiesLabel', 'families')) + ' ' + s('imported', 'imported') })
+			];
+
+			if (report.missing && report.missing.length) {
+				lines.push(el('p', { class: 'efm-notice', text: s('importMissing', 'These files are referenced but not present in the fonts folder. Upload them, or reinstall the family from Google Fonts:') }));
+				lines.push(el('ul', { class: 'efm-files' }, report.missing.map(function (name) {
+					return el('li', { class: 'efm-file' }, [el('span', { class: 'efm-file__name', text: name })]);
+				})));
+			}
+
+			contentEl.appendChild(el('div', { class: 'efm-report' }, lines));
+		}
+	}
+
+	function exportConfig() {
+		state.busy = 'export';
+		render();
+
+		request('/export')
+			.then(function (data) {
+				var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+				var url = URL.createObjectURL(blob);
+				var link = document.createElement('a');
+
+				link.href = url;
+				link.download = 'etch-fonts-' + new Date().toISOString().slice(0, 10) + '.json';
+				document.body.appendChild(link);
+				link.click();
+				document.body.removeChild(link);
+				window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+
+				setStatus(s('exported', 'Configuration downloaded.'));
+			})
+			.catch(fail)
+			.then(function () {
+				state.busy = '';
+				render();
+			});
+	}
+
+	function importConfig(file) {
+		state.busy = 'import';
+		render();
+
+		var reader = new FileReader();
+
+		reader.onload = function () {
+			var payload;
+
+			try {
+				payload = JSON.parse(reader.result);
+			} catch (error) {
+				state.busy = '';
+				fail(new Error(s('importInvalid', 'That file is not valid JSON.')));
+				render();
+				return;
+			}
+
+			request('/import', { method: 'POST', body: { data: payload, mode: state.importMode || 'replace' } })
+				.then(function (result) {
+					applyState(result && result.state);
+					state.importReport = (result && result.report) || null;
+					setStatus(s('imported', 'imported'));
+				})
+				.catch(fail)
+				.then(function () {
+					state.busy = '';
+					render();
+				});
+		};
+
+		reader.onerror = function () {
+			state.busy = '';
+			fail(new Error(s('error', 'Something went wrong.')));
+			render();
+		};
+
+		reader.readAsText(file);
 	}
 
 	function familySelect(key) {

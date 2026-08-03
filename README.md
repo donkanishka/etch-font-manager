@@ -79,6 +79,8 @@ Already installed? Use **Reinstall** to add a subset later.
 
 **Family editor → Delivery** — set `font-display`, opt a family into preloading, and give it a fallback stack.
 
+**Import & export** — download the whole configuration as JSON and load it on another site, in replace or merge mode. Any font file a family references but that is missing from the destination is listed after the import.
+
 **Theme** — pick the heading and text families and see them applied to a live sample. These are written as
 `--heading-font-family` and `--text-font-family`, which Automatic.css consumes directly.
 
@@ -146,6 +148,16 @@ Namespace `etch-font-manager/v1`:
   in-builder panel or canvas preview would need an update.
 - Google Fonts endpoints — used for search and install only. Installed fonts are local files and keep
   working regardless.
+
+## Development
+
+```bash
+composer global require squizlabs/php_codesniffer wp-coding-standards/wpcs:^3
+phpcs          # coding standards, configured by phpcs.xml.dist
+node --check assets/panel.js
+```
+
+The same checks run in CI on every push.
 
 ## License
 

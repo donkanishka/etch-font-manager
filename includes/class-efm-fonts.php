@@ -169,6 +169,34 @@ class EFM_Fonts {
 	}
 
 	/**
+	 * When the stylesheet was last written, as a Unix timestamp.
+	 *
+	 * @return int Zero when it has never been generated.
+	 */
+	public static function css_generated() {
+		$path = self::css_path();
+
+		return file_exists( $path ) ? (int) filemtime( $path ) : 0;
+	}
+
+	/**
+	 * Sanitize a list of CSS selectors a family should be applied to.
+	 *
+	 * Deliberately narrow: selectors, combinators and commas only. Anything that
+	 * could close a declaration block and inject rules is stripped.
+	 *
+	 * @param string $selector Raw selector list.
+	 * @return string
+	 */
+	public static function sanitize_selector( $selector ) {
+		$selector = sanitize_text_field( (string) $selector );
+		$selector = preg_replace( '/[^A-Za-z0-9 ,.#:_\-\[\]="\'>+~()*]/', '', $selector );
+		$selector = preg_replace( '/\s+/', ' ', (string) $selector );
+
+		return trim( (string) $selector, " ,\t\n" );
+	}
+
+	/**
 	 * Create the fonts directory and protect it from listing.
 	 */
 	public static function ensure_dir() {
@@ -302,9 +330,11 @@ class EFM_Fonts {
 	 */
 	public static function settings() {
 		$defaults = array(
-			'heading_font' => '',
-			'text_font'    => '',
-			'acss_enabled' => true,
+			'heading_font'  => '',
+			'text_font'     => '',
+			'acss_enabled'  => true,
+			'inline_css'    => false,
+			'block_google'  => false,
 		);
 
 		$settings = get_option( self::OPTION_SETTINGS, array() );
@@ -326,6 +356,8 @@ class EFM_Fonts {
 			'heading_font' => self::sanitize_family_name( $input['heading_font'] ?? $current['heading_font'] ),
 			'text_font'    => self::sanitize_family_name( $input['text_font'] ?? $current['text_font'] ),
 			'acss_enabled' => ! empty( $input['acss_enabled'] ),
+			'inline_css'   => ! empty( $input['inline_css'] ?? $current['inline_css'] ),
+			'block_google' => ! empty( $input['block_google'] ?? $current['block_google'] ),
 		);
 
 		update_option( self::OPTION_SETTINGS, $clean, false );
@@ -809,6 +841,7 @@ class EFM_Fonts {
 				'display'  => in_array( $display, self::DISPLAY_VALUES, true ) ? $display : 'swap',
 				'preload'  => ! empty( $family['preload'] ),
 				'fallback' => self::sanitize_font_stack( $family['fallback'] ?? '' ),
+				'selector' => self::sanitize_selector( $family['selector'] ?? '' ),
 				'enabled'  => $enabled,
 				'trashed'  => ! empty( $family['trashed'] ),
 			);
@@ -1233,6 +1266,26 @@ class EFM_Fonts {
 
 		if ( '' !== $tokens ) {
 			$css .= "/* One custom property per family, so a family can be used as var(--efm-family-slug) */\n:root {\n" . $tokens . "}\n\n";
+		}
+
+		$applied = '';
+
+		foreach ( $families as $family ) {
+			if ( empty( $family['name'] ) || empty( $family['variants'] ) || empty( $family['selector'] ) ) {
+				continue;
+			}
+
+			$selector = self::sanitize_selector( $family['selector'] );
+
+			if ( '' === $selector ) {
+				continue;
+			}
+
+			$applied .= $selector . " {\n\tfont-family: " . self::family_stack( $family ) . ";\n}\n\n";
+		}
+
+		if ( '' !== $applied ) {
+			$css .= "/* Families applied to their own selectors */\n" . $applied;
 		}
 
 		if ( ! empty( $settings['acss_enabled'] ) && ( ! empty( $settings['heading_font'] ) || ! empty( $settings['text_font'] ) ) ) {

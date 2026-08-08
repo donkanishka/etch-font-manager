@@ -124,6 +124,16 @@ class EFM_Rest {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/css/regenerate',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'regenerate_css' ),
+				'permission_callback' => $auth,
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/files/prune',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
@@ -251,6 +261,7 @@ class EFM_Rest {
 			'fontsUrl'   => EFM_Fonts::url(),
 			'cssUrl'     => EFM_Fonts::css_url(),
 			'cssVersion' => EFM_Fonts::css_version(),
+			'cssBuilt'   => EFM_Fonts::css_generated(),
 			'acssActive' => EFM_Builder::acss_active(),
 			'version'    => EFM_VERSION,
 			'unused'     => EFM_Fonts::unused_files(),
@@ -289,6 +300,8 @@ class EFM_Rest {
 			array(
 				'heading_font' => (string) $request->get_param( 'heading_font' ),
 				'text_font'    => (string) $request->get_param( 'text_font' ),
+				'inline_css'   => (bool) $request->get_param( 'inline_css' ),
+				'block_google' => (bool) $request->get_param( 'block_google' ),
 				'acss_enabled' => (bool) $request->get_param( 'acss_enabled' ),
 			)
 		);
@@ -358,6 +371,23 @@ class EFM_Rest {
 		}
 
 		EFM_Fonts::save_families( $families );
+
+		return rest_ensure_response( self::state() );
+	}
+
+	/**
+	 * POST /css/regenerate
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function regenerate_css() {
+		if ( ! EFM_Fonts::write_css_file() ) {
+			return new WP_Error(
+				'efm_css_write_failed',
+				__( 'Could not write the stylesheet. Check that the fonts folder is writable.', 'etch-font-manager' ),
+				array( 'status' => 500 )
+			);
+		}
 
 		return rest_ensure_response( self::state() );
 	}

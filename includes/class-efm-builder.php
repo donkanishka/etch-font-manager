@@ -37,6 +37,10 @@ class EFM_Builder {
 
 		// Expose families to the block editor font pickers (names only, no duplicate @font-face).
 		add_filter( 'wp_theme_json_data_theme', array( __CLASS__, 'register_theme_json_fonts' ) );
+
+		// Late, so everything a theme or plugin queued has already been added.
+		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'block_google_fonts' ), 100 );
+		add_filter( 'wp_resource_hints', array( __CLASS__, 'filter_resource_hints' ), 10, 2 );
 	}
 
 	/**
@@ -98,11 +102,98 @@ class EFM_Builder {
 			return;
 		}
 
+		$settings = EFM_Fonts::settings();
+
+		/*
+		 * Inline delivery trades a cacheable file for one less render-blocking
+		 * request. It is worth it on small font sets and a bad trade on large
+		 * ones, so it is a choice rather than a default.
+		 */
+		if ( ! empty( $settings['inline_css'] ) ) {
+			$css = EFM_Fonts::build_css();
+
+			if ( '' !== trim( (string) $css ) ) {
+				wp_register_style( 'efm-fonts', false, array(), EFM_Fonts::css_version() );
+				wp_enqueue_style( 'efm-fonts' );
+				wp_add_inline_style( 'efm-fonts', $css );
+			}
+
+			return;
+		}
+
 		wp_enqueue_style(
 			'efm-fonts',
 			EFM_Fonts::css_url(),
 			array(),
 			EFM_Fonts::css_version()
+		);
+	}
+
+	/**
+	 * Dequeue Google Fonts stylesheets loaded by a theme or plugin.
+	 *
+	 * Runs late on the same hook so it sees everything already queued. Only
+	 * stylesheets pointing at Google's font CDN are touched; the local files
+	 * this plugin generates are unaffected.
+	 */
+	public static function block_google_fonts() {
+		$settings = EFM_Fonts::settings();
+
+		if ( empty( $settings['block_google'] ) ) {
+			return;
+		}
+
+		$styles = wp_styles();
+
+		if ( ! $styles || empty( $styles->registered ) ) {
+			return;
+		}
+
+		foreach ( $styles->registered as $handle => $style ) {
+			$src = is_object( $style ) && ! empty( $style->src ) ? (string) $style->src : '';
+
+			if ( '' === $src ) {
+				continue;
+			}
+
+			if ( false !== strpos( $src, 'fonts.googleapis.com' ) ) {
+				wp_dequeue_style( $handle );
+			}
+		}
+	}
+
+	/**
+	 * Drop preconnect and dns-prefetch hints for Google's font hosts.
+	 *
+	 * Dequeuing the stylesheet but leaving the hint behind still tells the
+	 * browser to open a connection to Google, which defeats the point.
+	 *
+	 * @param array  $urls          Hint URLs.
+	 * @param string $relation_type Hint type.
+	 * @return array
+	 */
+	public static function filter_resource_hints( $urls, $relation_type ) {
+		$settings = EFM_Fonts::settings();
+
+		if ( empty( $settings['block_google'] ) || ! is_array( $urls ) ) {
+			return $urls;
+		}
+
+		if ( ! in_array( $relation_type, array( 'preconnect', 'dns-prefetch', 'preload' ), true ) ) {
+			return $urls;
+		}
+
+		return array_values(
+			array_filter(
+				$urls,
+				static function ( $url ) {
+					$href = is_array( $url ) ? ( $url['href'] ?? '' ) : $url;
+					$href = (string) $href;
+
+					return false === strpos( $href, 'fonts.googleapis.com' )
+						&& false === strpos( $href, 'fonts.gstatic.com' );
+				}
+			)
 		);
 	}
 
@@ -196,6 +287,21 @@ class EFM_Builder {
 			'weights'        => __( 'Weights', 'etch-font-manager' ),
 			'cutsAll'        => __( 'All', 'etch-font-manager' ),
 			'cutsNone'       => __( 'None', 'etch-font-manager' ),
+			'stylesheet'     => __( 'Stylesheet', 'etch-font-manager' ),
+			'cssBuilt'       => __( 'Last generated', 'etch-font-manager' ),
+			'cssNever'       => __( 'The stylesheet has not been generated yet.', 'etch-font-manager' ),
+			'inlineCss'      => __( 'Print the CSS inline', 'etch-font-manager' ),
+			'inlineCssHint'  => __( 'Saves one request but the CSS cannot be cached separately. Worth it for a small font set, not for a large one.', 'etch-font-manager' ),
+			'regenerate'     => __( 'Regenerate stylesheet', 'etch-font-manager' ),
+			'regenerated'    => __( 'Stylesheet regenerated.', 'etch-font-manager' ),
+			'privacy'        => __( 'Privacy', 'etch-font-manager' ),
+			'blockGoogle'    => __( 'Block Google Fonts loaded by other plugins', 'etch-font-manager' ),
+			'blockGoogleHint' => __( 'Stops any theme or plugin stylesheet that points at fonts.googleapis.com, and removes the matching preconnect hints. Your own local fonts are unaffected.', 'etch-font-manager' ),
+			'applyTo'        => __( 'Apply to', 'etch-font-manager' ),
+			'applyToHint'    => __( 'Optional. A comma separated selector list this family is applied to, so you do not have to write the rule yourself.', 'etch-font-manager' ),
+			'cssPreview'     => __( 'Generated CSS', 'etch-font-manager' ),
+			'cssPreviewOff'  => __( 'This family is not loaded, so it contributes no CSS.', 'etch-font-manager' ),
+			'cssPreviewEmpty' => __( 'No variants mapped yet, so this family contributes no CSS.', 'etch-font-manager' ),
 			'recoverHint'    => __( 'These families came from Google Fonts, so their files can be fetched again with the same subsets and weights:', 'etch-font-manager' ),
 			'recoverButton'  => __( 'Download missing Google fonts', 'etch-font-manager' ),
 			'recovering'     => __( 'Downloading…', 'etch-font-manager' ),

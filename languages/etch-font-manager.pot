@@ -810,3 +810,115 @@ msgstr ""
 #: includes/class-efm-updater.php:568
 msgid "See the GitHub release notes."
 msgstr ""
+
+#: includes/class-efm-builder.php:312
+msgid "Each family in its own script"
+msgstr ""
+
+#: includes/class-efm-builder.php:313
+msgid "Auto"
+msgstr ""
+
+#: includes/class-efm-builder.php:314
+msgid "Latin"
+msgstr ""
+
+#: includes/class-efm-builder.php:315
+msgid "123"
+msgstr ""
+
+#: includes/class-efm-builder.php:316
+msgid "Layout"
+msgstr ""
+
+#: includes/class-efm-builder.php:317
+msgid "Row"
+msgstr ""
+
+#: includes/class-efm-builder.php:318
+msgid "Grid"
+msgstr ""
+
+#: includes/class-efm-builder.php:319
+msgid "Compact"
+msgstr ""
+
+#: includes/class-efm-builder.php:320
+msgid "Writing system"
+msgstr ""
+
+#: includes/class-efm-builder.php:321
+msgid "Any writing system"
+msgstr ""
+
+#: includes/class-efm-builder.php:322
+msgid "Technology"
+msgstr ""
+
+#: includes/class-efm-builder.php:323
+msgid "Any technology"
+msgstr ""
+
+#: includes/class-efm-builder.php:324
+msgid "Variable only"
+msgstr ""
+
+#: includes/class-efm-builder.php:325
+msgid "Static only"
+msgstr ""
+
+#: includes/class-efm-builder.php:326
+msgid "Trending"
+msgstr ""
+
+#: includes/class-efm-builder.php:327
+msgid "Newest"
+msgstr ""
+
+#: includes/class-efm-builder.php:328
+msgid "Reset all"
+msgstr ""
+
+#: includes/class-efm-builder.php:329
+msgid "of"
+msgstr ""
+
+#: includes/class-efm-builder.php:330
+msgid "selected"
+msgstr ""
+
+#: includes/class-efm-builder.php:331
+msgid "Clear"
+msgstr ""
+
+#: includes/class-efm-builder.php:332
+msgid "Install selected"
+msgstr ""
+
+#: includes/class-efm-builder.php:333
+msgid "Select"
+msgstr ""
+
+#: includes/class-efm-builder.php:334
+msgid "Size of the whole family at Google. What you install depends on the subsets and weights chosen below."
+msgstr ""
+
+#: includes/class-efm-builder.php:336
+msgid "axis"
+msgstr ""
+
+#: includes/class-efm-builder.php:337
+msgid "axes"
+msgstr ""
+
+#: includes/class-efm-builder.php:338
+msgid "style"
+msgstr ""
+
+#: includes/class-efm-builder.php:339
+msgid "styles"
+msgstr ""
+
+#: includes/class-efm-builder.php:343
+msgid "failed"
+msgstr ""

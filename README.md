@@ -20,6 +20,10 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 - **Guard rails** — warnings before closing with unsaved edits, removing a family that is assigned as the heading or text font, or deleting a file that variants still map.
 - **Family and variant mapping** — assign files to weights and styles, all inline in the panel.
 - **A CSS variable per family** — every family is published as `--efm-family-{slug}`, so `"Noto Sans Sinhala"` is usable as `var(--efm-family-noto-sans-sinhala)` in an Etch style record, an ACSS override or any stylesheet. The value carries the family's fallback stack, and the family editor shows the variable ready to copy.
+- **Stylesheet delivery** — the generated CSS is cached to a file and enqueued, or printed inline if you prefer one less request. Shows when it was last built, with a regenerate action.
+- **Blocks other plugins' Google Fonts** — an optional privacy setting that dequeues any stylesheet pointing at `fonts.googleapis.com` and strips the matching preconnect hints.
+- **Apply to your own selectors** — give a family a selector list such as `h1, .site-title` and the rule is written for you.
+- **Generated CSS preview** — see exactly what a family contributes, live as you edit it.
 - **Automatic.css integration** — map families to `--heading-font-family` and `--text-font-family`.
 - **Instant canvas refresh** — the generated stylesheet is reloaded in the builder shell and canvas iframe after every change; no page reload.
 - **Self-hosted and GDPR friendly** — everything is served from your own fonts directory.

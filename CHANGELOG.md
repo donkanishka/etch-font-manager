@@ -2,6 +2,27 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.12.0
+
+### Added
+
+- **Inline or external stylesheet.** The generated CSS has always been written to a cached file and enqueued;
+  it can now be printed inline instead, trading a cacheable request for one less round trip. Sensible on a small
+  font set, a bad trade on a large one, so it is a choice rather than a default.
+- **Regenerate on demand.** The Theme section shows when the stylesheet was last written and offers to rebuild
+  it, for when a file has been edited or lost outside the plugin.
+- **Block Google Fonts loaded by other plugins.** A privacy setting that dequeues any theme or plugin stylesheet
+  pointing at `fonts.googleapis.com`, and strips the matching `preconnect` and `dns-prefetch` hints — leaving the
+  hint behind still tells the browser to open a connection to Google, which defeats the point. Your own local
+  fonts are untouched.
+- **Apply a family to your own selectors.** An optional comma separated selector list per family, written into
+  the stylesheet as a `font-family` rule, so assigning a font to `h1, .site-title` no longer means writing the
+  rule by hand. Input is restricted to selector characters, so a value cannot escape the rule it is written
+  into; anything that tries becomes an invalid selector the browser ignores.
+- **Read the CSS a family generates.** The family editor shows the `@font-face` blocks, the custom property and
+  any selector rule it contributes, updating live as fields change, and says so plainly when a family is
+  disabled or has no variants mapped.
+
 ## 1.11.0
 
 ### Added

@@ -50,6 +50,9 @@
 		status: null,
 		dirty: false,
 		subsets: {},
+		cuts: {},
+		pruning: false,
+		unused: (cfg.state && cfg.state.unused) || [],
 		previewText: s('preview', 'The quick brown fox'),
 		previewSize: 30
 	};
@@ -224,6 +227,7 @@
 		state.settings = next.settings || {};
 		state.cssUrl = next.cssUrl || state.cssUrl;
 		state.cssVersion = next.cssVersion || state.cssVersion;
+		state.unused = next.unused || [];
 		state.dirty = false;
 		refreshFontCss();
 	}
@@ -801,6 +805,11 @@
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('delivery', 'Delivery') }));
 		contentEl.appendChild(deliverySection(index));
 
+		if (family.google) {
+			contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('googleSource', 'Google Fonts') }));
+			contentEl.appendChild(googleSection(index));
+		}
+
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('variants', 'variants') }));
 
 		if (!variants.length) {
@@ -841,6 +850,112 @@
 				}
 			}, [icon('plus', 12), el('span', { text: s('addVariant', 'Add variant') })])
 		);
+	}
+
+	/**
+	 * Cuts a family currently has installed, in Google's notation.
+	 *
+	 * @param {object} family Family record.
+	 * @return {string[]}
+	 */
+	function installedCuts(family) {
+		var cuts = [];
+
+		(family.variants || []).forEach(function (variant) {
+			var weight = String(variant.weight || '400');
+
+			// A variable cut carries a range and maps to no single weight.
+			if (weight.indexOf(' ') !== -1) {
+				return;
+			}
+
+			var cut = weight + (variant.style === 'italic' ? 'i' : '');
+
+			if (cuts.indexOf(cut) === -1) {
+				cuts.push(cut);
+			}
+		});
+
+		return cuts;
+	}
+
+	/**
+	 * Which cuts of a Google family are installed, and re-installing a different
+	 * selection. Deselecting leaves the file on disk so re-enabling costs
+	 * nothing; "Remove unused files" in Import & export clears them for good.
+	 *
+	 * @param {number} index Family index.
+	 * @return {HTMLElement}
+	 */
+	function googleSection(index) {
+		var family = state.families[index];
+		var google = family.google || {};
+		var subsets = google.subsets || ['latin'];
+		var busy = state.busy === 'install:' + family.name;
+		var rows = [];
+
+		if (google.variable) {
+			var axis = google.axis || {};
+			var span = axis.min && axis.max ? axis.min + '–' + axis.max : '';
+
+			rows.push(el('p', {
+				class: 'efm-field__hint',
+				text: s('variableNote', 'Installed as a variable font: one file per subset covering every weight.') + (span ? ' ' + span + '.' : '')
+			}));
+		} else {
+			var available = (google.cuts || []).slice();
+
+			if (!available.length) {
+				available = installedCuts(family);
+			}
+
+			var chosen = state.cuts[family.name] || installedCuts(family);
+			state.cuts[family.name] = chosen;
+
+			rows.push(el('div', { class: 'efm-subsets' }, [
+				el('span', { class: 'efm-subsets__label', text: s('weights', 'Weights') }),
+				el('div', { class: 'efm-chips' }, available.map(function (cut) {
+					var on = chosen.indexOf(cut) !== -1;
+
+					return el('button', {
+						type: 'button',
+						class: 'efm-chip efm-chip--toggle' + (on ? ' is-on' : ''),
+						'aria-pressed': on ? 'true' : 'false',
+						text: cutLabel(cut),
+						onclick: function () {
+							var at = chosen.indexOf(cut);
+
+							if (at === -1) {
+								chosen.push(cut);
+							} else {
+								chosen.splice(at, 1);
+							}
+
+							render();
+						}
+					});
+				}))
+			]));
+		}
+
+		rows.push(el('p', {
+			class: 'efm-field__hint',
+			text: s('googleSubsets', 'Subsets') + ': ' + subsets.join(', ')
+		}));
+
+		if (!google.variable) {
+			rows.push(el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--outline',
+				disabled: busy || !(state.cuts[family.name] || []).length,
+				text: busy ? s('installing', 'Installing…') : s('applyCuts', 'Download selection'),
+				onclick: function () {
+					installGoogleFont(family.name, subsets, false, state.cuts[family.name] || []);
+				}
+			}));
+		}
+
+		return el('div', { class: 'efm-delivery' }, rows);
 	}
 
 	/**
@@ -971,10 +1086,18 @@
 			}
 		});
 
-		['100', '200', '300', '400', '500', '600', '700', '800', '900', '100 900'].forEach(function (weight) {
+		var weights = ['100', '200', '300', '400', '500', '600', '700', '800', '900', '100 900'];
+
+		// A narrowed variable axis produces a range this list does not carry, so
+		// the stored value is added rather than silently rewritten on save.
+		if (weights.indexOf(String(variant.weight)) === -1) {
+			weights.push(String(variant.weight));
+		}
+
+		weights.forEach(function (weight) {
 			weightSelect.appendChild(el('option', {
 				value: weight,
-				text: weight === '100 900' ? s('variable', 'variable') : weight,
+				text: weight.indexOf(' ') !== -1 ? s('variable', 'variable') + ' ' + weight : weight,
 				selected: weight === String(variant.weight)
 			}));
 		});
@@ -1180,6 +1303,11 @@
 			var chosen = selectedSubsets(font);
 			var hasVariable = !!(font.wght && font.wght.min);
 			var useVariable = hasVariable && state.variable[font.family] !== false;
+			var allCuts = availableCuts(font);
+			var cuts = selectedCuts(font);
+			// A variable cut spans every weight in one file, so the weight picker
+			// is only meaningful for a static install.
+			var pickCuts = !useVariable && allCuts.length > 1;
 
 			grid.appendChild(
 				el('article', { class: 'efm-card', 'data-family': font.family }, [
@@ -1193,8 +1321,8 @@
 								text: busy
 									? s('installing', 'Installing…')
 									: (installed ? s('reinstall', 'Reinstall') : s('install', 'Install')),
-								disabled: state.busy.indexOf('install:') === 0 || !chosen.length,
-								onclick: function () { installGoogleFont(font.family, chosen, useVariable); }
+								disabled: state.busy.indexOf('install:') === 0 || !chosen.length || (pickCuts && !cuts.length),
+								onclick: function () { installGoogleFont(font.family, chosen, useVariable, cuts); }
 							})
 						])
 					]),
@@ -1221,6 +1349,31 @@
 								text: font.wght.min + '–' + font.wght.max + ' · ' + s('variableHint', 'one file per subset instead of one per weight')
 							})
 						])
+					]) : null,
+					pickCuts ? el('div', { class: 'efm-subsets' }, [
+						el('span', { class: 'efm-subsets__label', text: s('weights', 'Weights') }),
+						el('div', { class: 'efm-chips' }, allCuts.map(function (cut) {
+							var on = cuts.indexOf(cut) !== -1;
+
+							return el('button', {
+								type: 'button',
+								class: 'efm-chip efm-chip--toggle' + (on ? ' is-on' : ''),
+								'aria-pressed': on ? 'true' : 'false',
+								text: cutLabel(cut),
+								onclick: function () {
+									toggleCut(font, cut);
+								}
+							});
+						}).concat([
+							el('button', {
+								type: 'button',
+								class: 'efm-chip efm-chip--toggle',
+								text: cuts.length === allCuts.length ? s('cutsNone', 'None') : s('cutsAll', 'All'),
+								onclick: function () {
+									setCuts(font, cuts.length === allCuts.length ? [] : allCuts);
+								}
+							})
+						]))
 					]) : null,
 					available.length > 1 ? el('div', { class: 'efm-subsets' }, [
 						el('span', { class: 'efm-subsets__label', text: s('subsets', 'Subsets') }),
@@ -1295,6 +1448,90 @@
 		}
 
 		render();
+	}
+
+	/**
+	 * Every cut a family offers, in Google's own notation: "400" for regular,
+	 * "700i" for bold italic. Ordered by weight, uprights before italics.
+	 *
+	 * @param {object} font Search result.
+	 * @return {string[]}
+	 */
+	function availableCuts(font) {
+		var cuts = (font.variants || []).map(function (variant) {
+			return String(variant.weight) + (variant.style === 'italic' ? 'i' : '');
+		});
+
+		if (!cuts.length) {
+			cuts = ['400'];
+		}
+
+		return cuts.filter(function (cut, i, arr) {
+			return arr.indexOf(cut) === i;
+		}).sort(function (a, b) {
+			var ai = a.slice(-1) === 'i';
+			var bi = b.slice(-1) === 'i';
+
+			if (ai !== bi) {
+				return ai ? 1 : -1;
+			}
+
+			return parseInt(a, 10) - parseInt(b, 10);
+		});
+	}
+
+	/**
+	 * Cuts chosen for a family. Regular and bold are preselected because they
+	 * cover body copy and headings; installing all eighteen wastes disk, install
+	 * time and generated CSS on weights almost no site uses.
+	 *
+	 * @param {object} font Search result.
+	 * @return {string[]}
+	 */
+	function selectedCuts(font) {
+		if (!state.cuts[font.family]) {
+			var available = availableCuts(font);
+
+			state.cuts[font.family] = available.filter(function (cut) {
+				return cut === '400' || cut === '700';
+			});
+
+			if (!state.cuts[font.family].length) {
+				state.cuts[font.family] = available.slice(0, 1);
+			}
+		}
+
+		return state.cuts[font.family];
+	}
+
+	function toggleCut(font, cut) {
+		var chosen = selectedCuts(font);
+		var at = chosen.indexOf(cut);
+
+		if (at === -1) {
+			chosen.push(cut);
+		} else {
+			chosen.splice(at, 1);
+		}
+
+		render();
+	}
+
+	function setCuts(font, cuts) {
+		state.cuts[font.family] = cuts.slice();
+		render();
+	}
+
+	/**
+	 * Label for a cut chip. "400" reads as "400", "700i" as "700 italic".
+	 *
+	 * @param {string} cut Cut key.
+	 * @return {string}
+	 */
+	function cutLabel(cut) {
+		return cut.slice(-1) === 'i'
+			? cut.slice(0, -1) + ' ' + s('italic', 'Italic')
+			: cut;
 	}
 
 	var previewed = {};
@@ -1429,6 +1666,36 @@
 	/* -------------------------------- Tools ------------------------------ */
 
 	function renderTools() {
+		var unused = state.unused || [];
+
+		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('cleanupTitle', 'Unused files') }));
+		contentEl.appendChild(el('p', {
+			class: 'efm-muted',
+			text: unused.length
+				? s('cleanupHint', 'These font files are on the server but no family uses them, usually from deselecting a weight. Deleting them frees space; the weight can be downloaded again at any time.')
+				: s('cleanupNone', 'Every font file on the server is in use.')
+		}));
+
+		if (unused.length) {
+			contentEl.appendChild(el('ul', { class: 'efm-files' }, unused.map(function (file) {
+				return el('li', { class: 'efm-file' }, [
+					el('span', { class: 'efm-file__name', text: file.name + ' · ' + formatSize(file.size) })
+				]);
+			})));
+
+			contentEl.appendChild(
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--outline',
+					text: state.pruning
+						? s('loading', 'Loading…')
+						: s('cleanupButton', 'Delete unused files') + ' (' + unused.length + ')',
+					disabled: state.pruning,
+					onclick: pruneFiles
+				})
+			);
+		}
+
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('exportTitle', 'Export') }));
 		contentEl.appendChild(el('p', { class: 'efm-muted', text: s('exportHint', 'Download every family, variant mapping and assignment as a JSON file. Font files are not included; a family installed from Google can be reinstalled on the other site.') }));
 		contentEl.appendChild(
@@ -1652,6 +1919,36 @@
 		}).catch(fail).then(render);
 	}
 
+	function pruneFiles() {
+		var unused = state.unused || [];
+
+		if (!unused.length) {
+			return;
+		}
+
+		// Deleting bytes is not reversible, so it is always confirmed.
+		if (!window.confirm(s('cleanupConfirm', 'Delete these font files from the server?') + '\n\n' + unused.map(function (file) {
+			return file.name;
+		}).join('\n'))) {
+			return;
+		}
+
+		state.pruning = true;
+		render();
+
+		request('/files/prune', { method: 'POST' })
+			.then(function (data) {
+				applyState(data && data.state);
+				var report = (data && data.pruned) || {};
+				setStatus(s('cleanupDone', 'Deleted') + ' · ' + (report.deleted || []).length + ' · ' + formatSize(report.bytes || 0));
+			})
+			.catch(fail)
+			.then(function () {
+				state.pruning = false;
+				render();
+			});
+	}
+
 	function deleteFile(filename) {
 		request('/files/delete', { method: 'POST', body: { filename: filename } })
 			.then(function (next) {
@@ -1704,17 +2001,26 @@
 			});
 	}
 
-	function installGoogleFont(family, subsets, variable) {
+	function installGoogleFont(family, subsets, variable, cuts) {
 		state.busy = 'install:' + family;
 		setStatus(s('installing', 'Installing…') + ' ' + family);
 		render();
 
 		request('/google/install', {
 			method: 'POST',
-			body: { family: family, subsets: subsets || ['latin'], variable: !!variable }
+			body: {
+				family: family,
+				subsets: subsets || ['latin'],
+				variable: !!variable,
+				// A variable cut is one file per subset spanning every weight, so
+				// picking individual weights would mean nothing there.
+				cuts: variable ? [] : (cuts || [])
+			}
 		})
 			.then(function (data) {
 				applyState(data && data.state);
+				// Let the chips re-derive from what is actually installed.
+				delete state.cuts[family];
 				setStatus(s('installed', 'Installed') + ' · ' + family);
 			})
 			.catch(fail)

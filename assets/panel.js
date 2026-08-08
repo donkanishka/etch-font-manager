@@ -52,6 +52,7 @@
 		subsets: {},
 		cuts: {},
 		pruning: false,
+		recovering: '',
 		unused: (cfg.state && cfg.state.unused) || [],
 		previewText: s('preview', 'The quick brown fox'),
 		previewSize: 30
@@ -1980,8 +1981,82 @@
 				})));
 			}
 
+			var recoverable = report.recoverable || [];
+
+			if (recoverable.length) {
+				lines.push(el('p', {
+					class: 'efm-muted',
+					text: s('recoverHint', 'These families came from Google Fonts, so their files can be fetched again with the same subsets and weights:') + ' ' +
+						recoverable.map(function (item) { return item.name; }).join(', ')
+				}));
+				lines.push(el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--primary',
+					disabled: !!state.recovering,
+					text: state.recovering
+						? s('recovering', 'Downloading…') + ' ' + state.recovering
+						: s('recoverButton', 'Download missing Google fonts') + ' (' + recoverable.length + ')',
+					onclick: function () { recoverMissing(recoverable); }
+				}));
+			}
+
 			contentEl.appendChild(el('div', { class: 'efm-report' }, lines));
 		}
+	}
+
+	/**
+	 * Fetch the files for imported Google families whose fonts are missing.
+	 *
+	 * Runs one install at a time rather than in parallel: each one downloads
+	 * several files from Google, and a shared host will not thank us for opening
+	 * a dozen connections at once.
+	 *
+	 * @param {object[]} items Recoverable families from the import report.
+	 */
+	function recoverMissing(items) {
+		var queue = items.slice();
+		var done = 0;
+		var failed = [];
+
+		var next = function () {
+			if (!queue.length) {
+				state.recovering = '';
+
+				if (failed.length) {
+					fail(new Error(s('recoverFailed', 'Could not download:') + ' ' + failed.join(', ')));
+				} else {
+					state.importReport = null;
+					setStatus(s('recoverDone', 'Downloaded') + ' · ' + done);
+				}
+
+				render();
+				return;
+			}
+
+			var item = queue.shift();
+			state.recovering = item.name;
+			render();
+
+			request('/google/install', {
+				method: 'POST',
+				body: {
+					family: item.name,
+					subsets: item.subsets && item.subsets.length ? item.subsets : ['latin'],
+					variable: !!item.variable,
+					cuts: item.variable ? [] : (item.cuts || [])
+				}
+			})
+				.then(function (data) {
+					applyState(data && data.state);
+					done += 1;
+				})
+				.catch(function () {
+					failed.push(item.name);
+				})
+				.then(next);
+		};
+
+		next();
 	}
 
 	function exportConfig() {

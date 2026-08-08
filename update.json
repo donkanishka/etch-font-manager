@@ -1,10 +1,10 @@
 {
-  "version": "1.14.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.14.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.14.0",
+  "version": "1.15.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.15.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.15.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
-  "date": "2026-08-08",
-  "notes": "Fixes preload never firing for families without a regular weight or with a narrow variable axis, caches the inline stylesheet instead of rebuilding it per request, and adds a behavioural test suite to continuous integration."
+  "date": "2026-08-09",
+  "notes": "Rebuilds the Google Fonts browser: Row, Grid and Compact layouts, a writing-system filter, per-family script previews, variable-only filtering, trending and newest sorting, multi-select bulk install, family size and axis counts, and a Reset all control."
 }

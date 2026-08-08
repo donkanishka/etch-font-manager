@@ -2,6 +2,51 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.15.0
+
+A rebuild of the Google Fonts browser, modelled on fonts.google.com. Almost all of it is presentation over
+metadata the plugin already downloaded and cached and then discarded before storing: the index request is
+unchanged, and there is still no API key.
+
+### Added
+
+- **Row, Grid and Compact layouts** for both the Library and the Google Fonts browser, with the choice
+  remembered between sessions. Row gives each family a full-width line for judging a face at reading length,
+  Grid is the scanning view, Compact is one family per line for finding a known name. Track sizing is intrinsic,
+  so every mode still collapses to a single column when the manager is narrow.
+- **Writing-system filter.** Filter the catalogue by the subsets a family actually ships glyphs for, with the
+  number of families beside each entry. Sinhala narrows 1,942 families to 8, Tamil to 17. Previously the only
+  way to find them was to already know their names.
+- **Per-family script previews.** Each card previews in the family's own primary script rather than a Latin
+  pangram, so a family that does not really carry the script it claims is obvious immediately instead of after
+  installing. Preset chips switch every card at once between Auto, Latin, සිංහල, தமிழ் and numerals.
+- **Variable-only and static-only filtering**, and cards now read `Variable (2 axes)` where that is the truthful
+  description, instead of a style count that says 18 whether those cuts are 18 files or one variable file.
+- **Trending and Newest sort orders**, alongside the existing Most popular and A to Z.
+- **Multi-select with bulk install.** Tick several families and install them in one action. Installs run one at
+  a time on purpose; a dozen concurrent downloads from Google is a good way to get rate limited or to time out
+  on shared hosting. A family that fails stays selected so it can be retried without re-picking it.
+- **Family size and designers** on each card. The size is the whole family as Google publishes it, which is why
+  it is labelled as such: what actually lands on disk depends on the subsets and weights chosen.
+- **Reset all**, disabled until something is actually filtering.
+
+### Changed
+
+- The cached Google Fonts index now keeps the designers, byte size, date added, trending rank, classifications,
+  primary script and the **full axis list** rather than only the `wght` range. The cache key moves to
+  `efm_google_fonts_index_v3`, so the first search after updating refetches the index once.
+- `GET /google/search` accepts `subset` and `variable`, and its `sort` enum gains `trending` and `newest`. The
+  response carries a `subsetList`. `variable` is a string rather than a boolean because it is tri-state: an
+  absent value must mean "do not filter", which a boolean would collapse into "static only".
+
+### Notes
+
+- The specimen detail view with live variable-axis sliders is **not** in this release. It is the one item from
+  the review that needs its own pass rather than being bolted on untested.
+- Google's Feeling, Appearance and Seasonal filters are deliberately not implemented. Those tags are editorial
+  and are not present in the metadata; only `category`, `stroke` and `classifications` are, and
+  `classifications` covers just 1,088 of the 1,942 families.
+
 ## 1.14.0
 
 ### Fixed

@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.14.0
+Stable tag: 1.15.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,14 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.15.0 =
+* Row, Grid and Compact layouts for the Library and the Google Fonts browser, remembered between sessions.
+* Filter Google Fonts by writing system, with a family count per script. Sinhala narrows 1,942 families to 8.
+* Every family previews in its own script instead of a Latin pangram, with one-tap Sinhala, Tamil and numeral presets.
+* Filter to variable or static families, and sort by Trending or Newest.
+* Select several families and install them in one action.
+* Cards now show the designers, the family size and the variable axis count.
 
 = 1.14.0 =
 * Fixed preload doing nothing for families without a regular weight, or with a narrow variable axis such as 400-900. The variable case was a regression from 1.8.0.

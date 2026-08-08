@@ -367,11 +367,14 @@ class EFM_Fonts {
 	}
 
 	/**
-	 * The whole font configuration, for moving between sites.
+	 * The font configuration, for moving between sites.
 	 *
-	 * Font files are not included: they can be large, and a family installed
-	 * from Google can simply be reinstalled on the destination.
+	 * Font files are left out by default: they can be large, and a family
+	 * installed from Google can simply be fetched again on the destination.
+	 * Bundling them is for fonts that were uploaded by hand, which cannot.
 	 *
+	 * @param string[] $names  Family names to include. Empty exports them all.
+	 * @param bool     $bundle Embed the font files in the payload.
 	 * @return array
 	 */
 	public static function export_payload( $names = array(), $bundle = false ) {

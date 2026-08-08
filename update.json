@@ -1,10 +1,10 @@
 {
-  "version": "1.13.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.13.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.13.0",
+  "version": "1.14.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.14.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.14.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
   "date": "2026-08-08",
-  "notes": "Export only the families you want, optionally with the font files bundled in, and see exactly what an import will change before it is applied."
+  "notes": "Fixes preload never firing for families without a regular weight or with a narrow variable axis, caches the inline stylesheet instead of rebuilding it per request, and adds a behavioural test suite to continuous integration."
 }

@@ -2,6 +2,39 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.14.0
+
+### Fixed
+
+- **Preload did nothing for many families.** It only accepted a weight of exactly `400` or the full `100 900`
+  range. A family installed without a regular weight preloaded nothing at all, and from 1.8.0 — when narrow
+  variable ranges stopped being rewritten to `400` — neither did any variable family with an axis such as
+  Alegreya's `400 900` or Akshar's `300 700`. **This was a regression introduced by 1.8.0** for the variable
+  case. Preload now picks the upright weight nearest regular, preferring latin, so it always chooses something
+  sensible.
+- **Inline CSS was rebuilt on every page load.** The option added in 1.12.0 regenerated the stylesheet from
+  scratch on each request. It is now cached and keyed to the generated file's timestamp, so it is rebuilt only
+  when the fonts actually change. The file itself still cannot be inlined directly: it is written with relative
+  `src` URLs, which would resolve against the page rather than the stylesheet.
+
+### Added
+
+- **A behavioural test suite, running in continuous integration.** 70-odd assertions covering weight parsing,
+  font signature checks, selector sanitising, the enabled/trashed rules, preload selection and family
+  sanitising. No Composer, no PHPUnit, no WordPress test suite: it stubs the few WordPress functions it reaches
+  and runs anywhere PHP does, with `php tests/run.php`. Tests are excluded from the release zip.
+- **Override theme styles** per family, adding `!important` to its selector rule, matching what the
+  Automatic.css mapping has always done.
+- **Restore all** and **Empty trash**.
+- A bundled export now shows its approximate size before you download it, and a bundled import refuses more than
+  50 MB of font data with a clear message rather than failing somewhere further down.
+
+### Changed
+
+- The Google Fonts blocking setting now also drops any link tag that survives the dequeue, and its description
+  is honest about what it cannot reach: an `@import` inside a theme stylesheet, or a link printed straight into
+  the page. Covering those would need output buffering, which is not worth the risk it brings.
+
 ## 1.13.0
 
 ### Added

@@ -8,6 +8,14 @@
 	<exclude-pattern>/node_modules/*</exclude-pattern>
 	<exclude-pattern>/languages/*</exclude-pattern>
 
+	<!--
+		The test suite is a standalone script, not plugin code. It echoes results,
+		sets an exit status and stubs WordPress functions, all of which the
+		WordPress standard rightly objects to in a plugin and none of which is
+		shipped: tests are excluded from the release zip.
+	-->
+	<exclude-pattern>/tests/*</exclude-pattern>
+
 	<arg name="extensions" value="php"/>
 	<arg name="colors"/>
 	<arg value="sp"/>

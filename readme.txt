@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.13.0
+Stable tag: 1.14.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,12 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.14.0 =
+* Fixed preload doing nothing for families without a regular weight, or with a narrow variable axis such as 400-900. The variable case was a regression from 1.8.0.
+* Inline CSS is now cached instead of being rebuilt on every page load.
+* Added a behavioural test suite that runs in continuous integration.
+* Added an override option for selector rules, Restore all and Empty trash, and a size guard on bundled imports.
 
 = 1.13.0 =
 * Export only the families you choose, and optionally bundle the font files with them.

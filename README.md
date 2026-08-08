@@ -161,11 +161,18 @@ Namespace `etch-font-manager/v1`:
 
 ```bash
 composer global require squizlabs/php_codesniffer wp-coding-standards/wpcs:^3
-phpcs          # coding standards, configured by phpcs.xml.dist
+phpcs                # coding standards, configured by phpcs.xml.dist
+php tests/run.php    # behavioural tests, no dependencies
 node --check assets/panel.js
 ```
 
 The same checks run in CI on every push.
+
+The test suite is deliberately dependency free — no Composer, no PHPUnit, no WordPress test suite — so it runs
+anywhere PHP does. It stubs only the handful of WordPress functions the tested methods actually reach, and
+covers the logic that decides what ends up in a stylesheet and what is allowed onto disk: weight parsing, font
+signature checks, selector sanitising, the enabled and trashed rules, preload selection and family sanitising.
+Anything touching the database, filesystem or network is out of scope. Tests are excluded from the release zip.
 
 ## License
 

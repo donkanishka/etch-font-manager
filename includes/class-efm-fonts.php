@@ -396,21 +396,73 @@ class EFM_Fonts {
 			self::save_settings( $data['settings'] );
 		}
 
-		$present = wp_list_pluck( self::files(), 'name' );
-		$missing = array();
+		$present     = wp_list_pluck( self::files(), 'name' );
+		$missing     = array();
+		$recoverable = array();
 
 		foreach ( $families as $family ) {
+			$absent = array();
+
 			foreach ( (array) $family['variants'] as $variant ) {
 				if ( ! empty( $variant['file'] ) && ! in_array( $variant['file'], $present, true ) ) {
 					$missing[] = $variant['file'];
+					$absent[]  = $variant['file'];
 				}
 			}
+
+			/*
+			 * A family installed from Google carries the family name, the chosen
+			 * subsets and the chosen cuts, which is everything needed to fetch
+			 * the files again. Reporting that turns a config-only export into
+			 * something that actually rebuilds on the destination site.
+			 */
+			if ( empty( $absent ) || empty( $family['google'] ) ) {
+				continue;
+			}
+
+			$recoverable[] = array(
+				'name'     => $family['name'],
+				'subsets'  => $family['google']['subsets'] ?? array( 'latin' ),
+				'cuts'     => self::installed_cuts( $family ),
+				'variable' => ! empty( $family['google']['variable'] ),
+				'files'    => $absent,
+			);
 		}
 
 		return array(
-			'families' => count( $families ),
-			'missing'  => array_values( array_unique( $missing ) ),
+			'families'    => count( $families ),
+			'missing'     => array_values( array_unique( $missing ) ),
+			'recoverable' => $recoverable,
 		);
+	}
+
+	/**
+	 * The weight/style cuts a family currently maps, in Google's notation.
+	 *
+	 * A variable cut spans a weight range rather than one weight, so it maps to
+	 * no single cut and is skipped.
+	 *
+	 * @param array $family Family record.
+	 * @return string[]
+	 */
+	public static function installed_cuts( $family ) {
+		$cuts = array();
+
+		foreach ( (array) ( $family['variants'] ?? array() ) as $variant ) {
+			$weight = (string) ( $variant['weight'] ?? '400' );
+
+			if ( false !== strpos( $weight, ' ' ) ) {
+				continue;
+			}
+
+			$cut = $weight . ( 'italic' === ( $variant['style'] ?? 'normal' ) ? 'i' : '' );
+
+			if ( ! in_array( $cut, $cuts, true ) ) {
+				$cuts[] = $cut;
+			}
+		}
+
+		return $cuts;
 	}
 
 	/**

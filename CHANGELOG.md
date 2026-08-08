@@ -2,6 +2,27 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.10.0
+
+### Added
+
+- **Disable a family without deleting it.** Every family now has an on/off switch, in the library card and in
+  the family editor. A disabled family produces **no output at all** — no `@font-face`, no `--efm-family-` custom
+  property, no preload, and it is not offered in the block editor — while its record, its weight mapping and
+  every font file stay exactly where they are. Turning it back on costs nothing.
+- **A trash you can restore from.** The delete button now moves a family to the trash instead of destroying it.
+  A Trash entry appears in the navigation with a count, listing what is in there with **Restore** and **Delete
+  permanently**. Deleting permanently drops the record only; the files remain on disk and show up under unused
+  files in Import & export, so bytes are still only ever deleted by an explicit, separate action.
+- Disabling or trashing a family that is assigned as the heading or text font warns first, and notes that the
+  assignment comes back when the family is restored. Trashing keeps the assignment; deleting permanently clears
+  it, which is what already happened on delete.
+
+### Notes
+
+- Existing families are unaffected. A record saved before this release carries neither flag, and a missing flag
+  is read as enabled and not trashed, so nothing changes on upgrade.
+
 ## 1.9.0
 
 ### Added

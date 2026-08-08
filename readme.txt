@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.9.0
+Stable tag: 1.10.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,11 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.10.0 =
+* Disable a family without deleting it. A disabled family produces no CSS, no custom property and no preload, but keeps its files and mapping.
+* Deleting a family now moves it to a trash you can restore from, with a separate Delete permanently action.
+* Disabling or trashing a family assigned as the heading or text font warns first.
 
 = 1.9.0 =
 * Every font family is now published as a CSS custom property, so a family can be used as var(--efm-family-slug) anywhere a font family is expected.

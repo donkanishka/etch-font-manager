@@ -196,6 +196,21 @@ class EFM_Builder {
 			'weights'        => __( 'Weights', 'etch-font-manager' ),
 			'cutsAll'        => __( 'All', 'etch-font-manager' ),
 			'cutsNone'       => __( 'None', 'etch-font-manager' ),
+			'trash'          => __( 'Trash', 'etch-font-manager' ),
+			'trashHint'      => __( 'These families are not loaded on the site. Their font files are still on the server, so restoring one brings it back exactly as it was.', 'etch-font-manager' ),
+			'enableFamily'   => __( 'Enable', 'etch-font-manager' ),
+			'disableFamily'  => __( 'Disable', 'etch-font-manager' ),
+			'trashFamily'    => __( 'Move to trash', 'etch-font-manager' ),
+			'restoreFamily'  => __( 'Restore', 'etch-font-manager' ),
+			'deleteFamily'   => __( 'Delete permanently', 'etch-font-manager' ),
+			'disabledNotice' => __( 'Disabled. Its files are kept, but it is not loaded on the site.', 'etch-font-manager' ),
+			'familyEnabled'  => __( 'Load this family on the site', 'etch-font-manager' ),
+			'familyEnabledHint' => __( 'Turn off to stop the font loading without deleting anything. Files and weight mapping are kept.', 'etch-font-manager' ),
+			'confirmDeleteFamily' => __( 'Delete this family for good? Its font files stay on the server and can be removed from Import & export.', 'etch-font-manager' ),
+			'confirmDisableAssigned' => __( 'This family is assigned as:', 'etch-font-manager' ),
+			'confirmDisableAssignedHint' => __( 'Disabling it means that text falls back to another font. Continue?', 'etch-font-manager' ),
+			'confirmTrashAssigned' => __( 'This family is assigned as:', 'etch-font-manager' ),
+			'confirmTrashAssignedHint' => __( 'Moving it to the trash means that text falls back to another font. The assignment returns if you restore it. Continue?', 'etch-font-manager' ),
 			'cssToken'       => __( 'CSS variable', 'etch-font-manager' ),
 			'cssTokenHint'   => __( 'Use this anywhere a font family is expected. It already includes the fallback stack.', 'etch-font-manager' ),
 			'googleSource'   => __( 'Google Fonts', 'etch-font-manager' ),
@@ -333,7 +348,7 @@ class EFM_Builder {
 	 * @return WP_Theme_JSON_Data
 	 */
 	public static function register_theme_json_fonts( $theme_json ) {
-		$families = EFM_Fonts::families();
+		$families = EFM_Fonts::active_families();
 
 		if ( empty( $families ) || ! is_object( $theme_json ) || ! method_exists( $theme_json, 'update_with' ) ) {
 			return $theme_json;

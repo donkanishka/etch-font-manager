@@ -54,6 +54,7 @@
 		pruning: false,
 		recovering: '',
 		unused: (cfg.state && cfg.state.unused) || [],
+		cssBuilt: (cfg.state && cfg.state.cssBuilt) || 0,
 		previewText: s('preview', 'The quick brown fox'),
 		previewSize: 30
 	};
@@ -229,6 +230,7 @@
 		state.cssUrl = next.cssUrl || state.cssUrl;
 		state.cssVersion = next.cssVersion || state.cssVersion;
 		state.unused = next.unused || [];
+		state.cssBuilt = next.cssBuilt || 0;
 		state.dirty = false;
 		refreshFontCss();
 	}
@@ -989,6 +991,9 @@
 			contentEl.appendChild(googleSection(index));
 		}
 
+		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('cssPreview', 'Generated CSS') }));
+		contentEl.appendChild(el('pre', { class: 'efm-code', text: previewCss(family) }));
+
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('variants', 'variants') }));
 
 		if (!variants.length) {
@@ -1041,6 +1046,54 @@
 	 * @param {object} family Family record.
 	 * @return {HTMLElement}
 	 */
+	/**
+	 * The CSS this family contributes to the generated stylesheet.
+	 *
+	 * Rebuilt in the panel rather than fetched, so it updates live as fields are
+	 * edited. It mirrors build_css() and is for reading, not for copying into a
+	 * stylesheet by hand.
+	 *
+	 * @param {object} family Family record.
+	 * @return {string}
+	 */
+	function previewCss(family) {
+		if (!isEnabled(family) || isTrashed(family)) {
+			return s('cssPreviewOff', 'This family is not loaded, so it contributes no CSS.');
+		}
+
+		var display = family.display || 'swap';
+		var name = family.name || '';
+
+		var blocks = (family.variants || []).filter(function (variant) {
+			return !!variant.file;
+		}).map(function (variant) {
+			var rule = '@font-face {\n' +
+				'\tfont-family: "' + name + '";\n' +
+				'\tsrc: url("' + variant.file + '") format("woff2");\n' +
+				'\tfont-weight: ' + (variant.weight || '400') + ';\n' +
+				'\tfont-style: ' + (variant.style || 'normal') + ';\n' +
+				'\tfont-display: ' + display + ';\n';
+
+			if (variant.range) {
+				rule += '\tunicode-range: ' + variant.range + ';\n';
+			}
+
+			return rule + '}';
+		});
+
+		if (family.slug) {
+			blocks.push(':root {\n\t--efm-family-' + family.slug + ': ' + familyStack(name) + ';\n}');
+		}
+
+		if (family.selector) {
+			blocks.push(family.selector + ' {\n\tfont-family: ' + familyStack(name) + ';\n}');
+		}
+
+		return blocks.length
+			? blocks.join('\n\n')
+			: s('cssPreviewEmpty', 'No variants mapped yet, so this family contributes no CSS.');
+	}
+
 	function cssTokenField(family) {
 		var token = 'var(--efm-family-' + family.slug + ')';
 
@@ -1242,6 +1295,21 @@
 					el('span', { class: 'efm-field__label', text: s('fallbackStack', 'Fallback stack') }),
 					stackInput,
 					el('span', { class: 'efm-field__hint', text: s('fallbackHint', 'Shown while the font loads, and if it fails. A close match reduces layout shift.') })
+				]),
+				el('label', { class: 'efm-field' }, [
+					el('span', { class: 'efm-field__label', text: s('applyTo', 'Apply to') }),
+					el('input', {
+						type: 'text',
+						class: 'efm-input',
+						placeholder: 'h1, .site-title',
+						value: family.selector || '',
+						oninput: function (event) {
+							state.families[index].selector = event.target.value;
+							state.dirty = true;
+							renderHeaderActions();
+						}
+					}),
+					el('span', { class: 'efm-field__hint', text: s('applyToHint', 'Optional. A comma separated selector list this family is applied to, so you do not have to write the rule yourself.') })
 				])
 			]),
 			el('label', { class: 'efm-toggle' }, [
@@ -1849,6 +1917,62 @@
 			])
 		);
 
+		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('stylesheet', 'Stylesheet') }));
+		contentEl.appendChild(el('p', {
+			class: 'efm-muted',
+			text: state.cssBuilt
+				? s('cssBuilt', 'Last generated') + ': ' + new Date(state.cssBuilt * 1000).toLocaleString()
+				: s('cssNever', 'The stylesheet has not been generated yet.')
+		}));
+
+		contentEl.appendChild(
+			el('label', { class: 'efm-toggle' }, [
+				el('input', {
+					type: 'checkbox',
+					class: 'efm-checkbox',
+					checked: !!state.settings.inline_css,
+					onchange: function (event) {
+						state.settings.inline_css = event.target.checked;
+						render();
+					}
+				}),
+				el('span', {}, [
+					el('span', { class: 'efm-toggle__label', text: s('inlineCss', 'Print the CSS inline') }),
+					el('span', { class: 'efm-field__hint', text: s('inlineCssHint', 'Saves one request but the CSS cannot be cached separately. Worth it for a small font set, not for a large one.') })
+				])
+			])
+		);
+
+		contentEl.appendChild(
+			el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--outline',
+				disabled: state.busy === 'regenerate',
+				text: state.busy === 'regenerate' ? s('saving', 'Saving…') : s('regenerate', 'Regenerate stylesheet'),
+				onclick: regenerateCss
+			})
+		);
+
+		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('privacy', 'Privacy') }));
+
+		contentEl.appendChild(
+			el('label', { class: 'efm-toggle' }, [
+				el('input', {
+					type: 'checkbox',
+					class: 'efm-checkbox',
+					checked: !!state.settings.block_google,
+					onchange: function (event) {
+						state.settings.block_google = event.target.checked;
+						render();
+					}
+				}),
+				el('span', {}, [
+					el('span', { class: 'efm-toggle__label', text: s('blockGoogle', 'Block Google Fonts loaded by other plugins') }),
+					el('span', { class: 'efm-field__hint', text: s('blockGoogleHint', 'Stops any theme or plugin stylesheet that points at fonts.googleapis.com, and removes the matching preconnect hints. Your own local fonts are unaffected.') })
+				])
+			])
+		);
+
 		contentEl.appendChild(
 			el('div', { class: 'efm-sample' }, [
 				el('p', {
@@ -2316,6 +2440,22 @@
 			});
 	}
 
+	function regenerateCss() {
+		state.busy = 'regenerate';
+		render();
+
+		request('/css/regenerate', { method: 'POST' })
+			.then(function (next) {
+				applyState(next);
+				setStatus(s('regenerated', 'Stylesheet regenerated.'));
+			})
+			.catch(fail)
+			.then(function () {
+				state.busy = '';
+				render();
+			});
+	}
+
 	function saveSettings() {
 		state.busy = 'settings';
 		render();
@@ -2325,7 +2465,9 @@
 			body: {
 				heading_font: state.settings.heading_font || '',
 				text_font: state.settings.text_font || '',
-				acss_enabled: true
+				acss_enabled: true,
+				inline_css: !!state.settings.inline_css,
+				block_google: !!state.settings.block_google
 			}
 		})
 			.then(function (next) {

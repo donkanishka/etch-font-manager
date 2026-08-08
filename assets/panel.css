@@ -297,6 +297,25 @@
 	background: var(--efm-surface);
 }
 
+/* Read-only view of the CSS a family contributes. */
+.efm-code {
+	/* The content column is a flex column, so without this the block is
+	   squashed to a couple of lines instead of taking its natural height. */
+	flex: 0 0 auto;
+	max-height: 320px;
+	margin: 0;
+	padding: var(--e-space-m, 12px);
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+	background: var(--efm-surface);
+	color: var(--efm-muted);
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 11px;
+	line-height: 1.6;
+	white-space: pre-wrap;
+	overflow-x: auto;
+}
+
 /* A disabled family stays legible but reads as inactive. */
 .efm-card.is-disabled .efm-specimen,
 .efm-card.is-disabled .efm-card__title,

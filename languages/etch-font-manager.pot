@@ -147,6 +147,16 @@ msgstr ""
 msgid "All"
 msgstr ""
 
+#: includes/class-efm-builder.php:199
+msgid "CSS variable"
+msgstr ""
+
+#: includes/class-efm-builder.php:200
+msgid ""
+"Use this anywhere a font family is expected. It already includes the fallback "
+"stack."
+msgstr ""
+
 #: includes/class-efm-builder.php:201
 msgid "Download selection"
 msgstr ""

@@ -124,6 +124,16 @@ class EFM_Rest {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/files/prune',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'prune_files' ),
+				'permission_callback' => $auth,
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/export',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -207,6 +217,11 @@ class EFM_Rest {
 						'type'    => 'boolean',
 						'default' => false,
 					),
+					'cuts'     => array(
+						'type'    => 'array',
+						'default' => array(),
+						'items'   => array( 'type' => 'string' ),
+					),
 				),
 			)
 		);
@@ -227,6 +242,7 @@ class EFM_Rest {
 			'cssVersion' => EFM_Fonts::css_version(),
 			'acssActive' => EFM_Builder::acss_active(),
 			'version'    => EFM_VERSION,
+			'unused'     => EFM_Fonts::unused_files(),
 		);
 	}
 
@@ -336,6 +352,22 @@ class EFM_Rest {
 	}
 
 	/**
+	 * POST /files/prune
+	 *
+	 * @return WP_REST_Response
+	 */
+	public static function prune_files() {
+		$report = EFM_Fonts::prune_files();
+
+		return rest_ensure_response(
+			array(
+				'pruned' => $report,
+				'state'  => self::state(),
+			)
+		);
+	}
+
+	/**
 	 * GET /export
 	 *
 	 * @return WP_REST_Response
@@ -404,7 +436,8 @@ class EFM_Rest {
 		$installed = EFM_Google_Fonts::install(
 			(string) $request->get_param( 'family' ),
 			(array) $request->get_param( 'subsets' ),
-			(bool) $request->get_param( 'variable' )
+			(bool) $request->get_param( 'variable' ),
+			(array) $request->get_param( 'cuts' )
 		);
 
 		if ( is_wp_error( $installed ) ) {

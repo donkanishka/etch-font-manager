@@ -236,9 +236,11 @@ class EFM_Google_Fonts {
 	 * @param string   $family   Family name.
 	 * @param string[] $subsets  Subsets to download. Defaults to latin.
 	 * @param bool     $variable Install the variable cut when the family has one.
+	 * @param string[] $cuts     Weight/style cuts to install, e.g. "400", "700i".
+	 *                           Empty installs every cut the family offers.
 	 * @return array|WP_Error
 	 */
-	public static function install( $family, $subsets = array(), $variable = false ) {
+	public static function install( $family, $subsets = array(), $variable = false, $cuts = array() ) {
 		$family = EFM_Fonts::sanitize_family_name( $family );
 
 		if ( '' === $family ) {
@@ -251,11 +253,13 @@ class EFM_Google_Fonts {
 			$subsets = array( 'latin' );
 		}
 
+		$cuts = self::sanitize_cuts( $cuts );
+
 		// The weight axis is read from the index rather than trusted from the
 		// request, so a family without a variable cut cannot be forced into one.
 		$axis = $variable ? self::weight_axis( $family ) : array();
 
-		$specs = self::css_specs( $axis );
+		$specs = self::css_specs( $axis, $cuts );
 		$css   = '';
 
 		foreach ( $specs as $spec ) {
@@ -292,14 +296,33 @@ class EFM_Google_Fonts {
 
 		$parsed = self::parse_css( $css, $subsets );
 
+		/*
+		 * The request already asks for the chosen cuts, but Google is free to
+		 * return more than was asked for, so the selection is enforced again
+		 * here. A variable cut carries a weight range rather than a single
+		 * weight, so those are never filtered.
+		 */
+		if ( empty( $axis ) && ! empty( $cuts ) ) {
+			$parsed = array_values(
+				array_filter(
+					$parsed,
+					static function ( $variant ) use ( $cuts ) {
+						$key = $variant['weight'] . ( 'italic' === $variant['style'] ? 'i' : '' );
+
+						return in_array( $key, $cuts, true );
+					}
+				)
+			);
+		}
+
 		if ( empty( $parsed ) ) {
 			return new WP_Error( 'efm_gf_no_variants', __( 'No downloadable variants were found for the selected subsets.', 'etch-font-manager' ), array( 'status' => 502 ) );
 		}
 
 		EFM_Fonts::ensure_dir();
 
-		$slug     = sanitize_file_name( strtolower( str_replace( ' ', '-', $family ) ) );
-		$variants = array();
+		$slug      = sanitize_file_name( strtolower( str_replace( ' ', '-', $family ) ) );
+		$installed = array();
 
 		foreach ( $parsed as $variant ) {
 			$cut = false !== strpos( $variant['weight'], ' ' ) ? 'variable' : $variant['weight'];
@@ -332,7 +355,7 @@ class EFM_Google_Fonts {
 				}
 			}
 
-			$variants[] = array(
+			$installed[] = array(
 				'file'   => $filename,
 				'weight' => $variant['weight'],
 				'style'  => $variant['style'],
@@ -341,7 +364,7 @@ class EFM_Google_Fonts {
 			);
 		}
 
-		if ( empty( $variants ) ) {
+		if ( empty( $installed ) ) {
 			return new WP_Error( 'efm_gf_download_failed', __( 'Could not download any font files.', 'etch-font-manager' ), array( 'status' => 502 ) );
 		}
 
@@ -355,23 +378,94 @@ class EFM_Google_Fonts {
 			}
 		}
 
+		$meta      = self::family_meta( $family );
+		$available = array();
+
+		foreach ( (array) ( $meta['variants'] ?? array() ) as $variant ) {
+			$available[] = $variant['weight'] . ( 'italic' === $variant['style'] ? 'i' : '' );
+		}
+
+		$google = array(
+			'subsets'  => $subsets,
+			'cuts'     => $available,
+			'variable' => ! empty( $axis ),
+		);
+
+		if ( ! empty( $axis ) ) {
+			$google['axis'] = $axis;
+		}
+
 		if ( null === $index ) {
 			$families[] = array(
 				'name'     => $family,
-				'variants' => $variants,
+				'variants' => $installed,
+				'google'   => $google,
 			);
 		} else {
-			$families[ $index ]['variants'] = $variants;
+			$families[ $index ]['variants'] = $installed;
+			$families[ $index ]['google']   = $google;
 		}
 
 		EFM_Fonts::save_families( $families );
 
 		return array(
 			'family'   => $family,
-			'variants' => $variants,
+			'variants' => $installed,
 			'subsets'  => $subsets,
 			'variable' => ! empty( $axis ),
+			'cuts'     => $cuts,
 		);
+	}
+
+	/**
+	 * Normalise a list of weight/style cuts.
+	 *
+	 * Accepts Google's own notation, where an "i" suffix marks an italic, so
+	 * "400" is regular and "700i" is bold italic. Anything else is discarded.
+	 *
+	 * @param mixed $cuts Raw selection.
+	 * @return string[]
+	 */
+	protected static function sanitize_cuts( $cuts ) {
+		$clean = array();
+
+		foreach ( (array) $cuts as $cut ) {
+			$cut = strtolower( trim( (string) $cut ) );
+
+			if ( ! preg_match( '/^([1-9]00)(i?)$/', $cut, $m ) ) {
+				continue;
+			}
+
+			$key = $m[1] . $m[2];
+
+			if ( ! in_array( $key, $clean, true ) ) {
+				$clean[] = $key;
+			}
+		}
+
+		return $clean;
+	}
+
+	/**
+	 * The cached index entry for a family.
+	 *
+	 * @param string $family Family name.
+	 * @return array
+	 */
+	public static function family_meta( $family ) {
+		$fonts = self::index();
+
+		if ( is_wp_error( $fonts ) ) {
+			return array();
+		}
+
+		foreach ( $fonts as $font ) {
+			if ( 0 === strcasecmp( $font['family'], $family ) ) {
+				return $font;
+			}
+		}
+
+		return array();
 	}
 
 	/**
@@ -381,20 +475,11 @@ class EFM_Google_Fonts {
 	 * @return array{min:int,max:int}|array
 	 */
 	protected static function weight_axis( $family ) {
-		$fonts = self::index();
+		$meta = self::family_meta( $family );
 
-		if ( is_wp_error( $fonts ) ) {
-			return array();
-		}
-
-		foreach ( $fonts as $font ) {
-			if ( 0 === strcasecmp( $font['family'], $family ) ) {
-				return ! empty( $font['wght'] ) ? $font['wght'] : array();
-			}
-		}
-
-		return array();
+		return ! empty( $meta['wght'] ) ? $meta['wght'] : array();
 	}
+
 
 	/**
 	 * Family specs to try against the CSS API, best first.
@@ -402,10 +487,11 @@ class EFM_Google_Fonts {
 	 * Not every family offers italics, and asking for one that does not exist
 	 * returns an error, so each spec is tried until one responds.
 	 *
-	 * @param array $axis Weight axis, empty for a static install.
+	 * @param array    $axis Weight axis, empty for a static install.
+	 * @param string[] $cuts Chosen cuts, empty for every cut the family offers.
 	 * @return string[]
 	 */
-	protected static function css_specs( $axis ) {
+	protected static function css_specs( $axis, $cuts = array() ) {
 		if ( ! empty( $axis ) ) {
 			$range = $axis['min'] . '..' . $axis['max'];
 
@@ -415,10 +501,69 @@ class EFM_Google_Fonts {
 			);
 		}
 
+		$chosen = self::cut_specs( $cuts );
+
+		if ( ! empty( $chosen ) ) {
+			return $chosen;
+		}
+
 		return array(
 			':ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900',
 			':wght@100;200;300;400;500;600;700;800;900',
 		);
+	}
+
+	/**
+	 * Family specs for an explicit selection of cuts, best first.
+	 *
+	 * The CSS API rejects a spec whose axis tuples are not in ascending order,
+	 * so both the ital group and the weights inside it are sorted. When the
+	 * selection includes italics a plain weight spec is kept as a fallback, for
+	 * families that turn out not to offer them.
+	 *
+	 * @param string[] $cuts Chosen cuts.
+	 * @return string[]
+	 */
+	protected static function cut_specs( $cuts ) {
+		if ( empty( $cuts ) ) {
+			return array();
+		}
+
+		$normal = array();
+		$italic = array();
+
+		foreach ( $cuts as $cut ) {
+			if ( 'i' === substr( $cut, -1 ) ) {
+				$italic[] = (int) rtrim( $cut, 'i' );
+			} else {
+				$normal[] = (int) $cut;
+			}
+		}
+
+		sort( $normal );
+		sort( $italic );
+
+		$specs = array();
+
+		if ( ! empty( $italic ) ) {
+			$pairs = array();
+
+			foreach ( $normal as $weight ) {
+				$pairs[] = '0,' . $weight;
+			}
+
+			foreach ( $italic as $weight ) {
+				$pairs[] = '1,' . $weight;
+			}
+
+			$specs[] = ':ital,wght@' . implode( ';', $pairs );
+		}
+
+		if ( ! empty( $normal ) ) {
+			$specs[] = ':wght@' . implode( ';', $normal );
+		}
+
+		return $specs;
 	}
 
 	/**

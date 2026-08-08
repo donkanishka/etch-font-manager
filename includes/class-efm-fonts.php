@@ -681,7 +681,7 @@ class EFM_Fonts {
 
 					$clean_variant = array(
 						'file'   => $file,
-						'weight' => in_array( $weight, self::WEIGHTS, true ) ? $weight : '400',
+						'weight' => self::sanitize_weight( $weight ),
 						'style'  => in_array( $style, array( 'normal', 'italic' ), true ) ? $style : 'normal',
 					);
 
@@ -701,12 +701,104 @@ class EFM_Fonts {
 
 			$display = strtolower( sanitize_text_field( (string) ( $family['display'] ?? 'swap' ) ) );
 
-			$clean[] = array(
+			$entry = array(
 				'name'     => $name,
 				'variants' => $variants,
 				'display'  => in_array( $display, self::DISPLAY_VALUES, true ) ? $display : 'swap',
 				'preload'  => ! empty( $family['preload'] ),
 				'fallback' => self::sanitize_font_stack( $family['fallback'] ?? '' ),
+			);
+
+			$google = self::sanitize_google_block( $family['google'] ?? array() );
+
+			if ( ! empty( $google ) ) {
+				$entry['google'] = $google;
+			}
+
+			$clean[] = $entry;
+		}
+
+		return $clean;
+	}
+
+	/**
+	 * Sanitize a font weight.
+	 *
+	 * A variable cut carries a range rather than a single weight, for example
+	 * "300 700". Only the full 100-900 range used to be accepted, which silently
+	 * rewrote every narrower axis to 400 — most variable families on Google
+	 * Fonts declare something narrower than 100-900.
+	 *
+	 * @param string $weight Raw weight.
+	 * @return string
+	 */
+	public static function sanitize_weight( $weight ) {
+		$weight = preg_replace( '/\s+/', ' ', trim( (string) $weight ) );
+
+		if ( in_array( $weight, self::WEIGHTS, true ) ) {
+			return $weight;
+		}
+
+		if ( preg_match( '/^(\d{1,4}) (\d{1,4})$/', $weight, $m ) ) {
+			$min = (int) $m[1];
+			$max = (int) $m[2];
+
+			if ( $min >= 1 && $max <= 1000 && $min <= $max ) {
+				return $min . ' ' . $max;
+			}
+		}
+
+		return '400';
+	}
+
+	/**
+	 * Sanitize the Google Fonts block kept on a family.
+	 *
+	 * Recording where a family came from, which subsets were chosen and which
+	 * cuts the family offers is what lets the editor re-install a different
+	 * selection later without searching the library again.
+	 *
+	 * @param mixed $google Raw block.
+	 * @return array
+	 */
+	protected static function sanitize_google_block( $google ) {
+		if ( ! is_array( $google ) || empty( $google ) ) {
+			return array();
+		}
+
+		$subsets = array();
+
+		foreach ( (array) ( $google['subsets'] ?? array() ) as $subset ) {
+			$subset = sanitize_key( $subset );
+
+			if ( '' !== $subset && ! in_array( $subset, $subsets, true ) ) {
+				$subsets[] = $subset;
+			}
+		}
+
+		$cuts = array();
+
+		foreach ( (array) ( $google['cuts'] ?? array() ) as $cut ) {
+			$cut = strtolower( trim( (string) $cut ) );
+
+			if ( preg_match( '/^[1-9]00i?$/', $cut ) && ! in_array( $cut, $cuts, true ) ) {
+				$cuts[] = $cut;
+			}
+		}
+
+		$clean = array(
+			'subsets'  => $subsets,
+			'cuts'     => $cuts,
+			'variable' => ! empty( $google['variable'] ),
+		);
+
+		$min = (int) ( $google['axis']['min'] ?? 0 );
+		$max = (int) ( $google['axis']['max'] ?? 0 );
+
+		if ( $min >= 1 && $max <= 1000 && $min <= $max ) {
+			$clean['axis'] = array(
+				'min' => $min,
+				'max' => $max,
 			);
 		}
 
@@ -899,6 +991,64 @@ class EFM_Fonts {
 		wp_delete_file( $path );
 
 		return true;
+	}
+
+	/**
+	 * Font files on disk that no family refers to.
+	 *
+	 * Deselecting a variant leaves its file in place on purpose, so enabling it
+	 * again costs nothing. This lists what that has left behind.
+	 *
+	 * @return array<int,array<string,mixed>>
+	 */
+	public static function unused_files() {
+		$used = array();
+
+		foreach ( self::families() as $family ) {
+			foreach ( (array) ( $family['variants'] ?? array() ) as $variant ) {
+				if ( ! empty( $variant['file'] ) ) {
+					$used[ $variant['file'] ] = true;
+				}
+			}
+		}
+
+		return array_values(
+			array_filter(
+				self::files(),
+				static function ( $file ) use ( $used ) {
+					return ! isset( $used[ $file['name'] ] );
+				}
+			)
+		);
+	}
+
+	/**
+	 * Delete every font file no family refers to.
+	 *
+	 * @return array{deleted:string[],failed:string[],bytes:int}
+	 */
+	public static function prune_files() {
+		$deleted = array();
+		$failed  = array();
+		$bytes   = 0;
+
+		foreach ( self::unused_files() as $file ) {
+			$result = self::delete_file( $file['name'] );
+
+			if ( is_wp_error( $result ) ) {
+				$failed[] = $file['name'];
+				continue;
+			}
+
+			$deleted[] = $file['name'];
+			$bytes    += (int) $file['size'];
+		}
+
+		return array(
+			'deleted' => $deleted,
+			'failed'  => $failed,
+			'bytes'   => $bytes,
+		);
 	}
 
 	// CSS.

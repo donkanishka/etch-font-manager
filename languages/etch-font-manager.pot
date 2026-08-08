@@ -140,6 +140,53 @@ msgid "Subsets"
 msgstr ""
 
 #: includes/class-efm-builder.php:196
+msgid "Weights"
+msgstr ""
+
+#: includes/class-efm-builder.php:197
+msgid "All"
+msgstr ""
+
+#: includes/class-efm-builder.php:201
+msgid "Download selection"
+msgstr ""
+
+#: includes/class-efm-builder.php:202
+msgid "Installed as a variable font: one file per subset covering every weight."
+msgstr ""
+
+#: includes/class-efm-builder.php:203
+msgid "Unused files"
+msgstr ""
+
+#: includes/class-efm-builder.php:204
+msgid ""
+"These font files are on the server but no family uses them, usually from "
+"deselecting a weight. Deleting them frees space; the weight can be downloaded "
+"again at any time."
+msgstr ""
+
+#: includes/class-efm-builder.php:205
+msgid "Every font file on the server is in use."
+msgstr ""
+
+#: includes/class-efm-builder.php:206
+msgid "Delete unused files"
+msgstr ""
+
+#: includes/class-efm-builder.php:207
+msgid "Delete these font files from the server?"
+msgstr ""
+
+#: includes/class-efm-builder.php:208
+msgid "Deleted"
+msgstr ""
+
+#: includes/class-efm-builder.php:198
+msgid "None"
+msgstr ""
+
+#: includes/class-efm-builder.php:196
 msgid "Import & export"
 msgstr ""
 

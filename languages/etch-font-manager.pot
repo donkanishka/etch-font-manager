@@ -147,6 +147,28 @@ msgstr ""
 msgid "All"
 msgstr ""
 
+#: includes/class-efm-builder.php:194
+msgid ""
+"These families came from Google Fonts, so their files can be fetched again "
+"with the same subsets and weights:"
+msgstr ""
+
+#: includes/class-efm-builder.php:195
+msgid "Download missing Google fonts"
+msgstr ""
+
+#: includes/class-efm-builder.php:196
+msgid "Downloading…"
+msgstr ""
+
+#: includes/class-efm-builder.php:197
+msgid "Downloaded"
+msgstr ""
+
+#: includes/class-efm-builder.php:198
+msgid "Could not download:"
+msgstr ""
+
 #: includes/class-efm-builder.php:199
 msgid "Trash"
 msgstr ""

@@ -148,6 +148,66 @@ msgid "All"
 msgstr ""
 
 #: includes/class-efm-builder.php:199
+msgid "Trash"
+msgstr ""
+
+#: includes/class-efm-builder.php:200
+msgid ""
+"These families are not loaded on the site. Their font files are still on the "
+"server, so restoring one brings it back exactly as it was."
+msgstr ""
+
+#: includes/class-efm-builder.php:201
+msgid "Enable"
+msgstr ""
+
+#: includes/class-efm-builder.php:202
+msgid "Disable"
+msgstr ""
+
+#: includes/class-efm-builder.php:203
+msgid "Move to trash"
+msgstr ""
+
+#: includes/class-efm-builder.php:204
+msgid "Restore"
+msgstr ""
+
+#: includes/class-efm-builder.php:205
+msgid "Delete permanently"
+msgstr ""
+
+#: includes/class-efm-builder.php:206
+msgid "Disabled. Its files are kept, but it is not loaded on the site."
+msgstr ""
+
+#: includes/class-efm-builder.php:207
+msgid "Load this family on the site"
+msgstr ""
+
+#: includes/class-efm-builder.php:208
+msgid ""
+"Turn off to stop the font loading without deleting anything. Files and weight "
+"mapping are kept."
+msgstr ""
+
+#: includes/class-efm-builder.php:209
+msgid ""
+"Delete this family for good? Its font files stay on the server and can be "
+"removed from Import & export."
+msgstr ""
+
+#: includes/class-efm-builder.php:210
+msgid "Disabling it means that text falls back to another font. Continue?"
+msgstr ""
+
+#: includes/class-efm-builder.php:211
+msgid ""
+"Moving it to the trash means that text falls back to another font. The "
+"assignment returns if you restore it. Continue?"
+msgstr ""
+
+#: includes/class-efm-builder.php:199
 msgid "CSS variable"
 msgstr ""
 

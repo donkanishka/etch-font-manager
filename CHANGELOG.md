@@ -2,6 +2,23 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.9.0
+
+### Added
+
+- **A CSS custom property for every family.** Each family is published as `--efm-family-{slug}`, so
+  `"Noto Sans Sinhala"` becomes `var(--efm-family-noto-sans-sinhala)` and can be used anywhere a font family is
+  expected — an Etch style record, an ACSS override, a custom stylesheet — without retyping the name and
+  fallback stack every time.
+- The value is the family's **full stack**, matching what the Automatic.css mapping already writes, so
+  `font-family: var(--efm-family-inter)` gives you `"Inter", sans-serif` rather than a bare family name with no
+  fallback.
+- The family editor shows the variable for the family being edited, as a read-only field that selects on click.
+  The slug is generated server-side and sent to the panel, so what is shown can never drift from the CSS that is
+  actually written.
+- Families with no variants are skipped, and if two names reduce to the same slug the first one wins rather than
+  the second silently overwriting it.
+
 ## 1.8.0
 
 ### Added

@@ -1,10 +1,10 @@
 {
-  "version": "1.8.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.8.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.8.0",
+  "version": "1.9.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.9.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.9.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
   "date": "2026-08-08",
-  "notes": "Choose which Google Fonts weights to download instead of always installing all eighteen, change the selection later from the family editor, delete font files no family uses, and stop narrow variable weight ranges being rewritten to 400."
+  "notes": "Every font family is now published as a CSS custom property, so a family can be used as var(--efm-family-slug) anywhere a font family is expected."
 }

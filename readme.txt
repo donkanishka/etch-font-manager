@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.8.0
+Stable tag: 1.9.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,10 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.9.0 =
+* Every font family is now published as a CSS custom property, so a family can be used as var(--efm-family-slug) anywhere a font family is expected.
+* The value includes the family's fallback stack, and the family editor shows the variable for quick copying.
 
 = 1.8.0 =
 * Choose which weights and italics to download when installing a Google font, instead of always getting all eighteen. A latin install of Inter now downloads two files rather than eighteen.

@@ -18,6 +18,7 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 - **Delivery controls** — per-family `font-display`, a preload toggle for above-the-fold fonts, and a fallback stack that is written into the Automatic.css variables.
 - **Guard rails** — warnings before closing with unsaved edits, removing a family that is assigned as the heading or text font, or deleting a file that variants still map.
 - **Family and variant mapping** — assign files to weights and styles, all inline in the panel.
+- **A CSS variable per family** — every family is published as `--efm-family-{slug}`, so `"Noto Sans Sinhala"` is usable as `var(--efm-family-noto-sans-sinhala)` in an Etch style record, an ACSS override or any stylesheet. The value carries the family's fallback stack, and the family editor shows the variable ready to copy.
 - **Automatic.css integration** — map families to `--heading-font-family` and `--text-font-family`.
 - **Instant canvas refresh** — the generated stylesheet is reloaded in the builder shell and canvas iframe after every change; no page reload.
 - **Self-hosted and GDPR friendly** — everything is served from your own fonts directory.

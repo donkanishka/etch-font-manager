@@ -1,10 +1,10 @@
 {
-  "version": "1.10.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.10.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.10.0",
+  "version": "1.11.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.11.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.11.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
   "date": "2026-08-08",
-  "notes": "Disable a family without deleting it, and move families to a trash you can restore from. Nothing on disk is touched either way."
+  "notes": "Importing a configuration can now fetch the missing font files for any family that came from Google Fonts, using the same subsets and weights it had before."
 }

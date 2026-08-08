@@ -2,6 +2,24 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.11.0
+
+### Added
+
+- **Import can now fetch the font files it is missing.** The export has always been configuration only, so
+  importing it on another site produced a list of files that were referenced but absent. For any family that
+  came from Google Fonts the import now offers to download them again, reusing the **same subsets and the same
+  weights** the family had on the original site — which the record already carries. One button, families fetched
+  one at a time rather than all at once, and a clear report of anything that failed.
+- Families that were uploaded by hand are correctly left out of that offer: there is nowhere to fetch them from,
+  so they still need their files uploading. Families whose files are all present are not offered either.
+
+### Notes
+
+- Nothing about the export format changed, and none was needed. `enabled`, `trashed` and the Google block added
+  in 1.8.0 and 1.10.0 already survive a round trip, because the export writes the stored records and the import
+  runs them back through the same sanitiser. Verified rather than assumed.
+
 ## 1.10.0
 
 ### Added

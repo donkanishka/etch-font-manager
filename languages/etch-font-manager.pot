@@ -147,6 +147,79 @@ msgstr ""
 msgid "All"
 msgstr ""
 
+#: includes/class-efm-builder.php:180
+msgid "Stylesheet"
+msgstr ""
+
+#: includes/class-efm-builder.php:181
+msgid "Last generated"
+msgstr ""
+
+#: includes/class-efm-builder.php:182
+msgid "The stylesheet has not been generated yet."
+msgstr ""
+
+#: includes/class-efm-builder.php:183
+msgid "Print the CSS inline"
+msgstr ""
+
+#: includes/class-efm-builder.php:184
+msgid ""
+"Saves one request but the CSS cannot be cached separately. Worth it "
+"for a small font set, not for a large one."
+msgstr ""
+
+#: includes/class-efm-builder.php:185
+msgid "Regenerate stylesheet"
+msgstr ""
+
+#: includes/class-efm-builder.php:186
+msgid "Stylesheet regenerated."
+msgstr ""
+
+#: includes/class-efm-builder.php:187
+msgid "Privacy"
+msgstr ""
+
+#: includes/class-efm-builder.php:188
+msgid "Block Google Fonts loaded by other plugins"
+msgstr ""
+
+#: includes/class-efm-builder.php:189
+msgid ""
+"Stops any theme or plugin stylesheet that points at "
+"fonts.googleapis.com, and removes the matching preconnect hints. "
+"Your own local fonts are unaffected."
+msgstr ""
+
+#: includes/class-efm-builder.php:190
+msgid "Apply to"
+msgstr ""
+
+#: includes/class-efm-builder.php:191
+msgid ""
+"Optional. A comma separated selector list this family is applied "
+"to, so you do not have to write the rule yourself."
+msgstr ""
+
+#: includes/class-efm-builder.php:192
+msgid "Generated CSS"
+msgstr ""
+
+#: includes/class-efm-builder.php:193
+msgid "This family is not loaded, so it contributes no CSS."
+msgstr ""
+
+#: includes/class-efm-builder.php:194
+msgid "No variants mapped yet, so this family contributes no CSS."
+msgstr ""
+
+#: includes/class-efm-builder.php:195
+msgid ""
+"Could not write the stylesheet. Check that the fonts folder is "
+"writable."
+msgstr ""
+
 #: includes/class-efm-builder.php:194
 msgid ""
 "These families came from Google Fonts, so their files can be fetched again "

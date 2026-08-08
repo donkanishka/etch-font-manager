@@ -208,6 +208,7 @@ class EFM_Rest {
 						'type'    => 'string',
 						'default' => '',
 					),
+
 					/*
 					 * Tri-state, so it cannot be a boolean: '' means "do not filter",
 					 * which a boolean would collapse into false and silently hide

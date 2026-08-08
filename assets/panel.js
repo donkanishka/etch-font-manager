@@ -315,6 +315,30 @@
 		{ key: 'tools', icon: 'file', label: function () { return s('tools', 'Import & export'); } }
 	];
 
+	/**
+	 * A family is live unless it has been disabled or moved to the trash.
+	 * Absent flags mean live, so families stored before these existed are
+	 * unaffected.
+	 *
+	 * @param {object} family Family record.
+	 * @return {boolean}
+	 */
+	function isEnabled(family) {
+		return family.enabled === undefined || !!family.enabled;
+	}
+
+	function isTrashed(family) {
+		return !!family.trashed;
+	}
+
+	function liveFamilies() {
+		return state.families.filter(function (family) { return !isTrashed(family); });
+	}
+
+	function trashedFamilies() {
+		return state.families.filter(isTrashed);
+	}
+
 	function build() {
 		navEl = el('nav', { class: 'efm-nav', 'aria-label': s('fonts', 'Fonts') });
 		contentEl = el('div', { class: 'efm-content' });
@@ -519,10 +543,17 @@
 
 		contentEl.innerHTML = '';
 
+		// Restoring or purging the last trashed family leaves that view empty.
+		if (state.view === 'trash' && !trashedFamilies().length) {
+			state.view = 'library';
+		}
+
 		if (state.editing !== null && state.families[state.editing]) {
 			renderFamilyEditor(state.editing);
 		} else if (state.view === 'library') {
 			renderLibrary();
+		} else if (state.view === 'trash') {
+			renderTrash();
 		} else if (state.view === 'upload') {
 			renderUpload();
 		} else if (state.view === 'google') {
@@ -538,7 +569,19 @@
 		navEl.innerHTML = '';
 		navEl.appendChild(el('span', { class: 'efm-nav__label', text: s('manage', 'Manage') }));
 
-		VIEWS.forEach(function (view) {
+		var trashed = trashedFamilies();
+		var views = VIEWS.slice();
+
+		// The trash only appears once something is in it.
+		if (trashed.length) {
+			views.push({
+				key: 'trash',
+				icon: 'trash',
+				label: function () { return s('trash', 'Trash') + ' (' + trashed.length + ')'; }
+			});
+		}
+
+		views.forEach(function (view) {
 			var active = state.view === view.key && state.editing === null;
 
 			navEl.appendChild(
@@ -553,13 +596,14 @@
 			);
 		});
 
-		var variantCount = state.families.reduce(function (total, family) {
+		var live = liveFamilies();
+		var variantCount = live.reduce(function (total, family) {
 			return total + (family.variants || []).length;
 		}, 0);
 
 		navEl.appendChild(
 			el('div', { class: 'efm-nav__meta' }, [
-				el('span', { text: state.families.length + ' ' + plural(state.families.length, s('familyLabel', 'family'), s('familiesLabel', 'families')) }),
+				el('span', { text: live.length + ' ' + plural(live.length, s('familyLabel', 'family'), s('familiesLabel', 'families')) }),
 				el('span', { text: variantCount + ' ' + plural(variantCount, s('variant', 'variant'), s('variants', 'variants')) }),
 				el('span', { text: state.files.length + ' ' + plural(state.files.length, s('fileLabel', 'file'), s('filesLabel', 'files')) })
 			])
@@ -653,6 +697,114 @@
 
 	/* ------------------------------ Library ------------------------------ */
 
+	/**
+	 * Turn a family's output on or off. Files and mapping are untouched, so this
+	 * is always reversible.
+	 *
+	 * @param {number} index   Family index.
+	 * @param {boolean} enabled Next state.
+	 */
+	function setFamilyEnabled(index, enabled) {
+		var family = state.families[index];
+		var roles = familyRoles(family.name);
+
+		if (!enabled && roles.length && !window.confirm(
+			s('confirmDisableAssigned', 'This family is assigned as:') + ' ' + roles.join(', ') + '.\n' +
+			s('confirmDisableAssignedHint', 'Disabling it means that text falls back to another font. Continue?')
+		)) {
+			return;
+		}
+
+		family.enabled = enabled;
+		state.dirty = true;
+		render();
+	}
+
+	/**
+	 * Move a family to the trash. The record and every file stay put; only the
+	 * output stops, so restoring costs nothing.
+	 *
+	 * @param {number} index Family index.
+	 */
+	function trashFamily(index) {
+		var family = state.families[index];
+		var roles = familyRoles(family.name);
+
+		if (roles.length && !window.confirm(
+			s('confirmTrashAssigned', 'This family is assigned as:') + ' ' + roles.join(', ') + '.\n' +
+			s('confirmTrashAssignedHint', 'Moving it to the trash means that text falls back to another font. The assignment returns if you restore it. Continue?')
+		)) {
+			return;
+		}
+
+		family.trashed = true;
+		state.editing = null;
+		state.dirty = true;
+		render();
+	}
+
+	/**
+	 * Families that were moved to the trash, with restore and permanent delete.
+	 * Deleting here drops the record only; the files stay on disk and show up
+	 * under unused files in Import & export.
+	 */
+	function renderTrash() {
+		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('trash', 'Trash') }));
+		contentEl.appendChild(el('p', {
+			class: 'efm-muted',
+			text: s('trashHint', 'These families are not loaded on the site. Their font files are still on the server, so restoring one brings it back exactly as it was.')
+		}));
+
+		var grid = el('div', { class: 'efm-grid' });
+
+		state.families.forEach(function (family, index) {
+			if (!isTrashed(family)) {
+				return;
+			}
+
+			var variants = family.variants || [];
+
+			grid.appendChild(el('article', { class: 'efm-card' }, [
+				el('div', { class: 'efm-card__head' }, [
+					el('h2', { class: 'efm-card__title', text: family.name }),
+					el('div', { class: 'efm-card__actions' }, [
+						el('button', {
+							type: 'button',
+							class: 'efm-btn efm-btn--outline efm-btn--sm',
+							text: s('restoreFamily', 'Restore'),
+							onclick: function () {
+								family.trashed = false;
+								state.dirty = true;
+								render();
+							}
+						}),
+						el('button', {
+							type: 'button',
+							class: 'efm-icon-btn efm-icon-btn--danger',
+							'aria-label': s('deleteFamily', 'Delete permanently'),
+							title: s('deleteFamily', 'Delete permanently'),
+							onclick: function () {
+								if (!window.confirm(s('confirmDeleteFamily', 'Delete this family for good? Its font files stay on the server and can be removed from Import & export.'))) {
+									return;
+								}
+
+								state.families.splice(index, 1);
+								state.editing = null;
+								state.dirty = true;
+								render();
+							}
+						}, [icon('trash', 13)])
+					])
+				]),
+				el('div', { class: 'efm-card__meta' }, [
+					el('span', { text: variants.length + ' ' + plural(variants.length, s('variant', 'variant'), s('variants', 'variants')) })
+				])
+			]));
+		});
+
+		contentEl.appendChild(grid);
+	}
+
 	function renderLibrary() {
 		var search = el('input', {
 			type: 'search',
@@ -676,7 +828,7 @@
 			])
 		));
 
-		if (!state.families.length) {
+		if (!liveFamilies().length) {
 			contentEl.appendChild(emptyState(
 				s('noFamilies', 'No font families yet.'),
 				s('noFamiliesHint', 'Upload a font file or install one from Google Fonts.'),
@@ -690,6 +842,10 @@
 		var list = state.families
 			.map(function (family, index) { return { family: family, index: index }; })
 			.filter(function (row) {
+				if (isTrashed(row.family)) {
+					return false;
+				}
+
 				return !needle || (row.family.name || '').toLowerCase().indexOf(needle) !== -1;
 			});
 
@@ -709,11 +865,22 @@
 				return sub && arr.indexOf(sub) === i;
 			}).sort();
 
+			var enabled = isEnabled(family);
+
 			grid.appendChild(
-				el('article', { class: 'efm-card' }, [
+				el('article', { class: 'efm-card' + (enabled ? '' : ' is-disabled') }, [
 					el('div', { class: 'efm-card__head' }, [
 						el('h2', { class: 'efm-card__title', text: family.name }),
 						el('div', { class: 'efm-card__actions' }, [
+							el('button', {
+								type: 'button',
+								class: 'efm-btn efm-btn--outline efm-btn--sm',
+								'aria-pressed': enabled ? 'true' : 'false',
+								text: enabled ? s('disableFamily', 'Disable') : s('enableFamily', 'Enable'),
+								onclick: function () {
+									setFamilyEnabled(row.index, !enabled);
+								}
+							}),
 							el('button', {
 								type: 'button',
 								class: 'efm-btn efm-btn--outline efm-btn--sm',
@@ -726,25 +893,15 @@
 							el('button', {
 								type: 'button',
 								class: 'efm-icon-btn efm-icon-btn--danger',
-								'aria-label': s('removeFamily', 'Remove family'),
-								title: s('removeFamily', 'Remove family'),
+								'aria-label': s('trashFamily', 'Move to trash'),
+								title: s('trashFamily', 'Move to trash'),
 								onclick: function () {
-									var roles = familyRoles(family.name);
-
-									if (roles.length && !window.confirm(
-										s('confirmRemoveAssigned', 'This family is assigned as:') + ' ' + roles.join(', ') + '.\n' +
-										s('confirmRemoveAssignedHint', 'Removing it will clear that assignment. Continue?')
-									)) {
-										return;
-									}
-
-									state.families.splice(row.index, 1);
-									state.dirty = true;
-									render();
+									trashFamily(row.index);
 								}
 							}, [icon('trash', 13)])
 						])
 					]),
+					enabled ? null : el('p', { class: 'efm-notice', text: s('disabledNotice', 'Disabled. Its files are kept, but it is not loaded on the site.') }),
 					specimen(family.name),
 					roles.length ? el('div', { class: 'efm-chips' }, roles.map(function (role) {
 						return el('span', { class: 'efm-chip efm-chip--role', text: role });
@@ -805,6 +962,23 @@
 		if (family.slug) {
 			contentEl.appendChild(cssTokenField(family));
 		}
+
+		contentEl.appendChild(
+			el('label', { class: 'efm-toggle' }, [
+				el('input', {
+					type: 'checkbox',
+					class: 'efm-checkbox',
+					checked: isEnabled(family),
+					onchange: function (event) {
+						setFamilyEnabled(index, event.target.checked);
+					}
+				}),
+				el('span', {}, [
+					el('span', { class: 'efm-toggle__label', text: s('familyEnabled', 'Load this family on the site') }),
+					el('span', { class: 'efm-field__hint', text: s('familyEnabledHint', 'Turn off to stop the font loading without deleting anything. Files and weight mapping are kept.') })
+				])
+			])
+		);
 
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('delivery', 'Delivery') }));
 		contentEl.appendChild(deliverySection(index));

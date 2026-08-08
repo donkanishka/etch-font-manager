@@ -297,6 +297,13 @@
 	background: var(--efm-surface);
 }
 
+/* A disabled family stays legible but reads as inactive. */
+.efm-card.is-disabled .efm-specimen,
+.efm-card.is-disabled .efm-card__title,
+.efm-card.is-disabled .efm-card__meta {
+	opacity: 0.55;
+}
+
 .efm-card__head {
 	display: flex;
 	align-items: center;

@@ -802,6 +802,10 @@
 			])
 		);
 
+		if (family.slug) {
+			contentEl.appendChild(cssTokenField(family));
+		}
+
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('delivery', 'Delivery') }));
 		contentEl.appendChild(deliverySection(index));
 
@@ -850,6 +854,39 @@
 				}
 			}, [icon('plus', 12), el('span', { text: s('addVariant', 'Add variant') })])
 		);
+	}
+
+	/**
+	 * The custom property a family is published as, ready to copy.
+	 *
+	 * The slug comes from the server so it always matches the generated CSS.
+	 * Renaming the family changes it, so the value shown is the saved name, not
+	 * whatever is currently typed in the name field.
+	 *
+	 * @param {object} family Family record.
+	 * @return {HTMLElement}
+	 */
+	function cssTokenField(family) {
+		var token = 'var(--efm-family-' + family.slug + ')';
+
+		var input = el('input', {
+			type: 'text',
+			class: 'efm-input',
+			readonly: true,
+			value: token,
+			onclick: function (event) {
+				event.target.select();
+			}
+		});
+
+		return el('label', { class: 'efm-field' }, [
+			el('span', { class: 'efm-field__label', text: s('cssToken', 'CSS variable') }),
+			input,
+			el('span', {
+				class: 'efm-field__hint',
+				text: s('cssTokenHint', 'Use this anywhere a font family is expected. It already includes the fallback stack.')
+			})
+		]);
 	}
 
 	/**

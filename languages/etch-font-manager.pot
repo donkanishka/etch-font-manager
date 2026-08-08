@@ -147,6 +147,68 @@ msgstr ""
 msgid "All"
 msgstr ""
 
+#: includes/class-efm-builder.php:170
+msgid "Families"
+msgstr ""
+
+#: includes/class-efm-builder.php:171
+msgid "Include the font files"
+msgstr ""
+
+#: includes/class-efm-builder.php:172
+msgid ""
+"Makes a much larger file that rebuilds anywhere. Without it, Google "
+"families are re-downloaded on import and hand-uploaded fonts have "
+"to be uploaded again."
+msgstr ""
+
+#: includes/class-efm-builder.php:173
+msgid "Nothing has been changed yet. This is what importing would do:"
+msgstr ""
+
+#: includes/class-efm-builder.php:174
+msgid "Added"
+msgstr ""
+
+#: includes/class-efm-builder.php:175
+msgid "Overwritten"
+msgstr ""
+
+#: includes/class-efm-builder.php:176
+msgid "Removed"
+msgstr ""
+
+#: includes/class-efm-builder.php:177
+msgid "Font files included in the file"
+msgstr ""
+
+#: includes/class-efm-builder.php:178
+msgid "Font files that would still be missing afterwards"
+msgstr ""
+
+#: includes/class-efm-builder.php:179
+msgid "Import now"
+msgstr ""
+
+#: includes/class-efm-builder.php:180
+msgid "Cancel"
+msgstr ""
+
+#: includes/class-efm-builder.php:181
+msgid "Font files written from the file"
+msgstr ""
+
+#: includes/class-efm-builder.php:182
+msgid "Rejected, because they are not valid font files:"
+msgstr ""
+
+#: includes/class-efm-builder.php:183
+msgid ""
+"Download families, their variant mapping and assignments as a JSON "
+"file. Choose which families to include, and whether to bundle the "
+"font files with them."
+msgstr ""
+
 #: includes/class-efm-builder.php:180
 msgid "Stylesheet"
 msgstr ""
@@ -357,10 +419,6 @@ msgstr ""
 
 #: includes/class-efm-builder.php:197
 msgid "Export"
-msgstr ""
-
-#: includes/class-efm-builder.php:198
-msgid "Download every family, variant mapping and assignment as a JSON file. Font files are not included; a family installed from Google can be reinstalled on the other site."
 msgstr ""
 
 #: includes/class-efm-builder.php:199

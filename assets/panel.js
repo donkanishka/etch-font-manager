@@ -762,6 +762,40 @@
 			text: s('trashHint', 'These families are not loaded on the site. Their font files are still on the server, so restoring one brings it back exactly as it was.')
 		}));
 
+		var inTrash = trashedFamilies();
+
+		contentEl.appendChild(el('div', { class: 'efm-card__actions' }, [
+			el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--outline efm-btn--sm',
+				text: s('restoreAll', 'Restore all') + ' (' + inTrash.length + ')',
+				onclick: function () {
+					state.families.forEach(function (family) {
+						family.trashed = false;
+					});
+					state.dirty = true;
+					render();
+				}
+			}),
+			el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--outline efm-btn--sm',
+				text: s('emptyTrash', 'Empty trash'),
+				onclick: function () {
+					if (!window.confirm(s('confirmEmptyTrash', 'Delete every family in the trash for good? Their font files stay on the server and can be removed from Import & export.'))) {
+						return;
+					}
+
+					state.families = state.families.filter(function (family) {
+						return !isTrashed(family);
+					});
+					state.editing = null;
+					state.dirty = true;
+					render();
+				}
+			})
+		]));
+
 		var grid = el('div', { class: 'efm-grid' });
 
 		state.families.forEach(function (family, index) {
@@ -1090,7 +1124,7 @@
 		}
 
 		if (family.selector) {
-			blocks.push(family.selector + ' {\n\tfont-family: ' + familyStack(name) + ';\n}');
+			blocks.push(family.selector + ' {\n\tfont-family: ' + familyStack(name) + (family.force ? ' !important' : '') + ';\n}');
 		}
 
 		return blocks.length
@@ -1316,6 +1350,22 @@
 					el('span', { class: 'efm-field__hint', text: s('applyToHint', 'Optional. A comma separated selector list this family is applied to, so you do not have to write the rule yourself.') })
 				])
 			]),
+			family.selector ? el('label', { class: 'efm-toggle' }, [
+				el('input', {
+					type: 'checkbox',
+					class: 'efm-checkbox',
+					checked: !!family.force,
+					onchange: function (event) {
+						state.families[index].force = event.target.checked;
+						state.dirty = true;
+						render();
+					}
+				}),
+				el('span', {}, [
+					el('span', { class: 'efm-toggle__label', text: s('applyForce', 'Override theme styles') }),
+					el('span', { class: 'efm-field__hint', text: s('applyForceHint', 'Adds !important, for when a theme stylesheet loads later or wins on specificity.') })
+				])
+			]) : null,
 			el('label', { class: 'efm-toggle' }, [
 				preloadInput,
 				el('span', {}, [
@@ -1972,7 +2022,7 @@
 				}),
 				el('span', {}, [
 					el('span', { class: 'efm-toggle__label', text: s('blockGoogle', 'Block Google Fonts loaded by other plugins') }),
-					el('span', { class: 'efm-field__hint', text: s('blockGoogleHint', 'Stops any theme or plugin stylesheet that points at fonts.googleapis.com, and removes the matching preconnect hints. Your own local fonts are unaffected.') })
+					el('span', { class: 'efm-field__hint', text: s('blockGoogleHint', 'Stops theme and plugin stylesheets that point at fonts.googleapis.com, and removes the matching preconnect hints. It cannot reach an @import inside a theme stylesheet or a link tag printed straight into the page. Your own local fonts are unaffected.') })
 				])
 			])
 		);
@@ -2093,7 +2143,7 @@
 						}
 					}),
 					el('span', {}, [
-						el('span', { class: 'efm-toggle__label', text: s('exportBundle', 'Include the font files') }),
+						el('span', { class: 'efm-toggle__label', text: s('exportBundle', 'Include the font files') + (state.exportBundle ? ' · ' + formatSize(bundleSize(picked)) : '') }),
 						el('span', { class: 'efm-field__hint', text: s('exportBundleHint', 'Makes a much larger file that rebuilds anywhere. Without it, Google families are re-downloaded on import and hand-uploaded fonts have to be uploaded again.') })
 					])
 				])
@@ -2333,6 +2383,42 @@
 		};
 
 		next();
+	}
+
+	/**
+	 * Roughly how large a bundled export of these families would be.
+	 *
+	 * Base64 adds about a third, and the JSON wrapper a little more. Shown so
+	 * that a bundle big enough for a server to refuse is obvious before it is
+	 * downloaded rather than after the import fails.
+	 *
+	 * @param {string[]} names Families to be exported.
+	 * @return {number} Approximate bytes.
+	 */
+	function bundleSize(names) {
+		var wanted = {};
+
+		state.families.forEach(function (family) {
+			if (names.indexOf(family.name) === -1) {
+				return;
+			}
+
+			(family.variants || []).forEach(function (variant) {
+				if (variant.file) {
+					wanted[variant.file] = true;
+				}
+			});
+		});
+
+		var bytes = 0;
+
+		(state.files || []).forEach(function (file) {
+			if (wanted[file.name]) {
+				bytes += file.size || 0;
+			}
+		});
+
+		return Math.round(bytes * 1.37);
 	}
 
 	function exportConfig() {

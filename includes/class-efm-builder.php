@@ -196,6 +196,8 @@ class EFM_Builder {
 			'weights'        => __( 'Weights', 'etch-font-manager' ),
 			'cutsAll'        => __( 'All', 'etch-font-manager' ),
 			'cutsNone'       => __( 'None', 'etch-font-manager' ),
+			'cssToken'       => __( 'CSS variable', 'etch-font-manager' ),
+			'cssTokenHint'   => __( 'Use this anywhere a font family is expected. It already includes the fallback stack.', 'etch-font-manager' ),
 			'googleSource'   => __( 'Google Fonts', 'etch-font-manager' ),
 			'googleSubsets'  => __( 'Subsets', 'etch-font-manager' ),
 			'applyCuts'      => __( 'Download selection', 'etch-font-manager' ),

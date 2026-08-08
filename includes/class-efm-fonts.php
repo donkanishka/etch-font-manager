@@ -573,6 +573,19 @@ class EFM_Fonts {
 	}
 
 	/**
+	 * The slug used in a family's CSS custom property.
+	 *
+	 * "Noto Sans Sinhala" becomes "noto-sans-sinhala", so the family is
+	 * available as var(--efm-family-noto-sans-sinhala).
+	 *
+	 * @param string $name Family name.
+	 * @return string
+	 */
+	public static function family_slug( $name ) {
+		return sanitize_title( (string) $name );
+	}
+
+	/**
 	 * Files that should be preloaded.
 	 *
 	 * Only one file per opted-in family is returned: the regular upright
@@ -1101,6 +1114,30 @@ class EFM_Fonts {
 
 				$css .= "}\n\n";
 			}
+		}
+
+		$tokens = '';
+		$seen   = array();
+
+		foreach ( $families as $family ) {
+			if ( empty( $family['name'] ) || empty( $family['variants'] ) ) {
+				continue;
+			}
+
+			$slug = self::family_slug( $family['name'] );
+
+			// Two names can reduce to the same slug. The first one wins rather
+			// than the last silently overwriting it.
+			if ( '' === $slug || isset( $seen[ $slug ] ) ) {
+				continue;
+			}
+
+			$seen[ $slug ] = true;
+			$tokens       .= "\t--efm-family-{$slug}: " . self::family_stack( $family ) . ";\n";
+		}
+
+		if ( '' !== $tokens ) {
+			$css .= "/* One custom property per family, so a family can be used as var(--efm-family-slug) */\n:root {\n" . $tokens . "}\n\n";
 		}
 
 		if ( ! empty( $settings['acss_enabled'] ) && ( ! empty( $settings['heading_font'] ) || ! empty( $settings['text_font'] ) ) ) {

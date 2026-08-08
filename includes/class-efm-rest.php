@@ -233,8 +233,19 @@ class EFM_Rest {
 	 * @return array
 	 */
 	public static function state() {
+		// The slug is derived, not stored. Sending it keeps the panel from having
+		// to reimplement sanitize_title() and drift from the generated CSS.
+		$families = array_map(
+			static function ( $family ) {
+				$family['slug'] = EFM_Fonts::family_slug( $family['name'] ?? '' );
+
+				return $family;
+			},
+			EFM_Fonts::families()
+		);
+
 		return array(
-			'families'   => EFM_Fonts::families(),
+			'families'   => $families,
 			'files'      => EFM_Fonts::files(),
 			'settings'   => EFM_Fonts::settings(),
 			'fontsUrl'   => EFM_Fonts::url(),

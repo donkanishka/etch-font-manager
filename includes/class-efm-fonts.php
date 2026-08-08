@@ -374,26 +374,162 @@ class EFM_Fonts {
 	 *
 	 * @return array
 	 */
-	public static function export_payload() {
-		return array(
+	public static function export_payload( $names = array(), $bundle = false ) {
+		$families = self::families();
+		$names    = array_filter( array_map( 'strval', (array) $names ) );
+
+		if ( ! empty( $names ) ) {
+			$wanted = array_map( 'strtolower', $names );
+
+			$families = array_values(
+				array_filter(
+					$families,
+					static function ( $family ) use ( $wanted ) {
+						return in_array( strtolower( $family['name'] ?? '' ), $wanted, true );
+					}
+				)
+			);
+		}
+
+		$payload = array(
 			'plugin'   => 'etch-font-manager',
 			'version'  => EFM_VERSION,
+			'schema'   => 2,
 			'exported' => gmdate( 'c' ),
 			'site'     => home_url( '/' ),
-			'families' => self::families(),
+			'families' => $families,
 			'settings' => self::settings(),
 			'files'    => wp_list_pluck( self::files(), 'name' ),
+		);
+
+		if ( $bundle ) {
+			$payload['bundle'] = self::bundle_files( $families );
+		}
+
+		return $payload;
+	}
+
+	/**
+	 * Base64 the font files the given families refer to.
+	 *
+	 * Only worth doing for fonts that cannot simply be fetched again, but the
+	 * caller decides that: a bundle is always complete for the families asked
+	 * for, so an export either rebuilds everywhere or it does not.
+	 *
+	 * @param array $families Families to collect files for.
+	 * @return array<string,string> Filename to base64 contents.
+	 */
+	protected static function bundle_files( $families ) {
+		$bundle = array();
+
+		foreach ( $families as $family ) {
+			foreach ( (array) ( $family['variants'] ?? array() ) as $variant ) {
+				$file = $variant['file'] ?? '';
+
+				if ( '' === $file || isset( $bundle[ $file ] ) ) {
+					continue;
+				}
+
+				$path = self::dir() . $file;
+
+				if ( ! self::path_is_inside( $path ) || ! file_exists( $path ) ) {
+					continue;
+				}
+
+				if ( filesize( $path ) > self::MAX_FILE_SIZE ) {
+					continue;
+				}
+
+				$contents = file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+
+				if ( false !== $contents ) {
+					$bundle[ $file ] = base64_encode( $contents ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+				}
+			}
+		}
+
+		return $bundle;
+	}
+
+	/**
+	 * Write the font files carried in an import payload.
+	 *
+	 * Every file is checked before it lands: the name is sanitised, the
+	 * extension must be a font format, the destination must resolve inside the
+	 * fonts directory, the decoded size must be within the upload limit, and the
+	 * bytes must actually start with that format's signature. A payload cannot
+	 * be used to drop arbitrary content into the site.
+	 *
+	 * @param mixed $bundle Filename to base64 map.
+	 * @return array{written:string[],rejected:string[]}
+	 */
+	protected static function restore_bundle( $bundle ) {
+		$written  = array();
+		$rejected = array();
+
+		if ( ! is_array( $bundle ) || empty( $bundle ) ) {
+			return array(
+				'written'  => $written,
+				'rejected' => $rejected,
+			);
+		}
+
+		self::ensure_dir();
+
+		foreach ( $bundle as $name => $encoded ) {
+			$file = sanitize_file_name( (string) $name );
+			$ext  = strtolower( pathinfo( $file, PATHINFO_EXTENSION ) );
+
+			if ( '' === $file || ! isset( self::FORMATS[ $ext ] ) ) {
+				$rejected[] = (string) $name;
+				continue;
+			}
+
+			$path = self::dir() . $file;
+
+			if ( ! self::path_is_inside( $path ) ) {
+				$rejected[] = $file;
+				continue;
+			}
+
+			if ( file_exists( $path ) ) {
+				continue;
+			}
+
+			$raw = base64_decode( (string) $encoded, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+
+			if ( false === $raw || '' === $raw || strlen( $raw ) > self::MAX_FILE_SIZE ) {
+				$rejected[] = $file;
+				continue;
+			}
+
+			if ( ! self::looks_like_font( $raw, $ext ) ) {
+				$rejected[] = $file;
+				continue;
+			}
+
+			if ( self::write_file( $path, $raw ) ) {
+				$written[] = $file;
+			} else {
+				$rejected[] = $file;
+			}
+		}
+
+		return array(
+			'written'  => $written,
+			'rejected' => $rejected,
 		);
 	}
 
 	/**
 	 * Restore a configuration produced by export_payload().
 	 *
-	 * @param array  $data Decoded payload.
-	 * @param string $mode replace or merge.
+	 * @param array  $data    Decoded payload.
+	 * @param string $mode    replace or merge.
+	 * @param bool   $dry_run Report what would happen without writing anything.
 	 * @return array|WP_Error Report of what was imported.
 	 */
-	public static function import_payload( $data, $mode = 'replace' ) {
+	public static function import_payload( $data, $mode = 'replace', $dry_run = false ) {
 		if ( ! is_array( $data ) || ! isset( $data['families'] ) || ! is_array( $data['families'] ) ) {
 			return new WP_Error(
 				'efm_import_invalid',
@@ -403,11 +539,28 @@ class EFM_Fonts {
 		}
 
 		$incoming = self::sanitize_families( $data['families'] );
+		$existing = self::families();
+		$current  = array();
+
+		foreach ( $existing as $family ) {
+			$current[ strtolower( $family['name'] ) ] = true;
+		}
+
+		$added   = array();
+		$updated = array();
+
+		foreach ( $incoming as $family ) {
+			if ( isset( $current[ strtolower( $family['name'] ) ] ) ) {
+				$updated[] = $family['name'];
+			} else {
+				$added[] = $family['name'];
+			}
+		}
 
 		if ( 'merge' === $mode ) {
 			$by_name = array();
 
-			foreach ( self::families() as $family ) {
+			foreach ( $existing as $family ) {
 				$by_name[ strtolower( $family['name'] ) ] = $family;
 			}
 
@@ -417,11 +570,57 @@ class EFM_Fonts {
 			}
 
 			$families = array_values( $by_name );
+			$removed  = array();
 		} else {
 			$families = $incoming;
+
+			$keep = array();
+
+			foreach ( $incoming as $family ) {
+				$keep[ strtolower( $family['name'] ) ] = true;
+			}
+
+			$removed = array();
+
+			foreach ( $existing as $family ) {
+				if ( ! isset( $keep[ strtolower( $family['name'] ) ] ) ) {
+					$removed[] = $family['name'];
+				}
+			}
 		}
 
-		// Families first: saving settings prunes assignments whose family is gone.
+		$bundled = array_keys( is_array( $data['bundle'] ?? null ) ? $data['bundle'] : array() );
+
+		if ( $dry_run ) {
+			$present_now = wp_list_pluck( self::files(), 'name' );
+			$would_miss  = array();
+
+			foreach ( $families as $family ) {
+				foreach ( (array) $family['variants'] as $variant ) {
+					$file = $variant['file'] ?? '';
+
+					if ( '' !== $file && ! in_array( $file, $present_now, true ) && ! in_array( $file, $bundled, true ) ) {
+						$would_miss[] = $file;
+					}
+				}
+			}
+
+			return array(
+				'preview'  => true,
+				'mode'     => $mode,
+				'families' => count( $families ),
+				'added'    => $added,
+				'updated'  => $updated,
+				'removed'  => $removed,
+				'bundled'  => count( $bundled ),
+				'missing'  => array_values( array_unique( $would_miss ) ),
+			);
+		}
+
+		// Files first, so the missing-file report reflects what the bundle restored.
+		$restored = self::restore_bundle( $data['bundle'] ?? array() );
+
+		// Families next: saving settings prunes assignments whose family is gone.
 		self::save_families( $families );
 
 		if ( ! empty( $data['settings'] ) && is_array( $data['settings'] ) ) {
@@ -463,6 +662,11 @@ class EFM_Fonts {
 
 		return array(
 			'families'    => count( $families ),
+			'added'       => $added,
+			'updated'     => $updated,
+			'removed'     => $removed,
+			'restored'    => $restored['written'],
+			'rejected'    => $restored['rejected'],
 			'missing'     => array_values( array_unique( $missing ) ),
 			'recoverable' => $recoverable,
 		);
@@ -1006,11 +1210,25 @@ class EFM_Fonts {
 		$header = fread( $handle, 8 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
 		fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 
-		if ( strlen( (string) $header ) < 4 ) {
+		return self::looks_like_font( (string) $header, $ext );
+	}
+
+	/**
+	 * Does a run of bytes start with the signature for this font format?
+	 *
+	 * Used for bundled import data, which never touches disk until it has been
+	 * checked, as well as for files already written.
+	 *
+	 * @param string $bytes Leading bytes of the file.
+	 * @param string $ext   Expected extension.
+	 * @return bool
+	 */
+	public static function looks_like_font( $bytes, $ext ) {
+		if ( strlen( (string) $bytes ) < 4 ) {
 			return false;
 		}
 
-		$signature = substr( $header, 0, 4 );
+		$signature = substr( $bytes, 0, 4 );
 
 		switch ( $ext ) {
 			case 'woff2':

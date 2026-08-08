@@ -149,6 +149,17 @@ class EFM_Rest {
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( __CLASS__, 'export' ),
 				'permission_callback' => $auth,
+				'args'                => array(
+					'families' => array(
+						'type'    => 'array',
+						'default' => array(),
+						'items'   => array( 'type' => 'string' ),
+					),
+					'bundle'   => array(
+						'type'    => 'boolean',
+						'default' => false,
+					),
+				),
 			)
 		);
 
@@ -164,10 +175,14 @@ class EFM_Rest {
 						'type'     => 'object',
 						'required' => true,
 					),
-					'mode' => array(
+					'mode'    => array(
 						'type'    => 'string',
 						'default' => 'replace',
 						'enum'    => array( 'replace', 'merge' ),
+					),
+					'preview' => array(
+						'type'    => 'boolean',
+						'default' => false,
 					),
 				),
 			)
@@ -411,10 +426,16 @@ class EFM_Rest {
 	/**
 	 * GET /export
 	 *
+	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response
 	 */
-	public static function export() {
-		return rest_ensure_response( EFM_Fonts::export_payload() );
+	public static function export( WP_REST_Request $request ) {
+		return rest_ensure_response(
+			EFM_Fonts::export_payload(
+				(array) $request->get_param( 'families' ),
+				(bool) $request->get_param( 'bundle' )
+			)
+		);
 	}
 
 	/**
@@ -426,7 +447,8 @@ class EFM_Rest {
 	public static function import( WP_REST_Request $request ) {
 		$report = EFM_Fonts::import_payload(
 			(array) $request->get_param( 'data' ),
-			(string) $request->get_param( 'mode' )
+			(string) $request->get_param( 'mode' ),
+			(bool) $request->get_param( 'preview' )
 		);
 
 		if ( is_wp_error( $report ) ) {

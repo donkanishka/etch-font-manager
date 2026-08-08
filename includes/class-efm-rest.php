@@ -204,10 +204,24 @@ class EFM_Rest {
 						'type'    => 'string',
 						'default' => '',
 					),
+					'subset'   => array(
+						'type'    => 'string',
+						'default' => '',
+					),
+					/*
+					 * Tri-state, so it cannot be a boolean: '' means "do not filter",
+					 * which a boolean would collapse into false and silently hide
+					 * every variable family.
+					 */
+					'variable' => array(
+						'type'    => 'string',
+						'default' => '',
+						'enum'    => array( '', '0', '1' ),
+					),
 					'sort'     => array(
 						'type'    => 'string',
 						'default' => 'popularity',
-						'enum'    => array( 'popularity', 'alphabetical' ),
+						'enum'    => array( 'popularity', 'alphabetical', 'trending', 'newest' ),
 					),
 					'limit'    => array(
 						'type'    => 'integer',
@@ -474,6 +488,8 @@ class EFM_Rest {
 			(string) $request->get_param( 'query' ),
 			array(
 				'category' => (string) $request->get_param( 'category' ),
+				'subset'   => (string) $request->get_param( 'subset' ),
+				'variable' => (string) $request->get_param( 'variable' ),
 				'sort'     => (string) $request->get_param( 'sort' ),
 				'limit'    => (int) $request->get_param( 'limit' ),
 				'offset'   => (int) $request->get_param( 'offset' ),
@@ -485,6 +501,7 @@ class EFM_Rest {
 		}
 
 		$results['categories'] = EFM_Google_Fonts::categories();
+		$results['subsetList'] = EFM_Google_Fonts::subsets();
 
 		return rest_ensure_response( $results );
 	}

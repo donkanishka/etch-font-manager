@@ -18,7 +18,7 @@ class EFM_Google_Fonts {
 	 * must bump it, otherwise sites that upgrade keep serving the old shape
 	 * until the transient expires.
 	 */
-	const TRANSIENT   = 'efm_google_fonts_index_v2';
+	const TRANSIENT   = 'efm_google_fonts_index_v3';
 	const TRANSIENT_LEGACY = 'efm_google_fonts_index';
 	const METADATA    = 'https://fonts.google.com/metadata/fonts';
 	const CSS_API     = 'https://fonts.googleapis.com/css2';
@@ -91,9 +91,25 @@ class EFM_Google_Fonts {
 			// A wght axis means the family has a variable cut, which installs as
 			// one file per subset instead of one per weight.
 			$wght = array();
+			$axes = array();
 
 			foreach ( (array) ( $meta['axes'] ?? array() ) as $axis ) {
-				if ( 'wght' === ( $axis['tag'] ?? '' ) ) {
+				$tag = isset( $axis['tag'] ) ? (string) $axis['tag'] : '';
+
+				if ( '' === $tag ) {
+					continue;
+				}
+
+				// Kept as floats: opsz and slnt are fractional on some families,
+				// and casting to int silently collapses their range to nothing.
+				$axes[] = array(
+					'tag' => $tag,
+					'min' => (float) ( $axis['min'] ?? 0 ),
+					'max' => (float) ( $axis['max'] ?? 0 ),
+					'def' => (float) ( $axis['defaultValue'] ?? 0 ),
+				);
+
+				if ( 'wght' === $tag ) {
 					$wght = array(
 						'min' => (int) $axis['min'],
 						'max' => (int) $axis['max'],
@@ -101,13 +117,43 @@ class EFM_Google_Fonts {
 				}
 			}
 
+			$designers = array();
+			foreach ( (array) ( $meta['designers'] ?? array() ) as $designer ) {
+				$designer = sanitize_text_field( (string) $designer );
+				if ( '' !== $designer ) {
+					$designers[] = $designer;
+				}
+			}
+
+			$classifications = array();
+			foreach ( (array) ( $meta['classifications'] ?? array() ) as $classification ) {
+				$classification = sanitize_text_field( (string) $classification );
+				if ( '' !== $classification ) {
+					$classifications[] = $classification;
+				}
+			}
+
+			/*
+			 * Google sorts ascending on popularity and trending, so 1 is the top
+			 * of the list. A missing value must sort last, not first, which is why
+			 * the fallback is PHP_INT_MAX rather than 0.
+			 */
 			$fonts[] = array(
-				'family'     => $meta['family'] ?? '',
-				'category'   => $meta['category'] ?? '',
-				'variants'   => $variants,
-				'subsets'    => $subsets,
-				'popularity' => (int) ( $meta['popularity'] ?? PHP_INT_MAX ),
-				'wght'       => $wght,
+				'family'      => $meta['family'] ?? '',
+				'category'    => $meta['category'] ?? '',
+				'variants'    => $variants,
+				'subsets'     => $subsets,
+				'popularity'  => (int) ( $meta['popularity'] ?? PHP_INT_MAX ),
+				'wght'        => $wght,
+				'axes'        => $axes,
+				'designers'   => $designers,
+				'classes'     => $classifications,
+				'stroke'      => sanitize_text_field( (string) ( $meta['stroke'] ?? '' ) ),
+				'size'        => (int) ( $meta['size'] ?? 0 ),
+				'added'       => sanitize_text_field( (string) ( $meta['dateAdded'] ?? '' ) ),
+				'modified'    => sanitize_text_field( (string) ( $meta['lastModified'] ?? '' ) ),
+				'trending'    => (int) ( $meta['trending'] ?? PHP_INT_MAX ),
+				'script'      => sanitize_text_field( (string) ( $meta['primaryScript'] ?? '' ) ),
 			);
 		}
 
@@ -124,7 +170,7 @@ class EFM_Google_Fonts {
 	 * panel: the index is nearly two thousand families.
 	 *
 	 * @param string $query Search term.
-	 * @param array  $args  category, sort, limit, offset.
+	 * @param array  $args  category, subset, variable, sort, limit, offset.
 	 * @return array|WP_Error
 	 */
 	public static function search( $query, $args = array() ) {
@@ -138,8 +184,10 @@ class EFM_Google_Fonts {
 			$args,
 			array(
 				'category' => '',
-				'sort'     => 'popularity',
+				'subset'   => '',
+				'variable' => '',
 				'limit'    => self::RESULTS_MAX,
+				'sort'     => 'popularity',
 				'offset'   => 0,
 			)
 		);
@@ -147,6 +195,8 @@ class EFM_Google_Fonts {
 		$query    = trim( (string) $query );
 		$needle   = strtolower( $query );
 		$category = strtolower( trim( (string) $args['category'] ) );
+		$subset   = sanitize_key( (string) $args['subset'] );
+		$variable = (string) $args['variable'];
 
 		if ( '' !== $needle ) {
 			$fonts = array_values(
@@ -170,11 +220,40 @@ class EFM_Google_Fonts {
 			);
 		}
 
-		$alphabetical = 'alphabetical' === $args['sort'];
+		/*
+		 * Writing-system filter. The subset list is what Google actually ships
+		 * glyphs for, so this is the only honest way to answer "which families
+		 * can set Sinhala" — the category and name tell you nothing.
+		 */
+		if ( '' !== $subset ) {
+			$fonts = array_values(
+				array_filter(
+					$fonts,
+					static function ( $font ) use ( $subset ) {
+						return in_array( $subset, (array) $font['subsets'], true );
+					}
+				)
+			);
+		}
+
+		// Tri-state: '' is any, '1' only variable families, '0' only static ones.
+		if ( '1' === $variable || '0' === $variable ) {
+			$want  = '1' === $variable;
+			$fonts = array_values(
+				array_filter(
+					$fonts,
+					static function ( $font ) use ( $want ) {
+						return ( ! empty( $font['axes'] ) || ! empty( $font['wght'] ) ) === $want;
+					}
+				)
+			);
+		}
+
+		$sort = (string) $args['sort'];
 
 		usort(
 			$fonts,
-			static function ( $a, $b ) use ( $needle, $alphabetical ) {
+			static function ( $a, $b ) use ( $needle, $sort ) {
 				// However the list is sorted, an exact prefix match ranks first.
 				if ( '' !== $needle ) {
 					$pa = 0 === strpos( strtolower( $a['family'] ), $needle ) ? 0 : 1;
@@ -185,11 +264,27 @@ class EFM_Google_Fonts {
 					}
 				}
 
-				if ( $alphabetical ) {
+				if ( 'alphabetical' === $sort ) {
 					return strcasecmp( $a['family'], $b['family'] );
 				}
 
-				return $a['popularity'] <=> $b['popularity'];
+				/*
+				 * Fallbacks are load-bearing. A site holding a pre-v3 cached index
+				 * has no trending or added key at all, and an undefined-index
+				 * warning inside usort() would surface as a broken search rather
+				 * than a mis-sorted one.
+				 */
+				if ( 'trending' === $sort ) {
+					return ( $a['trending'] ?? PHP_INT_MAX ) <=> ( $b['trending'] ?? PHP_INT_MAX );
+				}
+
+				// Newest first, so the comparison is deliberately reversed. Dates
+				// are ISO yyyy-mm-dd, which sorts correctly as a plain string.
+				if ( 'newest' === $sort ) {
+					return strcmp( (string) ( $b['added'] ?? '' ), (string) ( $a['added'] ?? '' ) );
+				}
+
+				return ( $a['popularity'] ?? PHP_INT_MAX ) <=> ( $b['popularity'] ?? PHP_INT_MAX );
 			}
 		);
 
@@ -228,6 +323,47 @@ class EFM_Google_Fonts {
 		sort( $categories );
 
 		return $categories;
+	}
+
+	/**
+	 * Subsets present in the index, with how many families offer each.
+	 *
+	 * Powers the writing-system filter. The count is worth returning because it
+	 * is the honest answer to "how much choice do I have in this script" — for
+	 * Sinhala it is single digits, and a bare dropdown entry would hide that.
+	 *
+	 * @return array[] List of arrays with subset and count keys, most families first.
+	 */
+	public static function subsets() {
+		$fonts = self::index();
+
+		if ( is_wp_error( $fonts ) ) {
+			return array();
+		}
+
+		$counts = array();
+
+		foreach ( $fonts as $font ) {
+			foreach ( (array) $font['subsets'] as $subset ) {
+				if ( ! isset( $counts[ $subset ] ) ) {
+					$counts[ $subset ] = 0;
+				}
+				++$counts[ $subset ];
+			}
+		}
+
+		arsort( $counts );
+
+		$out = array();
+
+		foreach ( $counts as $subset => $count ) {
+			$out[] = array(
+				'subset' => (string) $subset,
+				'count'  => (int) $count,
+			);
+		}
+
+		return $out;
 	}
 
 	/**

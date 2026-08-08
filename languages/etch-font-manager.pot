@@ -147,6 +147,43 @@ msgstr ""
 msgid "All"
 msgstr ""
 
+#: includes/class-efm-builder.php:160
+msgid ""
+"Stops theme and plugin stylesheets that point at "
+"fonts.googleapis.com, and removes the matching preconnect hints. It "
+"cannot reach an @import inside a theme stylesheet or a link tag "
+"printed straight into the page. Your own local fonts are "
+"unaffected."
+msgstr ""
+
+#: includes/class-efm-builder.php:161
+msgid "Override theme styles"
+msgstr ""
+
+#: includes/class-efm-builder.php:162
+msgid ""
+"Adds !important, for when a theme stylesheet loads later or wins on "
+"specificity."
+msgstr ""
+
+#: includes/class-efm-builder.php:163
+msgid "Restore all"
+msgstr ""
+
+#: includes/class-efm-builder.php:164
+msgid "Empty trash"
+msgstr ""
+
+#: includes/class-efm-builder.php:165
+msgid ""
+"Delete every family in the trash for good? Their font files stay on "
+"the server and can be removed from Import & export."
+msgstr ""
+
+#: includes/class-efm-builder.php:166
+msgid "The bundled font data in that file is not readable."
+msgstr ""
+
 #: includes/class-efm-builder.php:170
 msgid "Families"
 msgstr ""
@@ -245,13 +282,6 @@ msgstr ""
 
 #: includes/class-efm-builder.php:188
 msgid "Block Google Fonts loaded by other plugins"
-msgstr ""
-
-#: includes/class-efm-builder.php:189
-msgid ""
-"Stops any theme or plugin stylesheet that points at "
-"fonts.googleapis.com, and removes the matching preconnect hints. "
-"Your own local fonts are unaffected."
 msgstr ""
 
 #: includes/class-efm-builder.php:190

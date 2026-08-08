@@ -17,7 +17,16 @@ class EFM_Fonts {
 	const OPTION_FAMILIES = 'efm_font_families';
 	const OPTION_SETTINGS = 'efm_settings';
 	const CSS_FILENAME    = 'efm-fonts.css';
+	const TRANSIENT_INLINE = 'efm_inline_css';
 	const MAX_FILE_SIZE   = 10485760; // 10 MB.
+
+	/*
+	 * A bundled import arrives as one JSON request, so the whole thing has to
+	 * fit in memory and inside the server's upload limits. Refusing a payload
+	 * that is plainly too large gives a clear message instead of an opaque
+	 * failure somewhere further down.
+	 */
+	const MAX_BUNDLE_SIZE = 52428800; // 50 MB of decoded font data.
 
 	/**
 	 * Allowed font extensions mapped to their CSS format() value.
@@ -177,6 +186,39 @@ class EFM_Fonts {
 		$path = self::css_path();
 
 		return file_exists( $path ) ? (int) filemtime( $path ) : 0;
+	}
+
+	/**
+	 * The stylesheet as it should be printed inline, cached.
+	 *
+	 * The generated file cannot simply be inlined: it is written with relative
+	 * `src` URLs, which resolve against the stylesheet when it is a file and
+	 * against the page when it is inline, so inlining it would break every font
+	 * URL. The absolute-URL build is therefore kept in its own cache, keyed to
+	 * the file's modification time so it is rebuilt whenever the fonts change.
+	 *
+	 * @return string
+	 */
+	public static function inline_css() {
+		$version = self::css_version();
+		$cached  = get_transient( self::TRANSIENT_INLINE );
+
+		if ( is_array( $cached ) && isset( $cached['version'], $cached['css'] ) && $cached['version'] === $version ) {
+			return (string) $cached['css'];
+		}
+
+		$css = self::build_css();
+
+		set_transient(
+			self::TRANSIENT_INLINE,
+			array(
+				'version' => $version,
+				'css'     => $css,
+			),
+			WEEK_IN_SECONDS
+		);
+
+		return $css;
 	}
 
 	/**
@@ -469,6 +511,7 @@ class EFM_Fonts {
 	protected static function restore_bundle( $bundle ) {
 		$written  = array();
 		$rejected = array();
+		$total    = 0;
 
 		if ( ! is_array( $bundle ) || empty( $bundle ) ) {
 			return array(
@@ -511,6 +554,13 @@ class EFM_Fonts {
 				continue;
 			}
 
+			$total += strlen( $raw );
+
+			if ( $total > self::MAX_BUNDLE_SIZE ) {
+				$rejected[] = $file;
+				continue;
+			}
+
 			if ( self::write_file( $path, $raw ) ) {
 				$written[] = $file;
 			} else {
@@ -537,6 +587,14 @@ class EFM_Fonts {
 			return new WP_Error(
 				'efm_import_invalid',
 				__( 'That file does not look like an Etch Font Manager export.', 'etch-font-manager' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		if ( isset( $data['bundle'] ) && ! is_array( $data['bundle'] ) ) {
+			return new WP_Error(
+				'efm_import_bundle',
+				__( 'The bundled font data in that file is not readable.', 'etch-font-manager' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -925,21 +983,17 @@ class EFM_Fonts {
 			}
 
 			$chosen = null;
+			$best   = null;
 
 			foreach ( $family['variants'] as $variant ) {
-				if ( empty( $variant['file'] ) || 'italic' === ( $variant['style'] ?? 'normal' ) ) {
+				if ( empty( $variant['file'] ) ) {
 					continue;
 				}
 
-				$is_regular = in_array( (string) ( $variant['weight'] ?? '400' ), array( '400', '100 900' ), true );
-				$is_latin   = ! isset( $variant['subset'] ) || 'latin' === $variant['subset'];
+				$score = self::preload_score( $variant );
 
-				if ( $is_regular && $is_latin ) {
-					$chosen = $variant;
-					break;
-				}
-
-				if ( null === $chosen && $is_regular ) {
+				if ( null === $best || $score < $best ) {
+					$best   = $score;
 					$chosen = $variant;
 				}
 			}
@@ -959,6 +1013,40 @@ class EFM_Fonts {
 		}
 
 		return $preloads;
+	}
+
+	/**
+	 * How suitable a variant is for preloading. Lower is better.
+	 *
+	 * Preload should fetch the cut a page is most likely to render first, which
+	 * is the upright weight nearest regular, preferring latin. The previous
+	 * version only accepted a weight of exactly "400" or the full "100 900"
+	 * range, so a family installed without a regular weight preloaded nothing at
+	 * all — and once narrow variable ranges stopped being rewritten to 400 in
+	 * 1.8.0, neither did any variable family with an axis such as "400 900".
+	 *
+	 * @param array $variant Variant record.
+	 * @return array Sort key: upright first, then distance from regular, then latin.
+	 */
+	public static function preload_score( $variant ) {
+		$weight = (string) ( $variant['weight'] ?? '400' );
+
+		if ( false !== strpos( $weight, ' ' ) ) {
+			$bounds = array_map( 'intval', explode( ' ', $weight, 2 ) );
+			$min    = $bounds[0];
+			$max    = isset( $bounds[1] ) ? $bounds[1] : $bounds[0];
+
+			// A range covering regular is as good as a regular file.
+			$distance = ( 400 >= $min && 400 <= $max ) ? 0 : min( abs( $min - 400 ), abs( $max - 400 ) );
+		} else {
+			$distance = abs( (int) $weight - 400 );
+		}
+
+		return array(
+			'italic' === ( $variant['style'] ?? 'normal' ) ? 1 : 0,
+			$distance,
+			( ! isset( $variant['subset'] ) || 'latin' === $variant['subset'] ) ? 0 : 1,
+		);
 	}
 
 	/**
@@ -1049,6 +1137,7 @@ class EFM_Fonts {
 				'preload'  => ! empty( $family['preload'] ),
 				'fallback' => self::sanitize_font_stack( $family['fallback'] ?? '' ),
 				'selector' => self::sanitize_selector( $family['selector'] ?? '' ),
+				'force'    => ! empty( $family['force'] ),
 				'enabled'  => $enabled,
 				'trashed'  => ! empty( $family['trashed'] ),
 			);
@@ -1502,7 +1591,11 @@ class EFM_Fonts {
 				continue;
 			}
 
-			$applied .= $selector . " {\n\tfont-family: " . self::family_stack( $family ) . ";\n}\n\n";
+			// The Automatic.css mapping already writes !important, so the same
+			// escape hatch is offered here rather than losing to a theme silently.
+			$important = empty( $family['force'] ) ? '' : ' !important';
+
+			$applied .= $selector . " {\n\tfont-family: " . self::family_stack( $family ) . $important . ";\n}\n\n";
 		}
 
 		if ( '' !== $applied ) {
@@ -1558,6 +1651,10 @@ class EFM_Fonts {
 	 */
 	public static function write_css_file() {
 		self::ensure_dir();
+
+		// The inline copy is keyed on the file's timestamp, but deleting it here
+		// means a rewrite within the same second cannot serve a stale build.
+		delete_transient( self::TRANSIENT_INLINE );
 
 		return self::write_file( self::css_path(), self::build_css( null, true ) );
 	}

@@ -41,6 +41,7 @@ class EFM_Builder {
 		// Late, so everything a theme or plugin queued has already been added.
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'block_google_fonts' ), 100 );
 		add_filter( 'wp_resource_hints', array( __CLASS__, 'filter_resource_hints' ), 10, 2 );
+		add_filter( 'style_loader_tag', array( __CLASS__, 'filter_style_tag' ), 10, 4 );
 	}
 
 	/**
@@ -110,7 +111,7 @@ class EFM_Builder {
 		 * ones, so it is a choice rather than a default.
 		 */
 		if ( ! empty( $settings['inline_css'] ) ) {
-			$css = EFM_Fonts::build_css();
+			$css = EFM_Fonts::inline_css();
 
 			if ( '' !== trim( (string) $css ) ) {
 				wp_register_style( 'efm-fonts', false, array(), EFM_Fonts::css_version() );
@@ -160,6 +161,35 @@ class EFM_Builder {
 				wp_dequeue_style( $handle );
 			}
 		}
+	}
+
+	/**
+	 * Drop any Google Fonts link tag that survived the dequeue.
+	 *
+	 * A stylesheet registered after the dequeue runs, or printed by code that
+	 * bypasses the queue, still reaches this filter. It is a second net rather
+	 * than the main one.
+	 *
+	 * @param string $tag    Link tag markup.
+	 * @param string $handle Style handle.
+	 * @param string $href   Stylesheet URL.
+	 * @param string $media  Media attribute.
+	 * @return string
+	 */
+	public static function filter_style_tag( $tag, $handle, $href, $media ) {
+		unset( $handle, $media );
+
+		$settings = EFM_Fonts::settings();
+
+		if ( empty( $settings['block_google'] ) ) {
+			return $tag;
+		}
+
+		if ( false !== strpos( (string) $href, 'fonts.googleapis.com' ) ) {
+			return '';
+		}
+
+		return $tag;
 	}
 
 	/**
@@ -287,6 +317,11 @@ class EFM_Builder {
 			'weights'        => __( 'Weights', 'etch-font-manager' ),
 			'cutsAll'        => __( 'All', 'etch-font-manager' ),
 			'cutsNone'       => __( 'None', 'etch-font-manager' ),
+			'applyForce'     => __( 'Override theme styles', 'etch-font-manager' ),
+			'applyForceHint' => __( 'Adds !important, for when a theme stylesheet loads later or wins on specificity.', 'etch-font-manager' ),
+			'restoreAll'     => __( 'Restore all', 'etch-font-manager' ),
+			'emptyTrash'     => __( 'Empty trash', 'etch-font-manager' ),
+			'confirmEmptyTrash' => __( 'Delete every family in the trash for good? Their font files stay on the server and can be removed from Import & export.', 'etch-font-manager' ),
 			'exportPick'     => __( 'Families', 'etch-font-manager' ),
 			'exportBundle'   => __( 'Include the font files', 'etch-font-manager' ),
 			'exportBundleHint' => __( 'Makes a much larger file that rebuilds anywhere. Without it, Google families are re-downloaded on import and hand-uploaded fonts have to be uploaded again.', 'etch-font-manager' ),
@@ -309,7 +344,7 @@ class EFM_Builder {
 			'regenerated'    => __( 'Stylesheet regenerated.', 'etch-font-manager' ),
 			'privacy'        => __( 'Privacy', 'etch-font-manager' ),
 			'blockGoogle'    => __( 'Block Google Fonts loaded by other plugins', 'etch-font-manager' ),
-			'blockGoogleHint' => __( 'Stops any theme or plugin stylesheet that points at fonts.googleapis.com, and removes the matching preconnect hints. Your own local fonts are unaffected.', 'etch-font-manager' ),
+			'blockGoogleHint' => __( 'Stops theme and plugin stylesheets that point at fonts.googleapis.com, and removes the matching preconnect hints. It cannot reach an @import inside a theme stylesheet or a link tag printed straight into the page. Your own local fonts are unaffected.', 'etch-font-manager' ),
 			'applyTo'        => __( 'Apply to', 'etch-font-manager' ),
 			'applyToHint'    => __( 'Optional. A comma separated selector list this family is applied to, so you do not have to write the rule yourself.', 'etch-font-manager' ),
 			'cssPreview'     => __( 'Generated CSS', 'etch-font-manager' ),

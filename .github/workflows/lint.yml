@@ -32,6 +32,11 @@ jobs:
       - name: Syntax check
         run: find . -path ./vendor -prune -o -name '*.php' -print0 | xargs -0 -n1 -P4 php -l
 
+      # No Composer, no PHPUnit and no WordPress test suite: the suite stubs the
+      # handful of WordPress functions it reaches and runs anywhere PHP does.
+      - name: Behavioural tests
+        run: php tests/run.php
+
   phpcs:
     name: Coding standards
     runs-on: ubuntu-latest

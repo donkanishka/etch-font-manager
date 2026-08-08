@@ -2,6 +2,35 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.8.0
+
+### Added
+
+- **Choose which weights to download.** Installing a Google font previously fetched every weight and italic the
+  family offered — eighteen files per subset for a family like Inter. The install card now has a weight picker,
+  preselected at regular and bold, so a latin install of Inter downloads **two files instead of eighteen**. The
+  request sent to Google is built from the selection rather than filtered afterwards.
+- **Change the selection later.** A family installed from Google gains a Google Fonts section in the editor
+  listing every weight the family offers, with the installed ones marked. Toggle and download again to add or
+  drop weights without searching the library. Deselecting leaves the file on disk, so re-enabling costs nothing.
+- **Delete unused font files.** Import & export lists any font file on the server that no family refers to, with
+  its size, and removes them on request. Always confirmed, since deleting bytes cannot be undone.
+
+### Fixed
+
+- **Narrow variable weight ranges were rewritten to 400.** Only the full `100 900` range was accepted, so a
+  variable family declaring anything narrower — Alegreya at `400 900`, Akshar at `300 700` — had its
+  `font-weight` descriptor silently replaced with `400`, and the browser could no longer use the rest of the
+  axis. **366 of the 538 variable families on Google Fonts declare a narrower axis**, so this affected most
+  variable installs. Any weight range between 1 and 1000 is now preserved, and the editor's weight menu keeps a
+  stored range instead of discarding it on save.
+
+### Notes
+
+- Narrowing a variable font's axis at install was investigated and deliberately **not** built: Google serves
+  the same file whatever range is requested. Measured on Inter, Alegreya, Roboto Flex and Open Sans, the
+  downloaded file is byte-identical, so the option would have saved nothing.
+
 ## 1.7.3
 
 - Use `WP_Filesystem::move()` rather than `rename()` when a font file that is not a real upload is moved into place, so hosts with restricted filesystem access are respected.

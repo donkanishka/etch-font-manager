@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.7.3
+Stable tag: 1.8.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,12 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.8.0 =
+* Choose which weights and italics to download when installing a Google font, instead of always getting all eighteen. A latin install of Inter now downloads two files rather than eighteen.
+* Change the selection later from the family editor, without searching the library again.
+* List and delete font files that no family uses.
+* Fixed variable families with a narrower axis than 100-900 having their font-weight rewritten to 400.
 
 = 1.7.3 =
 * Use WP_Filesystem when moving a non-upload font file into place.

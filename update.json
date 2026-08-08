@@ -1,10 +1,10 @@
 {
-  "version": "1.7.3",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.7.3/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.7.3",
+  "version": "1.8.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.8.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.8.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
-  "date": "2026-08-03",
-  "notes": "Use WP_Filesystem when moving a non-upload font file into place, and make continuous integration fail on errors while still reporting warnings."
+  "date": "2026-08-08",
+  "notes": "Choose which Google Fonts weights to download instead of always installing all eighteen, change the selection later from the family editor, delete font files no family uses, and stop narrow variable weight ranges being rewritten to 400."
 }

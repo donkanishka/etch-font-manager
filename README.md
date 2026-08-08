@@ -20,6 +20,7 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 - **Guard rails** — warnings before closing with unsaved edits, removing a family that is assigned as the heading or text font, or deleting a file that variants still map.
 - **Family and variant mapping** — assign files to weights and styles, all inline in the panel.
 - **A CSS variable per family** — every family is published as `--efm-family-{slug}`, so `"Noto Sans Sinhala"` is usable as `var(--efm-family-noto-sans-sinhala)` in an Etch style record, an ACSS override or any stylesheet. The value carries the family's fallback stack, and the family editor shows the variable ready to copy.
+- **Portable import and export** — export chosen families as JSON, optionally with the font files bundled in, and preview exactly what an import will add, overwrite and remove before applying it. Bundled files are validated by their format signature before being written.
 - **Stylesheet delivery** — the generated CSS is cached to a file and enqueued, or printed inline if you prefer one less request. Shows when it was last built, with a regenerate action.
 - **Blocks other plugins' Google Fonts** — an optional privacy setting that dequeues any stylesheet pointing at `fonts.googleapis.com` and strips the matching preconnect hints.
 - **Apply to your own selectors** — give a family a selector list such as `h1, .site-title` and the rule is written for you.
@@ -145,6 +146,7 @@ if an entry for the stylesheet is already present.
 Namespace `etch-font-manager/v1`:
 
 `GET /state`, `POST /families`, `POST /settings`, `POST /upload`, `POST /files/delete`,
+`POST /files/prune`, `POST /css/regenerate`, `GET /export`, `POST /import`,
 `GET /google/search`, `POST /google/install`.
 
 ## Maintenance surface

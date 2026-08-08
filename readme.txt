@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.12.0
+Stable tag: 1.13.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,11 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.13.0 =
+* Export only the families you choose, and optionally bundle the font files with them.
+* Importing now previews what would be added, overwritten and removed before anything is written.
+* Bundled font files are validated by their signature before being written; a disguised payload is rejected.
 
 = 1.12.0 =
 * Choose inline or external delivery for the generated stylesheet, see when it was last built and regenerate it on demand.

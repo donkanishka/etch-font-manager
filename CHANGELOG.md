@@ -2,6 +2,28 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.13.0
+
+### Added
+
+- **Export only the families you want.** Pick them from a list rather than always taking everything, for moving
+  one typeface to another site without dragging the whole library along.
+- **Optionally bundle the font files.** The export has always been configuration only, which is small and
+  rebuilds Google families on the other end but leaves hand-uploaded fonts to be uploaded again. Ticking
+  **Include the font files** embeds them, producing a much larger file that rebuilds anywhere.
+- **See what an import will do before it does it.** Choosing a file now shows what would be added, overwritten
+  and removed, how many font files the file carries and how many would still be missing afterwards. Nothing is
+  written until **Import now** is pressed, and Cancel walks away cleanly.
+- The import report says how many font files were written from the bundle, and names anything it refused.
+- The export payload carries a `schema` number so a future importer can tell formats apart.
+
+### Security
+
+- Bundled font files are checked before they are written: the name is sanitised, the extension must be a font
+  format, the destination must resolve inside the fonts directory, the decoded size must be within the upload
+  limit, and the bytes must start with that format's own signature. A PHP payload renamed to `.woff2` is
+  rejected, as is anything trying to climb out of the fonts folder. Existing files are never overwritten.
+
 ## 1.12.0
 
 ### Added

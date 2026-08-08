@@ -287,6 +287,181 @@
 	gap: 8px;
 }
 
+/* ---------------------------- Layout modes ----------------------------- */
+
+/*
+ * Row, Grid and Compact. The track sizing is intrinsic rather than
+ * breakpoint-driven, so every mode still collapses to a single column when the
+ * manager is narrow. The mode caps density; it never forces a column count the
+ * panel is too narrow to hold.
+ */
+
+.efm-grid--grid {
+	grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+}
+
+.efm-grid--row {
+	grid-template-columns: 1fr;
+}
+
+.efm-grid--compact {
+	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+	gap: 2px;
+}
+
+/* Row exists to judge a face at reading length, so the specimen may wrap. */
+.efm-grid--row .efm-specimen {
+	white-space: normal;
+	line-height: 1.35;
+	max-block-size: 4.2em;
+	text-overflow: clip;
+}
+
+.efm-grid--row .efm-card {
+	padding-block: var(--e-space-m, 12px);
+}
+
+/* Compact is for locating a known name, so everything else steps back. */
+.efm-grid--compact .efm-card {
+	flex-direction: row;
+	align-items: center;
+	gap: var(--e-space-m, 12px);
+	padding-block: 6px;
+	border-inline: 0;
+	border-block-start: 0;
+	border-radius: 0;
+	background: transparent;
+}
+
+.efm-grid--compact .efm-card__by,
+.efm-grid--compact .efm-subsets,
+.efm-grid--compact .efm-toggle--inline,
+.efm-grid--compact .efm-notice,
+.efm-grid--compact .efm-card__meta {
+	display: none;
+}
+
+/*
+ * The head is dissolved so its three children become flex items of the row.
+ * Without this the Install button sits between the name and the specimen and
+ * squeezes the preview down to a couple of glyphs.
+ */
+.efm-grid--compact .efm-card__head {
+	display: contents;
+}
+
+/*
+ * Compact exists to find a family by name, so the name gets a floor and the
+ * specimen yields. The other way round truncates every name to "Noto S...",
+ * which defeats the mode.
+ */
+.efm-grid--compact .efm-card__title {
+	flex: 1 1 auto;
+	min-inline-size: 12ch;
+}
+
+.efm-grid--compact .efm-card__actions {
+	order: 3;
+	margin-inline-start: auto;
+}
+
+.efm-grid--compact .efm-specimen {
+	flex: 1 1 40%;
+	min-inline-size: 0;
+	text-align: end;
+	font-size: var(--e-font-size-l, 13px) !important;
+}
+
+/* ------------------------- Segmented control --------------------------- */
+
+.efm-segmented {
+	display: inline-flex;
+	padding: 2px;
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+	background: var(--efm-surface);
+}
+
+.efm-segmented__item {
+	padding-inline: 10px;
+	block-size: 20px;
+	border: 0;
+	border-radius: calc(var(--efm-radius) - 2px);
+	background: transparent;
+	color: var(--efm-muted);
+	font: inherit;
+	font-size: var(--e-font-size-s, 11px);
+	cursor: pointer;
+	transition: background-color .12s ease, color .12s ease;
+}
+
+.efm-segmented__item:hover {
+	color: var(--efm-text);
+}
+
+.efm-segmented__item.is-on {
+	background: var(--efm-accent);
+	color: var(--efm-surface);
+}
+
+/* ---------------------------- Result bar ------------------------------- */
+
+.efm-resultbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--e-space-m, 12px);
+	flex-wrap: wrap;
+}
+
+.efm-bulk {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.efm-bulk__count {
+	font-size: var(--e-font-size-s, 11px);
+	color: var(--efm-muted);
+}
+
+/* --------------------------- Card selection ---------------------------- */
+
+.efm-card__pick {
+	display: inline-flex;
+	align-items: center;
+	flex: 0 0 auto;
+	cursor: pointer;
+}
+
+/*
+ * Keeps the name against the checkbox. Without it the head's space-between
+ * strands the title in the middle of a full-width row, which reads as a
+ * centred heading rather than a list item.
+ */
+.efm-card__head .efm-card__title {
+	flex: 1 1 auto;
+	text-align: start;
+}
+
+.efm-card.is-picked {
+	border-color: var(--efm-accent);
+}
+
+.efm-card__by {
+	margin: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: var(--e-font-size-s, 11px);
+	color: var(--efm-muted);
+}
+
+/* Preset chips sit next to the preview input and must not push it to a new row. */
+.efm-chips--presets {
+	flex-wrap: nowrap;
+}
+
 .efm-card {
 	display: flex;
 	flex-direction: column;

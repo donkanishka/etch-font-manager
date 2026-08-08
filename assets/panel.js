@@ -60,8 +60,180 @@
 		unused: (cfg.state && cfg.state.unused) || [],
 		cssBuilt: (cfg.state && cfg.state.cssBuilt) || 0,
 		previewText: s('preview', 'The quick brown fox'),
-		previewSize: 30
+		previewSize: 30,
+		// Empty means "no custom text", which is what lets each card fall back to
+		// a sample in its own script instead of Latin.
+		previewCustom: '',
+		layout: 'grid',
+		subset: '',
+		variableOnly: '',
+		subsetList: [],
+		picked: [],
+		detail: null,
+		axisValues: {}
 	};
+
+	/* --------------------------------------------------------------------- */
+	/* Preferences                                                            */
+	/* --------------------------------------------------------------------- */
+
+	var PREFS_KEY = 'efm.prefs.v1';
+	var LAYOUTS = ['row', 'grid', 'compact'];
+
+	/**
+	 * Read the saved browse preferences.
+	 *
+	 * Wrapped because localStorage throws outright in some privacy modes, and a
+	 * cosmetic preference must never be able to stop the manager from opening.
+	 */
+	function loadPrefs() {
+		var raw;
+
+		try {
+			raw = window.localStorage.getItem(PREFS_KEY);
+		} catch (e) {
+			return;
+		}
+
+		if (!raw) {
+			return;
+		}
+
+		var saved;
+
+		try {
+			saved = JSON.parse(raw);
+		} catch (e) {
+			return;
+		}
+
+		if (!saved || typeof saved !== 'object') {
+			return;
+		}
+
+		if (LAYOUTS.indexOf(saved.layout) !== -1) {
+			state.layout = saved.layout;
+		}
+
+		if (typeof saved.previewSize === 'number' && saved.previewSize >= 14 && saved.previewSize <= 72) {
+			state.previewSize = saved.previewSize;
+		}
+
+		if (typeof saved.previewCustom === 'string') {
+			state.previewCustom = saved.previewCustom;
+		}
+	}
+
+	function savePrefs() {
+		try {
+			window.localStorage.setItem(PREFS_KEY, JSON.stringify({
+				layout: state.layout,
+				previewSize: state.previewSize,
+				previewCustom: state.previewCustom
+			}));
+		} catch (e) {
+			// A refused write is not worth surfacing; the session still works.
+		}
+	}
+
+	/*
+	 * Sample text per subset.
+	 *
+	 * The point is gotcha #4: a Latin pangram renders identically whether or not
+	 * a family actually carries Sinhala glyphs, because the browser silently
+	 * falls back. Showing each family text in its own script makes a missing
+	 * subset visible instantly instead of at install time.
+	 */
+	var SAMPLES = {
+		sinhala: 'අයහිමිකම් සියළු මනුෂ්‍යයන්',
+		tamil: 'அனைத்து மனிதர்களும் சுதந்திரமாகவே',
+		devanagari: 'सभी मनुष्यों को गौरव और अधिकार',
+		arabic: 'يولد جميع الناس أحرارًا',
+		hebrew: 'כל בני האדם נולדו בני חורין',
+		thai: 'มนุษย์ทั้งหลายเกิดมามีอิสระ',
+		greek: 'Όλοι οι άνθρωποι γεννιούνται ελεύθεροι',
+		cyrillic: 'Все люди рождаются свободными',
+		korean: '모든 인간은 태어날 떄부터 자유롭고',
+		japanese: 'すべての人間は、生まれながらにして自由であり',
+		chinese: '人人生而自由，在尊严和权利上一律平等',
+		bengali: 'সমস্ত মানুষ স্বাধীনভাবে সমান মর্যাদায়',
+		armenian: 'Բոլոր մարդիկ ծնվում են ազատ',
+		georgian: 'ყველა ადამიანი იბადება თავისუფალი'
+	};
+
+	/**
+	 * Digits and punctuation, which is the one sample every subset can render and
+	 * the fastest way to spot a family with no usable numerals.
+	 */
+	var NUMERALS = '0123456789 — £$€ · (“A”) 12/34';
+
+	/*
+	 * ISO 15924 script code to subset, for the index's primaryScript field.
+	 *
+	 * This mapping is why the sample is correct rather than merely non-Latin.
+	 * Picking the first non-latin subset instead looks reasonable and is wrong:
+	 * Roboto lists cyrillic before latin, so it would preview in Russian, while
+	 * Google itself shows it in Latin. An empty primaryScript — 1,352 of the
+	 * 1,942 families — means Latin.
+	 */
+	var SCRIPT_SUBSET = {
+		Sinh: 'sinhala',
+		Taml: 'tamil',
+		Deva: 'devanagari',
+		Arab: 'arabic',
+		Hebr: 'hebrew',
+		Thai: 'thai',
+		Grek: 'greek',
+		Cyrl: 'cyrillic',
+		Kore: 'korean',
+		Hang: 'korean',
+		Jpan: 'japanese',
+		Hira: 'japanese',
+		Kana: 'japanese',
+		Hans: 'chinese',
+		Hant: 'chinese',
+		Beng: 'bengali',
+		Armn: 'armenian',
+		Geor: 'georgian'
+	};
+
+	/**
+	 * Sample text for one family.
+	 *
+	 * Custom text always wins. Without it the family's own subsets choose the
+	 * script, so a Sinhala family previews in Sinhala without the user having to
+	 * find Sinhala text to paste.
+	 *
+	 * @param {object} font Index record or family record.
+	 * @return {string}
+	 */
+	function sampleFor(font) {
+		if (state.previewCustom) {
+			return state.previewCustom;
+		}
+
+		var subsets = (font && font.subsets) || [];
+		var mapped;
+
+		/*
+		 * An active writing-system filter wins. Without this a family that also
+		 * carries another script previews in that one instead: filtering to
+		 * Sinhala and being shown Armenian is worse than useless, because it
+		 * looks like the Sinhala glyphs are missing.
+		 */
+		if (state.subset && SAMPLES[state.subset] && subsets.indexOf(state.subset) !== -1) {
+			return SAMPLES[state.subset];
+		}
+
+		// The family's own primary script, which is the script it exists to set.
+		mapped = SCRIPT_SUBSET[(font && font.script) || ''];
+
+		if (mapped && SAMPLES[mapped]) {
+			return SAMPLES[mapped];
+		}
+
+		return s('preview', 'The quick brown fox');
+	}
 
 	/* --------------------------------------------------------------------- */
 	/* DOM helpers                                                            */
@@ -645,22 +817,88 @@
 
 	/* ------------------------------ Toolbar ------------------------------ */
 
+	/**
+	 * Repaint every specimen in place.
+	 *
+	 * Deliberately not a re-render: the preview text and size change on every
+	 * keystroke and drag, and rebuilding the grid would drop scroll position and
+	 * re-run the IntersectionObserver on each one.
+	 */
+	function repaintSpecimens() {
+		Array.prototype.forEach.call(contentEl.querySelectorAll('[data-efm-specimen]'), function (node) {
+			var subsets = (node.getAttribute('data-efm-subsets') || '').split(',').filter(Boolean);
+
+			node.textContent = sampleFor({
+				subsets: subsets,
+				script: node.getAttribute('data-efm-script') || ''
+			});
+			node.style.fontSize = state.previewSize + 'px';
+		});
+	}
+
+	/**
+	 * Preset preview strings.
+	 *
+	 * "Auto" is the important one and the default: it hands each card back to
+	 * sampleFor(), so a mixed result set previews every family in its own script
+	 * rather than forcing one script onto all of them.
+	 */
+	function previewPresets() {
+		return [
+			{ id: 'auto', label: s('sampleAuto', 'Auto'), text: '' },
+			{ id: 'latin', label: s('sampleLatin', 'Latin'), text: s('preview', 'The quick brown fox') },
+			{ id: 'sinhala', label: 'සිංහල', text: SAMPLES.sinhala },
+			{ id: 'tamil', label: 'தமிழ்', text: SAMPLES.tamil },
+			{ id: 'numerals', label: s('sampleNumerals', '123'), text: NUMERALS }
+		];
+	}
+
 	function previewToolbar(lead) {
 		var sizeLabel = el('span', { class: 'efm-toolbar__size', text: state.previewSize + 'px' });
 
 		var textInput = el('input', {
 			type: 'text',
 			class: 'efm-input',
-			value: state.previewText,
+			value: state.previewCustom,
 			'aria-label': s('previewText', 'Preview text'),
-			placeholder: s('previewText', 'Preview text'),
+			placeholder: s('previewAuto', 'Each family in its own script'),
 			oninput: debounce(function (event) {
-				state.previewText = event.target.value;
-				Array.prototype.forEach.call(contentEl.querySelectorAll('[data-efm-specimen]'), function (node) {
-					node.textContent = state.previewText || s('preview', 'The quick brown fox');
-				});
+				state.previewCustom = event.target.value;
+				savePrefs();
+				repaintSpecimens();
+				syncPresetChips();
 			}, 160)
 		});
+
+		var chips = el('div', { class: 'efm-chips efm-chips--presets' }, previewPresets().map(function (preset) {
+			return el('button', {
+				type: 'button',
+				class: 'efm-chip efm-chip--toggle',
+				'data-efm-preset': preset.id,
+				'aria-pressed': state.previewCustom === preset.text ? 'true' : 'false',
+				text: preset.label,
+				onclick: function () {
+					state.previewCustom = preset.text;
+					textInput.value = preset.text;
+					savePrefs();
+					repaintSpecimens();
+					syncPresetChips();
+				}
+			});
+		}));
+
+		function syncPresetChips() {
+			var presets = previewPresets();
+
+			Array.prototype.forEach.call(chips.querySelectorAll('[data-efm-preset]'), function (node, i) {
+				var on = state.previewCustom === presets[i].text;
+
+				node.setAttribute('aria-pressed', on ? 'true' : 'false');
+				node.classList.toggle('is-on', on);
+			});
+		}
+
+		syncPresetChips();
 
 		var size = el('input', {
 			type: 'range',
@@ -673,23 +911,75 @@
 			oninput: function (event) {
 				state.previewSize = parseInt(event.target.value, 10);
 				sizeLabel.textContent = state.previewSize + 'px';
-				Array.prototype.forEach.call(contentEl.querySelectorAll('[data-efm-specimen]'), function (node) {
-					node.style.fontSize = state.previewSize + 'px';
-				});
+				savePrefs();
+				repaintSpecimens();
 			}
 		});
 
 		return el('div', { class: 'efm-toolbar' }, [
 			lead || null,
-			el('div', { class: 'efm-toolbar__preview' }, [textInput, size, sizeLabel])
+			el('div', { class: 'efm-toolbar__preview' }, [textInput, chips, size, sizeLabel])
 		]);
 	}
 
-	function specimen(family) {
+	/**
+	 * Row / Grid / Compact switch.
+	 *
+	 * Row is for judging a face at reading length, grid for scanning the
+	 * catalogue, compact for finding a known name in a long list. The choice only
+	 * caps density: the grid itself is container-driven, so a narrow panel still
+	 * collapses to one column whatever is selected here.
+	 */
+	function layoutToggle() {
+		var labels = {
+			row: s('layoutRow', 'Row'),
+			grid: s('layoutGrid', 'Grid'),
+			compact: s('layoutCompact', 'Compact')
+		};
+
+		return el('div', {
+			class: 'efm-segmented',
+			role: 'radiogroup',
+			'aria-label': s('layout', 'Layout')
+		}, LAYOUTS.map(function (name) {
+			var on = state.layout === name;
+
+			return el('button', {
+				type: 'button',
+				role: 'radio',
+				class: 'efm-segmented__item' + (on ? ' is-on' : ''),
+				'aria-checked': on ? 'true' : 'false',
+				text: labels[name],
+				onclick: function () {
+					if (state.layout === name) {
+						return;
+					}
+
+					state.layout = name;
+					savePrefs();
+					render();
+				}
+			});
+		}));
+	}
+
+	function gridClass() {
+		return 'efm-grid efm-grid--' + state.layout;
+	}
+
+	/**
+	 * @param {string}   family  Family name.
+	 * @param {string[]} subsets Subsets the family carries, for the script sample.
+	 * @param {string}   script  ISO 15924 primary script code, when known.
+	 * @return {HTMLElement}
+	 */
+	function specimen(family, subsets, script) {
 		return el('p', {
 			class: 'efm-specimen',
 			'data-efm-specimen': 'true',
-			text: state.previewText || s('preview', 'The quick brown fox'),
+			'data-efm-subsets': (subsets || []).join(','),
+			'data-efm-script': script || '',
+			text: sampleFor({ subsets: subsets || [], script: script || '' }),
 			style: { 'font-family': familyStack(family), 'font-size': state.previewSize + 'px' }
 		});
 	}
@@ -865,7 +1155,8 @@
 					type: 'button',
 					class: 'efm-btn efm-btn--outline',
 					onclick: addFamily
-				}, [icon('plus', 12), el('span', { text: s('newFamily', 'New family') })])
+				}, [icon('plus', 12), el('span', { text: s('newFamily', 'New family') })]),
+				layoutToggle()
 			])
 		));
 
@@ -895,7 +1186,7 @@
 			return;
 		}
 
-		var grid = el('div', { class: 'efm-grid' });
+		var grid = el('div', { class: gridClass() });
 
 		list.forEach(function (row) {
 			var family = row.family;
@@ -943,7 +1234,7 @@
 						])
 					]),
 					enabled ? null : el('p', { class: 'efm-notice', text: s('disabledNotice', 'Disabled. Its files are kept, but it is not loaded on the site.') }),
-					specimen(family.name),
+					specimen(family.name, subsetList),
 					roles.length ? el('div', { class: 'efm-chips' }, roles.map(function (role) {
 						return el('span', { class: 'efm-chip efm-chip--role', text: role });
 					})) : null,
@@ -1600,14 +1891,61 @@
 			}
 		}, [
 			el('option', { value: 'popularity', text: s('sortPopular', 'Most popular'), selected: state.sort === 'popularity' }),
+			el('option', { value: 'trending', text: s('sortTrending', 'Trending'), selected: state.sort === 'trending' }),
+			el('option', { value: 'newest', text: s('sortNewest', 'Newest'), selected: state.sort === 'newest' }),
 			el('option', { value: 'alphabetical', text: s('sortAlpha', 'A to Z'), selected: state.sort === 'alphabetical' })
+		]);
+
+		/*
+		 * Writing system. The count matters: it is the difference between "Latin,
+		 * 1817 families" and "Sinhala, 8", and picking a script without knowing
+		 * that looks like a broken filter rather than a small catalogue.
+		 */
+		var subsetSelect = el('select', {
+			class: 'efm-input efm-input--select',
+			'aria-label': s('writingSystem', 'Writing system'),
+			onchange: function (event) {
+				state.subset = event.target.value;
+				searchGoogle();
+			}
+		}, [el('option', { value: '', text: s('allScripts', 'Any writing system'), selected: !state.subset })]);
+
+		state.subsetList.forEach(function (entry) {
+			subsetSelect.appendChild(el('option', {
+				value: entry.subset,
+				text: entry.subset + ' (' + entry.count + ')',
+				selected: state.subset === entry.subset
+			}));
+		});
+
+		var variableSelect = el('select', {
+			class: 'efm-input efm-input--select',
+			'aria-label': s('technology', 'Technology'),
+			onchange: function (event) {
+				state.variableOnly = event.target.value;
+				searchGoogle();
+			}
+		}, [
+			el('option', { value: '', text: s('anyTech', 'Any technology'), selected: '' === state.variableOnly }),
+			el('option', { value: '1', text: s('variableOnly', 'Variable only'), selected: '1' === state.variableOnly }),
+			el('option', { value: '0', text: s('staticOnly', 'Static only'), selected: '0' === state.variableOnly })
 		]);
 
 		contentEl.appendChild(previewToolbar(
 			el('div', { class: 'efm-toolbar__lead' }, [
 				el('div', { class: 'efm-search' }, [icon('search', 13), search]),
 				categorySelect,
-				sortSelect
+				subsetSelect,
+				variableSelect,
+				sortSelect,
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--ghost efm-btn--sm',
+					text: s('resetAll', 'Reset all'),
+					disabled: !googleFiltered(),
+					onclick: resetGoogleFilters
+				}),
+				layoutToggle()
 			])
 		));
 
@@ -1621,17 +1959,45 @@
 			return;
 		}
 
-		contentEl.appendChild(el('p', {
-			class: 'efm-muted',
-			text: state.results.length + ' / ' + state.total + ' ' + s('familiesLabel', 'families')
-		}));
+		contentEl.appendChild(el('div', { class: 'efm-resultbar' }, [
+			el('p', {
+				class: 'efm-muted',
+				text: state.results.length + ' ' + s('ofLabel', 'of') + ' ' + state.total + ' ' + s('familiesLabel', 'families')
+			}),
+			state.picked.length ? el('div', { class: 'efm-bulk' }, [
+				el('span', {
+					class: 'efm-bulk__count',
+					text: state.picked.length + ' ' + s('selected', 'selected')
+				}),
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--ghost efm-btn--sm',
+					text: s('clearSelection', 'Clear'),
+					disabled: 0 === state.busy.indexOf('install:'),
+					onclick: function () {
+						state.picked = [];
+						render();
+					}
+				}),
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--primary efm-btn--sm',
+					text: 0 === state.busy.indexOf('install:')
+						? s('installing', 'Installing…')
+						: s('installSelected', 'Install selected'),
+					disabled: 0 === state.busy.indexOf('install:'),
+					onclick: installPicked
+				})
+			]) : null
+		]));
 
-		var grid = el('div', { class: 'efm-grid' });
+		var grid = el('div', { class: gridClass() });
 
 		state.results.forEach(function (font) {
 			var installed = state.families.some(function (family) {
 				return (family.name || '').toLowerCase() === font.family.toLowerCase();
 			});
+			var picked = state.picked.indexOf(font.family) !== -1;
 			var busy = state.busy === 'install:' + font.family;
 			var available = font.subsets && font.subsets.length ? font.subsets : ['latin'];
 			var chosen = selectedSubsets(font);
@@ -1644,8 +2010,19 @@
 			var pickCuts = !useVariable && allCuts.length > 1;
 
 			grid.appendChild(
-				el('article', { class: 'efm-card', 'data-family': font.family }, [
+				el('article', { class: 'efm-card' + (picked ? ' is-picked' : ''), 'data-family': font.family }, [
 					el('div', { class: 'efm-card__head' }, [
+						el('label', { class: 'efm-card__pick' }, [
+							el('input', {
+								type: 'checkbox',
+								class: 'efm-checkbox',
+								checked: picked,
+								'aria-label': s('selectFamily', 'Select') + ' ' + font.family,
+								onchange: function () {
+									togglePick(font.family);
+								}
+							})
+						]),
 						el('h2', { class: 'efm-card__title', text: font.family }),
 						el('div', { class: 'efm-card__actions' }, [
 							installed ? el('span', { class: 'efm-badge' }, [icon('check', 11), el('span', { text: s('installed', 'Installed') })]) : null,
@@ -1660,12 +2037,10 @@
 							})
 						])
 					]),
-					el('p', {
-						class: 'efm-specimen',
-						'data-efm-specimen': 'true',
-						text: state.previewText || s('preview', 'The quick brown fox'),
-						style: { 'font-family': familyStack(font.family), 'font-size': state.previewSize + 'px' }
-					}),
+					font.designers && font.designers.length
+						? el('p', { class: 'efm-card__by', text: font.designers.join(', ') })
+						: null,
+					specimen(font.family, font.subsets, font.script),
 					hasVariable ? el('label', { class: 'efm-toggle efm-toggle--inline' }, [
 						el('input', {
 							type: 'checkbox',
@@ -1727,7 +2102,12 @@
 					]) : null,
 					el('div', { class: 'efm-card__meta' }, [
 						el('span', { text: font.category || '' }),
-						el('span', { text: (font.variants || []).length + ' ' + plural((font.variants || []).length, s('variant', 'variant'), s('variants', 'variants')) })
+						el('span', { text: stylesLabel(font) }),
+						font.size ? el('span', {
+							class: 'efm-muted',
+							text: formatSize(font.size),
+							title: s('familySizeHint', 'Size of the whole family at Google. What you install depends on the subsets and weights chosen below.')
+						}) : null
 					])
 				])
 			);
@@ -1747,6 +2127,124 @@
 				})
 			);
 		}
+	}
+
+	/**
+	 * "Variable (3 axes)" or "18 styles", matching how Google labels a family.
+	 *
+	 * The axis count is the more useful number for a variable family: the style
+	 * count says 18 whether those cuts are 18 files or one file with a wght axis.
+	 *
+	 * @param {object} font Index record.
+	 * @return {string}
+	 */
+	function stylesLabel(font) {
+		var axes = (font && font.axes) || [];
+		var count = ((font && font.variants) || []).length;
+
+		if (axes.length) {
+			return s('variableLabel', 'Variable') + ' (' + axes.length + ' ' +
+				plural(axes.length, s('axis', 'axis'), s('axes', 'axes')) + ')';
+		}
+
+		// Deliberately not the existing 'style' string: that one is the capitalised
+		// form label "Style" and would render as "18 Style".
+		return count + ' ' + plural(count, s('styleSingular', 'style'), s('styles', 'styles'));
+	}
+
+	function togglePick(family) {
+		var at = state.picked.indexOf(family);
+
+		if (at === -1) {
+			state.picked.push(family);
+		} else {
+			state.picked.splice(at, 1);
+		}
+
+		render();
+	}
+
+	/**
+	 * Install every selected family, one at a time.
+	 *
+	 * Serial on purpose. Each install downloads a set of woff2 files from Google
+	 * and writes them, and firing a dozen of those concurrently is a good way to
+	 * get rate limited or to time the request out on shared hosting.
+	 */
+	function installPicked() {
+		var queue = state.picked.slice();
+		var done = 0;
+		var failed = [];
+
+		if (!queue.length) {
+			return;
+		}
+
+		function next() {
+			if (!queue.length) {
+				state.busy = '';
+				state.picked = failed.slice();
+
+				if (failed.length) {
+					setStatus(
+						s('bulkPartial', 'Installed') + ' ' + done + ', ' +
+							s('bulkFailed', 'failed') + ': ' + failed.join(', '),
+						'error'
+					);
+				} else {
+					setStatus(s('bulkDone', 'Installed') + ' ' + done + ' ' +
+						plural(done, s('familySingular', 'family'), s('familiesLabel', 'families')));
+				}
+
+				render();
+				return;
+			}
+
+			var family = queue.shift();
+			var font = null;
+			var i;
+
+			for (i = 0; i < state.results.length; i++) {
+				if (state.results[i].family === family) {
+					font = state.results[i];
+					break;
+				}
+			}
+
+			if (!font) {
+				next();
+				return;
+			}
+
+			var hasVariable = !!(font.wght && font.wght.min);
+			var useVariable = hasVariable && state.variable[font.family] !== false;
+
+			state.busy = 'install:' + family;
+			setStatus(s('installing', 'Installing…') + ' ' + family + ' (' + (done + 1) + '/' + state.picked.length + ')');
+			render();
+
+			request('/google/install', {
+				method: 'POST',
+				body: {
+					family: family,
+					subsets: selectedSubsets(font),
+					variable: useVariable,
+					cuts: useVariable ? [] : selectedCuts(font)
+				}
+			})
+				.then(function (data) {
+					applyState(data && data.state);
+					delete state.cuts[family];
+					done++;
+				})
+				.catch(function () {
+					// Kept in the selection so a retry does not need re-picking.
+					failed.push(family);
+				})
+				.then(next);
+		}
+
+		next();
 	}
 
 	/**
@@ -2627,8 +3125,27 @@
 	function googleQuery(offset) {
 		return '/google/search?query=' + encodeURIComponent(state.query) +
 			'&category=' + encodeURIComponent(state.category) +
+			'&subset=' + encodeURIComponent(state.subset) +
+			'&variable=' + encodeURIComponent(state.variableOnly) +
 			'&sort=' + encodeURIComponent(state.sort) +
 			'&limit=24&offset=' + offset;
+	}
+
+	/**
+	 * True when anything narrows the catalogue, which is what enables Reset all.
+	 */
+	function googleFiltered() {
+		return !!(state.query || state.category || state.subset || state.variableOnly) ||
+			'popularity' !== state.sort;
+	}
+
+	function resetGoogleFilters() {
+		state.query = '';
+		state.category = '';
+		state.subset = '';
+		state.variableOnly = '';
+		state.sort = 'popularity';
+		searchGoogle();
 	}
 
 	function searchGoogle() {
@@ -2642,6 +3159,15 @@
 
 				if (data && data.categories && data.categories.length) {
 					state.categories = data.categories;
+				}
+
+				/*
+				 * subsets() is computed from the whole index server-side, not from
+				 * the filtered result, so this list is stable. Assigned once purely
+				 * to avoid rebuilding the dropdown on every keystroke.
+				 */
+				if (data && data.subsetList && data.subsetList.length && !state.subsetList.length) {
+					state.subsetList = data.subsetList;
 				}
 			})
 			.catch(fail)
@@ -2841,6 +3367,10 @@
 
 	function boot() {
 		var attempts = 0;
+
+		// Before anything renders, so the first paint already uses the saved
+		// layout rather than flashing the default and then correcting itself.
+		loadPrefs();
 
 		var timer = window.setInterval(function () {
 			attempts += 1;

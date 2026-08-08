@@ -53,6 +53,10 @@
 		cuts: {},
 		pruning: false,
 		recovering: '',
+		exportPick: [],
+		exportBundle: false,
+		importPreview: null,
+		importPayload: null,
 		unused: (cfg.state && cfg.state.unused) || [],
 		cssBuilt: (cfg.state && cfg.state.cssBuilt) || 0,
 		previewText: s('preview', 'The quick brown fox'),
@@ -2033,7 +2037,68 @@
 		}
 
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('exportTitle', 'Export') }));
-		contentEl.appendChild(el('p', { class: 'efm-muted', text: s('exportHint', 'Download every family, variant mapping and assignment as a JSON file. Font files are not included; a family installed from Google can be reinstalled on the other site.') }));
+		contentEl.appendChild(el('p', { class: 'efm-muted', text: s('exportHint', 'Download families, their variant mapping and assignments as a JSON file. Choose which families to include, and whether to bundle the font files with them.') }));
+
+		var exportable = state.families.map(function (family) { return family.name; });
+
+		if (exportable.length) {
+			var picked = state.exportPick && state.exportPick.length ? state.exportPick : exportable;
+
+			contentEl.appendChild(el('div', { class: 'efm-subsets' }, [
+				el('span', { class: 'efm-subsets__label', text: s('exportPick', 'Families') }),
+				el('div', { class: 'efm-chips' }, exportable.map(function (name) {
+					var on = picked.indexOf(name) !== -1;
+
+					return el('button', {
+						type: 'button',
+						class: 'efm-chip efm-chip--toggle' + (on ? ' is-on' : ''),
+						'aria-pressed': on ? 'true' : 'false',
+						text: name,
+						onclick: function () {
+							var next = picked.slice();
+							var at = next.indexOf(name);
+
+							if (at === -1) {
+								next.push(name);
+							} else {
+								next.splice(at, 1);
+							}
+
+							state.exportPick = next;
+							render();
+						}
+					});
+				}).concat([
+					el('button', {
+						type: 'button',
+						class: 'efm-chip efm-chip--toggle',
+						text: picked.length === exportable.length ? s('cutsNone', 'None') : s('cutsAll', 'All'),
+						onclick: function () {
+							state.exportPick = picked.length === exportable.length ? [] : exportable.slice();
+							render();
+						}
+					})
+				]))
+			]));
+
+			contentEl.appendChild(
+				el('label', { class: 'efm-toggle' }, [
+					el('input', {
+						type: 'checkbox',
+						class: 'efm-checkbox',
+						checked: !!state.exportBundle,
+						onchange: function (event) {
+							state.exportBundle = event.target.checked;
+							render();
+						}
+					}),
+					el('span', {}, [
+						el('span', { class: 'efm-toggle__label', text: s('exportBundle', 'Include the font files') }),
+						el('span', { class: 'efm-field__hint', text: s('exportBundleHint', 'Makes a much larger file that rebuilds anywhere. Without it, Google families are re-downloaded on import and hand-uploaded fonts have to be uploaded again.') })
+					])
+				])
+			);
+		}
 		contentEl.appendChild(
 			el('button', {
 				type: 'button',
@@ -2092,6 +2157,53 @@
 		);
 		contentEl.appendChild(fileInput);
 
+		if (state.importPreview) {
+			var pv = state.importPreview;
+			var pvLines = [
+				el('p', { class: 'efm-notice', text: s('previewTitle', 'Nothing has been changed yet. This is what importing would do:') })
+			];
+
+			var summarise = function (key, label) {
+				var names = pv[key] || [];
+
+				if (!names.length) {
+					return;
+				}
+
+				pvLines.push(el('p', { class: 'efm-muted', text: label + ' (' + names.length + '): ' + names.join(', ') }));
+			};
+
+			summarise('added', s('previewAdded', 'Added'));
+			summarise('updated', s('previewUpdated', 'Overwritten'));
+			summarise('removed', s('previewRemoved', 'Removed'));
+
+			if (pv.bundled) {
+				pvLines.push(el('p', { class: 'efm-muted', text: s('previewBundled', 'Font files included in the file') + ': ' + pv.bundled }));
+			}
+
+			if (pv.missing && pv.missing.length) {
+				pvLines.push(el('p', { class: 'efm-muted', text: s('previewMissing', 'Font files that would still be missing afterwards') + ': ' + pv.missing.length }));
+			}
+
+			pvLines.push(el('div', { class: 'efm-card__actions' }, [
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--primary',
+					disabled: state.busy === 'import',
+					text: state.busy === 'import' ? s('loading', 'Loading…') : s('previewConfirm', 'Import now'),
+					onclick: confirmImport
+				}),
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--outline',
+					text: s('previewCancel', 'Cancel'),
+					onclick: cancelImport
+				})
+			]));
+
+			contentEl.appendChild(el('div', { class: 'efm-report' }, pvLines));
+		}
+
 		if (state.importReport) {
 			var report = state.importReport;
 			var lines = [
@@ -2103,6 +2215,14 @@
 				lines.push(el('ul', { class: 'efm-files' }, report.missing.map(function (name) {
 					return el('li', { class: 'efm-file' }, [el('span', { class: 'efm-file__name', text: name })]);
 				})));
+			}
+
+			if (report.restored && report.restored.length) {
+				lines.push(el('p', { class: 'efm-muted', text: s('importRestored', 'Font files written from the file') + ': ' + report.restored.length }));
+			}
+
+			if (report.rejected && report.rejected.length) {
+				lines.push(el('p', { class: 'efm-notice', text: s('importRejected', 'Rejected, because they are not valid font files:') + ' ' + report.rejected.join(', ') }));
 			}
 
 			var recoverable = report.recoverable || [];
@@ -2137,6 +2257,38 @@
 	 *
 	 * @param {object[]} items Recoverable families from the import report.
 	 */
+	/**
+	 * Apply the import that was previewed.
+	 */
+	function confirmImport() {
+		if (!state.importPayload) {
+			return;
+		}
+
+		state.busy = 'import';
+		render();
+
+		request('/import', { method: 'POST', body: { data: state.importPayload, mode: state.importMode || 'replace' } })
+			.then(function (result) {
+				applyState(result && result.state);
+				state.importReport = (result && result.report) || null;
+				state.importPreview = null;
+				state.importPayload = null;
+				setStatus(s('imported', 'imported'));
+			})
+			.catch(fail)
+			.then(function () {
+				state.busy = '';
+				render();
+			});
+	}
+
+	function cancelImport() {
+		state.importPreview = null;
+		state.importPayload = null;
+		render();
+	}
+
 	function recoverMissing(items) {
 		var queue = items.slice();
 		var done = 0;
@@ -2187,7 +2339,23 @@
 		state.busy = 'export';
 		render();
 
-		request('/export')
+		var chosen = state.exportPick || [];
+		var all = liveFamilies().map(function (family) { return family.name; });
+		var query = [];
+
+		// Sending every name and sending none mean the same thing to the server,
+		// so the shorter request wins.
+		if (chosen.length && chosen.length !== all.length) {
+			chosen.forEach(function (name) {
+				query.push('families[]=' + encodeURIComponent(name));
+			});
+		}
+
+		if (state.exportBundle) {
+			query.push('bundle=1');
+		}
+
+		request('/export' + (query.length ? '?' + query.join('&') : ''))
 			.then(function (data) {
 				var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
 				var url = URL.createObjectURL(blob);
@@ -2227,11 +2395,13 @@
 				return;
 			}
 
-			request('/import', { method: 'POST', body: { data: payload, mode: state.importMode || 'replace' } })
+			// Preview first. Import replaces or merges live data, so it is worth
+			// seeing what will change before anything is written.
+			request('/import', { method: 'POST', body: { data: payload, mode: state.importMode || 'replace', preview: true } })
 				.then(function (result) {
-					applyState(result && result.state);
-					state.importReport = (result && result.report) || null;
-					setStatus(s('imported', 'imported'));
+					state.importPreview = (result && result.report) || null;
+					state.importPayload = payload;
+					state.importReport = null;
 				})
 				.catch(fail)
 				.then(function () {

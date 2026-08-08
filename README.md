@@ -10,7 +10,7 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 
 - **Native Settings Bar control** — registered through `window.etchControls.builder.settingsBar`, grouped with Etch's own managers at the end of the top section.
 - **Full-screen manager** — mirrors Etch's native manager pattern (Content Hub, Style Manager, Asset Manager): a takeover surface beside the settings bar, a 40px header and a 256px inner navigation column, all built from Etch's own design tokens so it follows the builder's colour scheme.
-- **Specimen-first browsing** — Library and Google Fonts render as specimen grids with editable preview text and a 14-72px size slider.
+- **Specimen-first browsing** — Library and Google Fonts render in your choice of **Row**, **Grid** or **Compact** layout, with editable preview text, a 14-72px size slider, and each family previewed in its own script rather than a Latin pangram.
 - **Upload fonts** — drag and drop `.woff2`, `.woff`, `.ttf`, `.otf` files.
 - **Google Fonts** — search, live preview, and one-click install. Files are downloaded locally, so the frontend makes no requests to Google.
 - **Subset support** — choose which subsets to download (latin, latin-ext, sinhala, tamil, cyrillic, greek, vietnamese and so on). Each `@font-face` gets a matching `unicode-range`, so browsers only fetch the scripts a page actually uses.
@@ -76,7 +76,7 @@ the header while there are unsaved changes.
 **Upload fonts** — drag and drop `.woff2`, `.woff`, `.ttf` or `.otf` files, and review everything currently in
 the fonts folder with type, size and delete.
 
-**Google Fonts** — browse the whole library by category and popularity, or search it. Results page in 24 at a time and specimen webfonts load lazily as cards scroll into view. Families with a weight axis can be installed as a **variable** cut: one file per subset instead of one per weight. Pick the
+**Google Fonts** — browse the whole library by category, writing system, technology, popularity, trending or date added, or search it. The writing-system filter is the only reliable way to answer questions like "which families can set Sinhala" — the answer is eight. Select several families and install them in one action. Results page in 24 at a time and specimen webfonts load lazily as cards scroll into view. Families with a weight axis can be installed as a **variable** cut: one file per subset instead of one per weight. Pick the
 subsets you need first: `latin` is preselected, and families that carry other scripts expose them as toggles.
 Installing downloads every weight and style for the chosen subsets locally and wires the family up for you.
 Already installed? Use **Reinstall** to add a subset later.

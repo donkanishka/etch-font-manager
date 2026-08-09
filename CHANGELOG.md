@@ -2,6 +2,19 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.19.4
+
+### Fixed
+
+- **The back button tooltip was partly hidden behind the Settings Bar.** Centring it on a button that sits 8px
+  from the panel edge pushes about 25 of its 95 pixels over the bar, and the bar paints on top: it is a flex
+  item with `z-index: 102`, which applies to flex items even though it is `position: static`, while this panel
+  sits at 60.
+
+  A `::after` cannot escape its own stacking context, so the panel is lifted above the bar **only while the back
+  button is hovered or focused**. Raising it permanently was measured first and rejected: it hides Etch's own
+  Settings Bar tooltips behind the panel.
+
 ## 1.19.3
 
 ### Changed

@@ -57,15 +57,6 @@ class EFM_Builder {
 	}
 
 	/**
-	 * Is Automatic.css active?
-	 *
-	 * @return bool
-	 */
-	public static function acss_active() {
-		return defined( 'ACSS_VERSION' ) || defined( 'AUTOMATIC_CSS_VERSION' ) || class_exists( 'Automatic_CSS\Plugin' );
-	}
-
-	/**
 	 * Print preload hints for families that asked for one.
 	 *
 	 * Runs early in wp_head so the browser can start the font request before it
@@ -294,8 +285,7 @@ class EFM_Builder {
 		return array(
 			'fonts'          => __( 'Fonts', 'etch-font-manager' ),
 			'library'        => __( 'Library', 'etch-font-manager' ),
-			'add'            => __( 'Add', 'etch-font-manager' ),
-			'theme'          => __( 'Theme', 'etch-font-manager' ),
+			'settings'       => __( 'Settings', 'etch-font-manager' ),
 			'close'          => __( 'Close', 'etch-font-manager' ),
 			'back'           => __( 'Back', 'etch-font-manager' ),
 			'manage'         => __( 'Manage', 'etch-font-manager' ),
@@ -351,7 +341,6 @@ class EFM_Builder {
 			'variable'       => __( 'variable', 'etch-font-manager' ),
 			'type'           => __( 'Type', 'etch-font-manager' ),
 			'size'           => __( 'Size', 'etch-font-manager' ),
-			'googleHint'     => __( 'Search the Google Fonts library. Files are downloaded to your server, so visitors never call Google.', 'etch-font-manager' ),
 			'subsets'        => __( 'Subsets', 'etch-font-manager' ),
 			'weights'        => __( 'Weights', 'etch-font-manager' ),
 			'cutsAll'        => __( 'All', 'etch-font-manager' ),
@@ -405,10 +394,6 @@ class EFM_Builder {
 			'familyEnabled'  => __( 'Load this family on the site', 'etch-font-manager' ),
 			'familyEnabledHint' => __( 'Turn off to stop the font loading without deleting anything. Files and weight mapping are kept.', 'etch-font-manager' ),
 			'confirmDeleteFamily' => __( 'Delete this family for good? Its font files stay on the server and can be removed from Import & export.', 'etch-font-manager' ),
-			'confirmDisableAssigned' => __( 'This family is assigned as:', 'etch-font-manager' ),
-			'confirmDisableAssignedHint' => __( 'Disabling it means that text falls back to another font. Continue?', 'etch-font-manager' ),
-			'confirmTrashAssigned' => __( 'This family is assigned as:', 'etch-font-manager' ),
-			'confirmTrashAssignedHint' => __( 'Moving it to the trash means that text falls back to another font. The assignment returns if you restore it. Continue?', 'etch-font-manager' ),
 			'cssToken'       => __( 'CSS variable', 'etch-font-manager' ),
 			'cssTokenHint'   => __( 'Use this anywhere a font family is expected. It already includes the fallback stack.', 'etch-font-manager' ),
 			'googleSource'   => __( 'Google Fonts', 'etch-font-manager' ),
@@ -454,18 +439,13 @@ class EFM_Builder {
 			'reinstall'      => __( 'Reinstall', 'etch-font-manager' ),
 			'inUse'          => __( 'in use', 'etch-font-manager' ),
 			'confirmDiscard' => __( 'You have unsaved font changes. Close and discard them?', 'etch-font-manager' ),
-			'confirmRemoveAssigned'     => __( 'This family is assigned as:', 'etch-font-manager' ),
-			'confirmRemoveAssignedHint' => __( 'Removing it will clear that assignment. Continue?', 'etch-font-manager' ),
 			'confirmDeleteUsed'         => __( 'It is mapped by:', 'etch-font-manager' ),
 			'confirmDeleteUsedHint'     => __( 'Those variants will be removed too.', 'etch-font-manager' ),
-			'sampleHeading'  => __( 'Typography that ships', 'etch-font-manager' ),
-			'sampleBody'     => __( 'Body copy renders in the text family. Upload a font or install one from Google Fonts, map its weights, then assign it here.', 'etch-font-manager' ),
 			'noFamilies'     => __( 'No font families yet.', 'etch-font-manager' ),
 			'noFamiliesHint' => __( 'Upload a font file or install one from Google Fonts.', 'etch-font-manager' ),
 			'newFamily'      => __( 'New family', 'etch-font-manager' ),
 			'familyName'     => __( 'Family name', 'etch-font-manager' ),
 			'addVariant'     => __( 'Add variant', 'etch-font-manager' ),
-			'removeFamily'   => __( 'Remove family', 'etch-font-manager' ),
 			'removeVariant'  => __( 'Remove variant', 'etch-font-manager' ),
 			'variants'       => __( 'variants', 'etch-font-manager' ),
 			'variant'        => __( 'variant', 'etch-font-manager' ),
@@ -487,12 +467,6 @@ class EFM_Builder {
 			'install'        => __( 'Install', 'etch-font-manager' ),
 			'installing'     => __( 'Installing…', 'etch-font-manager' ),
 			'installed'      => __( 'Installed', 'etch-font-manager' ),
-			'headingFont'    => __( 'Heading font', 'etch-font-manager' ),
-			'textFont'       => __( 'Text font', 'etch-font-manager' ),
-			'acssMapping'    => __( 'Automatic.css mapping', 'etch-font-manager' ),
-			'acssHint'       => __( 'Maps the selected families to --heading-font-family and --text-font-family.', 'etch-font-manager' ),
-			'acssMissing'    => __( 'Automatic.css was not detected. The variables are still written, so any framework using them will pick them up.', 'etch-font-manager' ),
-			'none'           => __( 'None', 'etch-font-manager' ),
 			'weight'         => __( 'Weight', 'etch-font-manager' ),
 			'style'          => __( 'Style', 'etch-font-manager' ),
 			'file'           => __( 'File', 'etch-font-manager' ),
@@ -500,7 +474,6 @@ class EFM_Builder {
 			'italic'         => __( 'Italic', 'etch-font-manager' ),
 			'confirmDelete'  => __( 'Delete this file from the fonts folder?', 'etch-font-manager' ),
 			'error'          => __( 'Something went wrong.', 'etch-font-manager' ),
-			'unsaved'        => __( 'Unsaved changes', 'etch-font-manager' ),
 			'preview'        => __( 'The quick brown fox', 'etch-font-manager' ),
 		);
 	}

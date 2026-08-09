@@ -292,7 +292,6 @@ class EFM_Rest {
 			'cssUrl'     => EFM_Fonts::css_url(),
 			'cssVersion' => EFM_Fonts::css_version(),
 			'cssBuilt'   => EFM_Fonts::css_generated(),
-			'acssActive' => EFM_Builder::acss_active(),
 			'version'    => EFM_VERSION,
 			'unused'     => EFM_Fonts::unused_files(),
 		);
@@ -328,11 +327,8 @@ class EFM_Rest {
 	public static function save_settings( WP_REST_Request $request ) {
 		EFM_Fonts::save_settings(
 			array(
-				'heading_font' => (string) $request->get_param( 'heading_font' ),
-				'text_font'    => (string) $request->get_param( 'text_font' ),
 				'inline_css'   => (bool) $request->get_param( 'inline_css' ),
 				'block_google' => (bool) $request->get_param( 'block_google' ),
-				'acss_enabled' => (bool) $request->get_param( 'acss_enabled' ),
 			)
 		);
 

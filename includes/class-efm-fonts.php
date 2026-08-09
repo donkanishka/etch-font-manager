@@ -323,7 +323,6 @@ class EFM_Fonts {
 		$clean = self::sanitize_families( $families );
 
 		update_option( self::OPTION_FAMILIES, $clean, false );
-		self::prune_settings( $clean );
 		self::write_css_file();
 
 		/**
@@ -337,46 +336,14 @@ class EFM_Fonts {
 	}
 
 	/**
-	 * Clear font assignments that point at a family which no longer exists, so
-	 * the generated CSS never references a missing family.
-	 *
-	 * @param array $families Current families.
-	 */
-	protected static function prune_settings( $families ) {
-		$settings = self::settings();
-		$names    = array_map(
-			static function ( $family ) {
-				return strtolower( $family['name'] ?? '' );
-			},
-			$families
-		);
-
-		$changed = false;
-
-		foreach ( array( 'heading_font', 'text_font' ) as $key ) {
-			if ( ! empty( $settings[ $key ] ) && ! in_array( strtolower( $settings[ $key ] ), $names, true ) ) {
-				$settings[ $key ] = '';
-				$changed          = true;
-			}
-		}
-
-		if ( $changed ) {
-			update_option( self::OPTION_SETTINGS, $settings, false );
-		}
-	}
-
-	/**
 	 * Get plugin settings.
 	 *
 	 * @return array
 	 */
 	public static function settings() {
 		$defaults = array(
-			'heading_font'  => '',
-			'text_font'     => '',
-			'acss_enabled'  => true,
-			'inline_css'    => false,
-			'block_google'  => false,
+			'inline_css'   => false,
+			'block_google' => false,
 		);
 
 		$settings = get_option( self::OPTION_SETTINGS, array() );
@@ -395,9 +362,6 @@ class EFM_Fonts {
 		$current = self::settings();
 
 		$clean = array(
-			'heading_font' => self::sanitize_family_name( $input['heading_font'] ?? $current['heading_font'] ),
-			'text_font'    => self::sanitize_family_name( $input['text_font'] ?? $current['text_font'] ),
-			'acss_enabled' => ! empty( $input['acss_enabled'] ),
 			'inline_css'   => ! empty( $input['inline_css'] ?? $current['inline_css'] ),
 			'block_google' => ! empty( $input['block_google'] ?? $current['block_google'] ),
 		);
@@ -775,29 +739,14 @@ class EFM_Fonts {
 			return;
 		}
 
-		$legacy_settings = get_option( 'ecf_acss_settings', array() );
-		$legacy_settings = is_array( $legacy_settings ) ? $legacy_settings : array();
-
+		// Only the families carry over. The legacy plugin's own ACSS variable
+		// mapping has no counterpart here any more, so ecf_acss_settings is
+		// deliberately ignored rather than half-imported.
 		update_option( self::OPTION_FAMILIES, self::sanitize_families( $legacy_families ), false );
-		update_option(
-			self::OPTION_SETTINGS,
-			array(
-				'heading_font' => self::sanitize_family_name( $legacy_settings['heading_font'] ?? '' ),
-				'text_font'    => self::sanitize_family_name( $legacy_settings['text_font'] ?? '' ),
-				'acss_enabled' => true,
-			),
-			false
-		);
 	}
 
 	// Sanitizing.
 
-	/**
-	 * Sanitize a font family name for safe use inside CSS.
-	 *
-	 * @param string $name Raw name.
-	 * @return string
-	 */
 	/**
 	 * Validate a unicode-range value before it is written into CSS.
 	 *
@@ -1591,8 +1540,7 @@ class EFM_Fonts {
 				continue;
 			}
 
-			// The Automatic.css mapping already writes !important, so the same
-			// escape hatch is offered here rather than losing to a theme silently.
+			// An escape hatch, so a rule does not lose to a theme silently.
 			$important = empty( $family['force'] ) ? '' : ' !important';
 
 			$applied .= $selector . " {\n\tfont-family: " . self::family_stack( $family ) . $important . ";\n}\n\n";
@@ -1602,22 +1550,6 @@ class EFM_Fonts {
 			$css .= "/* Families applied to their own selectors */\n" . $applied;
 		}
 
-		if ( ! empty( $settings['acss_enabled'] ) && ( ! empty( $settings['heading_font'] ) || ! empty( $settings['text_font'] ) ) ) {
-			$css .= "/* Automatic.css font variable mapping */\n:root {\n";
-
-			if ( ! empty( $settings['heading_font'] ) ) {
-				$stack = self::stack_for_name( $settings['heading_font'], $families );
-				$css  .= "\t--heading-font-family: {$stack} !important;\n";
-			}
-
-			if ( ! empty( $settings['text_font'] ) ) {
-				$stack = self::stack_for_name( $settings['text_font'], $families );
-				$css  .= "\t--text-font-family: {$stack} !important;\n";
-			}
-
-			$css .= "}\n";
-		}
-
 		/**
 		 * Filter the generated font CSS.
 		 *
@@ -1625,23 +1557,6 @@ class EFM_Fonts {
 		 * @param array  $families Font families.
 		 */
 		return apply_filters( 'efm_font_css', $css, $families );
-	}
-
-	/**
-	 * Resolve a family name to its full stack, including any fallback.
-	 *
-	 * @param string $name     Family name.
-	 * @param array  $families Families to search.
-	 * @return string
-	 */
-	protected static function stack_for_name( $name, $families ) {
-		foreach ( $families as $family ) {
-			if ( isset( $family['name'] ) && 0 === strcasecmp( $family['name'], $name ) ) {
-				return self::family_stack( $family );
-			}
-		}
-
-		return '"' . $name . '"';
 	}
 
 	/**

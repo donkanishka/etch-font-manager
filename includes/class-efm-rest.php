@@ -503,6 +503,7 @@ class EFM_Rest {
 
 		$results['categories'] = EFM_Google_Fonts::categories();
 		$results['subsetList'] = EFM_Google_Fonts::subsets();
+		$results['axisNames']  = EFM_Google_Fonts::axis_registry();
 
 		return rest_ensure_response( $results );
 	}

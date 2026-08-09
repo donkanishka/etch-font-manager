@@ -20,6 +20,7 @@ class EFM_Google_Fonts {
 	 */
 	const TRANSIENT   = 'efm_google_fonts_index_v3';
 	const TRANSIENT_LEGACY = 'efm_google_fonts_index';
+	const TRANSIENT_AXES   = 'efm_google_axis_registry_v1';
 	const METADATA    = 'https://fonts.google.com/metadata/fonts';
 	const CSS_API     = 'https://fonts.googleapis.com/css2';
 	const USER_AGENT  = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -64,6 +65,31 @@ class EFM_Google_Fonts {
 				__( 'Could not read the Google Fonts index.', 'etch-font-manager' ),
 				array( 'status' => 502 )
 			);
+		}
+
+		/*
+		 * The axis registry rides along in the same payload, so it is stored here
+		 * rather than costing a second request. It is what turns a raw tag like
+		 * "YTLC" into "Lowercase Height" and supplies the slider step, since a
+		 * precision of -1 means the axis moves in tenths and not whole units.
+		 */
+		if ( ! empty( $data['axisRegistry'] ) && is_array( $data['axisRegistry'] ) ) {
+			$registry = array();
+
+			foreach ( $data['axisRegistry'] as $axis ) {
+				$tag = isset( $axis['tag'] ) ? (string) $axis['tag'] : '';
+
+				if ( '' === $tag ) {
+					continue;
+				}
+
+				$registry[ $tag ] = array(
+					'name'      => sanitize_text_field( (string) ( $axis['displayName'] ?? $tag ) ),
+					'precision' => (int) ( $axis['precision'] ?? 0 ),
+				);
+			}
+
+			set_transient( self::TRANSIENT_AXES, $registry, self::CACHE_TTL );
 		}
 
 		$fonts = array();
@@ -323,6 +349,33 @@ class EFM_Google_Fonts {
 		sort( $categories );
 
 		return $categories;
+	}
+
+	/**
+	 * Human names and step precision for the variable axes.
+	 *
+	 * Keyed by tag. Populated as a side effect of index(), which is why this
+	 * primes the index when the transient is cold rather than fetching anything
+	 * of its own.
+	 *
+	 * @return array[]
+	 */
+	public static function axis_registry() {
+		$registry = get_transient( self::TRANSIENT_AXES );
+
+		if ( is_array( $registry ) && ! empty( $registry ) ) {
+			return $registry;
+		}
+
+		$fonts = self::index();
+
+		if ( is_wp_error( $fonts ) ) {
+			return array();
+		}
+
+		$registry = get_transient( self::TRANSIENT_AXES );
+
+		return is_array( $registry ) ? $registry : array();
 	}
 
 	/**

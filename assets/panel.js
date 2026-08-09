@@ -1837,7 +1837,7 @@
 					el('span', { class: 'efm-file__name', text: file.name, title: file.name }),
 					el('span', { class: 'efm-muted', text: (file.ext || '').toUpperCase() + ' · ' + (file.weight || '400') + (file.style === 'italic' ? ' ' + s('italic', 'Italic') : '') }),
 					el('span', { class: 'efm-muted', text: formatSize(file.size) + (fileUsedBy(file.name).length ? ' · ' + s('inUse', 'in use') : '') }),
-					CONVERTIBLE[file.ext] && converterAvailable()
+					convertible(file.name) && converterAvailable()
 						? el('button', {
 							type: 'button',
 							class: 'efm-icon-btn',
@@ -3465,7 +3465,10 @@
 	 * that file themselves, so the whole server side is unchanged.
 	 */
 
-	var CONVERTIBLE = { ttf: true, otf: true };
+	var CONVERTIBLE = { ttf: true, otf: true, woff: true };
+
+	var WOFF_HEADER = 44;
+	var WOFF_ENTRY = 20;
 
 	// Brotli quality 11 runs at roughly a second per 100 KB. Anything still
 	// going after two minutes is not going to finish.
@@ -3501,7 +3504,193 @@
 	 * @return {boolean}
 	 */
 	function isWoff2(bytes) {
-		return bytes.length > 4 && 0x77 === bytes[0] && 0x4f === bytes[1] && 0x46 === bytes[2] && 0x32 === bytes[3];
+		return bytes.length >= 4 && 0x77 === bytes[0] && 0x4f === bytes[1] && 0x46 === bytes[2] && 0x32 === bytes[3];
+	}
+
+	function isWoff(bytes) {
+		return bytes.length >= 4 && 0x77 === bytes[0] && 0x4f === bytes[1] && 0x46 === bytes[2] && 0x46 === bytes[3];
+	}
+
+	/**
+	 * Inflate one zlib stream.
+	 *
+	 * WOFF table data is zlib (RFC 1950), so the format here is 'deflate'.
+	 * 'deflate-raw' is RFC 1951 and would choke on the two byte zlib header.
+	 *
+	 * @param {Uint8Array} bytes Compressed bytes.
+	 * @return {Promise} Resolves with a Uint8Array.
+	 */
+	function inflate(bytes) {
+		var stream = new Blob([bytes]).stream().pipeThrough(new window.DecompressionStream('deflate'));
+
+		return new Response(stream).arrayBuffer().then(function (buffer) {
+			return new Uint8Array(buffer);
+		});
+	}
+
+	/**
+	 * Rebuild an sfnt from its flavour, table directory and table data.
+	 *
+	 * @param {number} flavor  sfnt version from the WOFF header.
+	 * @param {Array}  entries Table directory entries, sorted by tag.
+	 * @param {Array}  tables  Uncompressed table data, matching entries.
+	 * @return {ArrayBuffer}
+	 */
+	function assembleSfnt(flavor, entries, tables) {
+		var count = entries.length;
+		var offsets = [];
+		var offset = 12 + count * 16;
+		var i;
+
+		for (i = 0; i < count; i++) {
+			offsets.push(offset);
+
+			// Tables are aligned to four bytes, with the padding counted in the
+			// next offset but not in the recorded length.
+			offset += (tables[i].length + 3) & ~3;
+		}
+
+		var out = new Uint8Array(offset);
+		var view = new DataView(out.buffer);
+		var exponent = Math.floor(Math.log(count) / Math.LN2);
+		var searchRange = Math.pow(2, exponent) * 16;
+
+		view.setUint32(0, flavor);
+		view.setUint16(4, count);
+		view.setUint16(6, searchRange);
+		view.setUint16(8, exponent);
+		view.setUint16(10, count * 16 - searchRange);
+
+		for (i = 0; i < count; i++) {
+			var at = 12 + i * 16;
+			view.setUint32(at, entries[i].tag);
+			view.setUint32(at + 4, entries[i].checksum);
+			view.setUint32(at + 8, offsets[i]);
+			view.setUint32(at + 12, tables[i].length);
+			out.set(tables[i], offsets[i]);
+		}
+
+		return out.buffer;
+	}
+
+	/**
+	 * Unwrap a WOFF into the plain sfnt inside it.
+	 *
+	 * WOFF is not a format the WOFF2 encoder understands. It is an sfnt whose
+	 * tables have each been deflated separately, so rebuilding the sfnt is
+	 * header parsing plus inflate — no extra binary, just DecompressionStream.
+	 *
+	 * The metadata and private data blocks are dropped deliberately. They carry
+	 * no glyph data, WOFF2 stores them differently, and nothing here reads them.
+	 *
+	 * @param {ArrayBuffer} buffer WOFF bytes.
+	 * @return {Promise} Resolves with an ArrayBuffer of sfnt bytes.
+	 */
+	function woffToSfnt(buffer) {
+		function damaged() {
+			return new Error(s('convertBadWoff', 'This WOFF file is damaged and could not be read.'));
+		}
+
+		if (buffer.byteLength < WOFF_HEADER) {
+			return Promise.reject(damaged());
+		}
+
+		var view = new DataView(buffer);
+		var flavor = view.getUint32(4);
+		var count = view.getUint16(12);
+
+		if (!count || WOFF_HEADER + count * WOFF_ENTRY > buffer.byteLength) {
+			return Promise.reject(damaged());
+		}
+
+		var source = new Uint8Array(buffer);
+		var entries = [];
+		var i;
+
+		for (i = 0; i < count; i++) {
+			var at = WOFF_HEADER + i * WOFF_ENTRY;
+			var entry = {
+				tag: view.getUint32(at),
+				offset: view.getUint32(at + 4),
+				compLength: view.getUint32(at + 8),
+				origLength: view.getUint32(at + 12),
+				checksum: view.getUint32(at + 16)
+			};
+
+			// Refuse anything that points outside the file or claims to inflate
+			// to less than it occupies, rather than trusting it and allocating.
+			if (entry.compLength > entry.origLength ||
+				entry.offset + entry.compLength > buffer.byteLength) {
+				return Promise.reject(damaged());
+			}
+
+			entries.push(entry);
+		}
+
+		// The sfnt directory must be in ascending tag order. WOFF requires that
+		// too, but a file that got it wrong would otherwise produce a font no
+		// shaper will read.
+		entries.sort(function (a, b) {
+			return a.tag - b.tag;
+		});
+
+		return Promise.all(entries.map(function (item) {
+			var slice = source.subarray(item.offset, item.offset + item.compLength);
+
+			// A table is stored as-is when deflating it did not help. The spec
+			// signals that by making compLength equal to origLength.
+			if (item.compLength === item.origLength) {
+				return Promise.resolve(slice.slice());
+			}
+
+			return inflate(slice).then(function (data) {
+				if (data.length !== item.origLength) {
+					throw damaged();
+				}
+				return data;
+			});
+		})).then(function (tables) {
+			return assembleSfnt(flavor, entries, tables);
+		}, function () {
+			// A failed inflate throws its own DOM exception, which says nothing
+			// useful to someone who just dropped a font on the page.
+			throw damaged();
+		});
+	}
+
+	/**
+	 * Hand the encoder something it can actually read.
+	 *
+	 * Dispatches on the signature rather than the file name, so a mislabelled
+	 * file still converts instead of failing deep inside the encoder.
+	 *
+	 * @param {ArrayBuffer} buffer Source bytes.
+	 * @return {Promise} Resolves with an ArrayBuffer of sfnt bytes.
+	 */
+	function toSfnt(buffer) {
+		var head = new Uint8Array(buffer, 0, Math.min(4, buffer.byteLength));
+
+		return isWoff(head) ? woffToSfnt(buffer) : Promise.resolve(buffer);
+	}
+
+	/**
+	 * Can this file be converted here and now?
+	 *
+	 * WOFF needs DecompressionStream on top of everything else, so it is gated
+	 * separately: an older browser keeps TTF and OTF conversion rather than
+	 * losing the feature entirely.
+	 *
+	 * @param {string} name File name.
+	 * @return {boolean}
+	 */
+	function convertible(name) {
+		var ext = extensionOf(name);
+
+		if (!CONVERTIBLE[ext]) {
+			return false;
+		}
+
+		return 'woff' !== ext || typeof window.DecompressionStream === 'function';
 	}
 
 	function converterAvailable() {
@@ -3624,11 +3813,11 @@
 			to: file.size
 		};
 
-		if (!state.convert || !CONVERTIBLE[extensionOf(file.name)] || !converterAvailable()) {
+		if (!state.convert || !convertible(file.name) || !converterAvailable()) {
 			return Promise.resolve(plain);
 		}
 
-		return file.arrayBuffer().then(convertBuffer).then(function (result) {
+		return file.arrayBuffer().then(toSfnt).then(convertBuffer).then(function (result) {
 			var bytes = new Uint8Array(result);
 
 			// Only take the result if it really is a WOFF2 and really is smaller.
@@ -3714,7 +3903,7 @@
 				throw new Error(s('convertNoRead', 'Could not read the file from the fonts folder.'));
 			}
 			return response.arrayBuffer();
-		}).then(convertBuffer).then(function (result) {
+		}).then(toSfnt).then(convertBuffer).then(function (result) {
 			var bytes = new Uint8Array(result);
 
 			if (!isWoff2(bytes)) {
@@ -3775,7 +3964,7 @@
 
 		files.forEach(function (file) {
 			chain = chain.then(function () {
-				var converting = state.convert && converterAvailable() && CONVERTIBLE[extensionOf(file.name)];
+				var converting = state.convert && converterAvailable() && convertible(file.name);
 
 				setStatus(
 					(converting ? s('converting', 'Converting…') : s('uploading', 'Uploading…')) +

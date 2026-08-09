@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.19.0
+Stable tag: 1.19.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,11 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.19.1 =
+* The Settings Bar control and the panel heading now read "Font Manager", matching how Content Hub, Asset Manager, Style Manager and Loop Manager name themselves.
+* The back button says "Back to Builder" instead of "Close".
+* Fixed: opening another Settings Bar manager now closes the Font Manager instead of leaving it on top with two buttons selected. The reverse case is fixed too, so exactly one panel is open at a time.
 
 = 1.19.0 =
 * WOFF files now convert to WOFF2 as well, so all four accepted formats behave the same way. Previously dropping three files could convert two and silently skip the third.

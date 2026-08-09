@@ -2,6 +2,26 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.19.1
+
+### Changed
+
+- **The control is called "Font Manager" now**, in the Settings Bar tooltip and as the panel heading. "Fonts"
+  read like a section rather than a manager, and it sat next to Content Hub, Asset Manager, Style Manager and
+  Loop Manager, which all name themselves that way.
+- **The back button says "Back to Builder"** instead of "Close", which is what it actually does.
+
+### Fixed
+
+- **Opening another Settings Bar manager now closes this one.** Etch keeps its own managers mutually exclusive,
+  but it does not apply that to a control registered through the Controls API, so the panel stayed on top of
+  whatever you opened next and two buttons showed as selected at once.
+- **The reverse case too.** Opening the Font Manager while another manager was open left that one selected and
+  still rendered underneath. Exactly one Settings Bar panel is open at any time now, in both directions.
+
+Unsaved edits are still protected: switching away asks before discarding, the same as the back button does.
+If you cancel, the panel stays where it is.
+
 ## 1.19.0
 
 ### Added

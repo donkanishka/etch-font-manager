@@ -2,6 +2,43 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.19.0
+
+### Added
+
+- **WOFF converts to WOFF2 too.** 1.18.0 handled TTF and OTF and left `.woff` alone, so dropping three files
+  could convert two and silently skip the third. All four accepted formats now behave the same way.
+
+### How it works
+
+WOFF is not a format the WOFF2 encoder can read. It is an sfnt whose tables have each been deflated
+separately, so the file is unwrapped back to plain TTF/OTF first and then compressed. **This needs no extra
+download** — the unwrapping is done with `DecompressionStream`, which the browser already provides.
+
+The unwrap is byte-exact. Round-tripping Source Code Pro OTF through WOFF and back returned all 131,128 bytes
+unchanged, and converting via WOFF produced a file byte-identical to converting the original OTF directly.
+
+| Font | WOFF | WOFF2 | Saved |
+|---|---|---|---|
+| Inter 400 | 21,420 | 16,708 | 22% |
+| Roboto 400 | 20,344 | 15,744 | 23% |
+| Lora 400 | 23,304 | 19,068 | 18% |
+| Source Serif 400 | 22,860 | 19,036 | 17% |
+
+The saving is smaller than for TTF and OTF (40 to 65%) because WOFF is already compressed; the gain is the
+difference between zlib and Brotli plus the glyf transform. Unwrapping adds about 2 ms.
+
+### Notes
+
+- A damaged WOFF is reported as damaged rather than failing somewhere inside the encoder. Truncated files,
+  impossible table counts, corrupt table data and lengths that disagree with the data are all rejected up
+  front, and the original file is uploaded instead.
+- Format is detected from the file's signature rather than its extension, so a mislabelled file still converts.
+- WOFF conversion is gated on `DecompressionStream` separately from everything else, so a browser without it
+  keeps TTF and OTF conversion instead of losing the feature entirely.
+- The metadata and private data blocks a WOFF may carry are dropped. They hold no glyph data and WOFF2 stores
+  such things differently.
+
 ## 1.18.0
 
 ### Added

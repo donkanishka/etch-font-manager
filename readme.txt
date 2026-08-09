@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.18.0
+Stable tag: 1.19.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -19,7 +19,7 @@ Features:
 * Native Settings Bar control, grouped with Etch's own managers
 * Full-screen manager styled from Etch's own design tokens
 * Drag and drop uploads for woff2, woff, ttf and otf
-* Built-in TTF and OTF to WOFF2 converter that runs in your browser, so nothing is sent to a third-party service
+* Built-in TTF, OTF and WOFF to WOFF2 converter that runs in your browser, so nothing is sent to a third-party service
 * Google Fonts search, preview and one-click local install
 * A CSS variable per family, --efm-family-{slug}, ready to drop into Automatic.css or any style record
 * Fonts load on the frontend, in the Etch canvas iframe and in the block editor
@@ -46,6 +46,13 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.19.0 =
+* WOFF files now convert to WOFF2 as well, so all four accepted formats behave the same way. Previously dropping three files could convert two and silently skip the third.
+* Typical saving is 17 to 23%: Inter 21,420 to 16,708 bytes, Roboto 20,344 to 15,744. Smaller than for TTF and OTF because WOFF is already compressed.
+* No extra download. The WOFF is unwrapped back to TTF or OTF using the browser's own DecompressionStream, then compressed by the existing converter.
+* The unwrap is byte-exact, verified by round-tripping a font through WOFF and back with no change.
+* A damaged WOFF is reported as damaged and the original file is uploaded instead.
 
 = 1.18.0 =
 * Drop a .ttf or .otf on the Upload screen and it is converted to WOFF2 before uploading, typically 30 to 65% smaller. Source Code Pro went 205 KB to 72 KB from TTF and 128 KB to 74 KB from OTF.

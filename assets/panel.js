@@ -480,6 +480,7 @@
 	var controlButton = null;
 	var isOpen = false;
 	var lastFocus = null;
+	var barObserver = null;
 
 	var VIEWS = [
 		{ key: 'library', icon: 'library', label: function () { return s('library', 'Library'); } },
@@ -514,7 +515,7 @@
 	}
 
 	function build() {
-		navEl = el('nav', { class: 'efm-nav', 'aria-label': s('fonts', 'Fonts') });
+		navEl = el('nav', { class: 'efm-nav', 'aria-label': s('fontManager', 'Font Manager') });
 		contentEl = el('div', { class: 'efm-content' });
 		headerActionsEl = el('div', { class: 'efm-header__actions' });
 		statusEl = el('span', { class: 'efm-status', role: 'status', 'aria-live': 'polite' });
@@ -523,18 +524,18 @@
 			class: 'efm-manager',
 			id: 'efm-manager',
 			role: 'dialog',
-			'aria-label': s('fonts', 'Fonts'),
+			'aria-label': s('fontManager', 'Font Manager'),
 			hidden: true
 		}, [
 			el('header', { class: 'efm-header' }, [
 				el('button', {
 					type: 'button',
 					class: 'efm-btn efm-btn--outline efm-btn--icon',
-					'aria-label': s('close', 'Close'),
-					title: s('close', 'Close'),
+					'aria-label': s('backToBuilder', 'Back to Builder'),
+					title: s('backToBuilder', 'Back to Builder'),
 					onclick: close
 				}, [icon('back')]),
-				el('h1', { class: 'efm-header__title', text: s('fonts', 'Fonts') }),
+				el('h1', { class: 'efm-header__title', text: s('fontManager', 'Font Manager') }),
 				statusEl,
 				headerActionsEl
 			]),
@@ -611,6 +612,7 @@
 		}
 
 		lastFocus = document.activeElement;
+		closeOtherManagers();
 		isOpen = true;
 		manager.hidden = false;
 		manager.classList.add('is-open');
@@ -628,6 +630,33 @@
 		if (focusable) {
 			focusable.focus({ preventScroll: true });
 		}
+	}
+
+	/**
+	 * Shut whichever Settings Bar manager is currently open.
+	 *
+	 * Etch keeps its own managers mutually exclusive but does not apply that to
+	 * a control registered through the API, so opening this one left the
+	 * previous manager selected and still rendered underneath — two highlighted
+	 * buttons for one visible panel.
+	 *
+	 * This clicks Etch's own button, which is a user-level action on a control
+	 * Etch owns. It is deliberately not DOM surgery: nothing is inserted, moved
+	 * or rewritten inside Etch's tree. Only buttons that are currently selected
+	 * are touched, so a click can never open something instead.
+	 */
+	function closeOtherManagers() {
+		var bar = document.querySelector('.settings-bar');
+
+		if (!bar) {
+			return;
+		}
+
+		Array.prototype.forEach.call(bar.querySelectorAll('button[selected="true"]'), function (button) {
+			if (button !== controlButton) {
+				button.click();
+			}
+		});
 	}
 
 	function close() {
@@ -663,6 +692,49 @@
 		} else {
 			open();
 		}
+	}
+
+	/**
+	 * Close when another Settings Bar manager opens.
+	 *
+	 * Etch's own managers are mutually exclusive — opening one deselects the
+	 * rest — but it has no way to know about a panel this plugin renders and
+	 * positions itself. Without this the manager stayed on top of whatever the
+	 * user opened next, with two controls selected at once.
+	 *
+	 * The selected attribute is watched rather than clicks, so keyboard
+	 * activation and anything Etch opens on its own are covered too.
+	 */
+	function watchSettingsBar() {
+		var bar = document.querySelector('.settings-bar');
+
+		if (!bar || barObserver) {
+			return;
+		}
+
+		barObserver = new MutationObserver(function (mutations) {
+			if (!isOpen) {
+				return;
+			}
+
+			var opened = mutations.some(function (mutation) {
+				return mutation.target !== controlButton &&
+					'true' === mutation.target.getAttribute('selected');
+			});
+
+			// close() still asks about unsaved edits. Someone who cancels keeps
+			// the manager open on top, which is the same answer the close button
+			// gives and is better than discarding their work to get out of the way.
+			if (opened) {
+				close();
+			}
+		});
+
+		barObserver.observe(bar, {
+			attributes: true,
+			attributeFilter: ['selected'],
+			subtree: true
+		});
 	}
 
 	function setStatus(message, type) {
@@ -4227,7 +4299,7 @@
 			(target.atEnd ? api.addAfter : api.addBefore).call(api, {
 				id: CONTROL_ID,
 				icon: cfg.icon || 'ph:text-aa-duotone',
-				tooltip: s('fonts', 'Fonts'),
+				tooltip: s('fontManager', 'Font Manager'),
 				callback: toggle
 			});
 		} catch (error) {
@@ -4260,6 +4332,8 @@
 			controlButton.setAttribute('aria-expanded', 'false');
 			controlButton.setAttribute('aria-controls', 'efm-manager');
 			controlButton.classList.add('efm-control');
+
+			watchSettingsBar();
 		};
 
 		finish();

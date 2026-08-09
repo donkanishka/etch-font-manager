@@ -43,9 +43,23 @@ jobs:
           git -C build/woff2 checkout --quiet "$WOFF2_REF"
           git clone --quiet --branch "$BROTLI_REF" --depth 1 https://github.com/google/brotli.git build/brotli
 
+      # Brotli is C and woff2 is C++, so they cannot share one emcc invocation:
+      # -std=c++11 against a .c file is a hard error ("invalid argument
+      # '-std=c++11' not allowed with 'C'"). Brotli is compiled to objects
+      # first, then linked into the C++ build.
+      - name: Compile Brotli
+        run: |
+          mkdir -p build/obj
+          for source in build/brotli/c/common/*.c build/brotli/c/dec/*.c build/brotli/c/enc/*.c; do
+            object="build/obj/$(echo "$source" | tr '/' '_' | sed 's/\.c$/.o/')"
+            emcc -O3 -I build/brotli/c/include -c "$source" -o "$object"
+          done
+          ls build/obj | wc -l
+
       # Only the encoder half of woff2 is compiled. The plugin converts TTF and
-      # OTF to WOFF2 and never goes the other way, so woff2_dec.cc and the
-      # brotli decoder are left out.
+      # OTF to WOFF2 and never goes the other way, so woff2_dec.cc is left out.
+      # Brotli's decoder is compiled above only because the encoder's shared
+      # dictionary code reaches into it; nothing unreferenced survives -O3.
       #
       # -DFONT_COMPRESSION_BIN is what upstream's Makefile uses to turn on
       # progress logging to stdout. It is omitted here on purpose: in a Web
@@ -70,8 +84,7 @@ jobs:
             build/woff2/src/woff2_common.cc \
             build/woff2/src/woff2_enc.cc \
             build/woff2/src/woff2_out.cc \
-            build/brotli/c/common/*.c \
-            build/brotli/c/enc/*.c \
+            build/obj/*.o \
             -o assets/wasm/woff2.js \
             -s WASM=1 \
             -s MODULARIZE=1 \

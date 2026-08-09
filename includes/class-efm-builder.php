@@ -287,7 +287,8 @@ class EFM_Builder {
 	 */
 	protected static function strings() {
 		return array(
-			'fonts'          => __( 'Fonts', 'etch-font-manager' ),
+			'fontManager'    => __( 'Font Manager', 'etch-font-manager' ),
+			'backToBuilder'  => __( 'Back to Builder', 'etch-font-manager' ),
 			'library'        => __( 'Library', 'etch-font-manager' ),
 			'settings'       => __( 'Settings', 'etch-font-manager' ),
 			'close'          => __( 'Close', 'etch-font-manager' ),

@@ -291,7 +291,6 @@ class EFM_Builder {
 			'backToBuilder'  => __( 'Back to Builder', 'etch-font-manager' ),
 			'library'        => __( 'Library', 'etch-font-manager' ),
 			'settings'       => __( 'Settings', 'etch-font-manager' ),
-			'close'          => __( 'Close', 'etch-font-manager' ),
 			'back'           => __( 'Back', 'etch-font-manager' ),
 			'manage'         => __( 'Manage', 'etch-font-manager' ),
 			'manageFamily'   => __( 'Manage', 'etch-font-manager' ),

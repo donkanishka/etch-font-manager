@@ -904,9 +904,8 @@
  * anchor and horizontally centred on it. Reproduced in CSS rather than
  * borrowing Etch's component, which is Svelte and not ours to mount.
  *
- * Centring means the tooltip overhangs the button on both sides and can reach
- * over the Settings Bar. That is what Etch's own does, and no ancestor here
- * clips it.
+ * Centring means the tooltip overhangs the button on both sides and reaches
+ * over the Settings Bar, which is what Etch's own does.
  */
 
 .efm-tooltip {
@@ -937,6 +936,23 @@
 .efm-tooltip:hover::after,
 .efm-tooltip:focus-visible::after {
 	opacity: 1;
+}
+
+/*
+ * Nothing clips the tooltip, but the Settings Bar paints over it: the bar is a
+ * flex item with z-index 102, which applies to flex items even though the bar
+ * is position: static, and this panel sits at 60. A centred tooltip on the
+ * back button therefore had about 25 of its 95 pixels hidden behind the bar.
+ *
+ * A ::after cannot escape its own stacking context, so the panel itself has to
+ * outrank the bar while the tooltip is up. It is lifted only for that moment:
+ * raising it permanently hides Etch's own Settings Bar tooltips behind this
+ * panel, which was measured on a live builder before choosing this.
+ */
+
+.efm-manager:has(.efm-tooltip:hover),
+.efm-manager:has(.efm-tooltip:focus-visible) {
+	z-index: 102;
 }
 
 /* ------------------------------ Converter ------------------------------ */

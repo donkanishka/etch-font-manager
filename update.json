@@ -1,10 +1,10 @@
 {
-  "version": "1.15.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.15.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.15.0",
+  "version": "1.16.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.16.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.16.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
   "date": "2026-08-09",
-  "notes": "Rebuilds the Google Fonts browser: Row, Grid and Compact layouts, a writing-system filter, per-family script previews, variable-only filtering, trending and newest sorting, multi-select bulk install, family size and axis counts, and a Reset all control."
+  "notes": "Adds a per-family type tester with live variable-axis sliders, and fixes non-Latin families defaulting to a latin-only install that shipped no glyphs for their own script."
 }

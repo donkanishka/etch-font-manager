@@ -896,6 +896,45 @@
 	display: none;
 }
 
+/* ------------------------------- Tooltip ------------------------------- */
+
+/*
+ * Matches the Settings Bar tooltips Etch renders through Bits UI, measured
+ * from a live builder: #1d1d20 at 11px/500, 4px 8px, 6px radius, placed to the
+ * inline-end of its anchor. Reproduced in CSS rather than borrowing Etch's
+ * component, which is Svelte and not ours to mount.
+ */
+
+.efm-tooltip {
+	position: relative;
+}
+
+.efm-tooltip::after {
+	content: attr(data-efm-tooltip);
+	position: absolute;
+	inset-inline-start: calc(100% + 8px);
+	inset-block-start: 50%;
+	translate: 0 -50%;
+	z-index: 3;
+	padding: 4px 8px;
+	border-radius: var(--e-border-radius, 6px);
+	background: var(--e-base-dark, #1d1d20);
+	color: var(--e-foreground-color, #e1e1e5);
+	font-size: var(--e-font-size-s, 11px);
+	font-weight: 500;
+	line-height: 1.45;
+	white-space: nowrap;
+	opacity: 0;
+	/* Never intercepts the pointer, so it cannot block the button it labels. */
+	pointer-events: none;
+	transition: opacity .12s ease;
+}
+
+.efm-tooltip:hover::after,
+.efm-tooltip:focus-visible::after {
+	opacity: 1;
+}
+
 /* ------------------------------ Converter ------------------------------ */
 
 .efm-toggle--convert {

@@ -922,3 +922,23 @@ msgstr ""
 #: includes/class-efm-builder.php:343
 msgid "failed"
 msgstr ""
+
+#: includes/class-efm-builder.php:344
+msgid "Open the type tester"
+msgstr ""
+
+#: includes/class-efm-builder.php:347
+msgid "default"
+msgstr ""
+
+#: includes/class-efm-builder.php:348
+msgid "Reset axes"
+msgstr ""
+
+#: includes/class-efm-builder.php:349
+msgid "This family has no variable axes, so there is nothing to adjust."
+msgstr ""
+
+#: includes/class-efm-builder.php:350
+msgid "View on Google Fonts"
+msgstr ""

@@ -286,31 +286,73 @@
 		return node;
 	}
 
+	/**
+	 * Icon set.
+	 *
+	 * Drawn on the same grid Etch uses for its own interface icons: a 24x24
+	 * viewBox, 1.5 stroke, round caps and joins, no fill, colour inherited from
+	 * the parent. The set this replaced was drawn on a 16x16 grid at the same
+	 * stroke width, which made every stroke 2.25x heavier relative to the grid
+	 * and read as noticeably cruder beside Etch's own panels.
+	 *
+	 * Paths come from Iconoir (MIT), whose regular set is authored to exactly
+	 * that spec, so no per-icon stroke correction is needed. They are inlined
+	 * rather than fetched: the manager has to render with no network request
+	 * and the plugin has no build step.
+	 */
 	var PATHS = {
-		back: '<path d="M10 3.5L5.5 8l4.5 4.5"/>',
-		plus: '<path d="M8 3.5v9M3.5 8h9"/>',
-		trash: '<path d="M3 4.5h10M6.5 4.5V3h3v1.5M5 4.5l.5 8h5l.5-8"/>',
-		upload: '<path d="M8 11V3M5 6l3-3 3 3M3 12.5h10"/>',
-		search: '<circle cx="7.2" cy="7.2" r="3.7"/><path d="M10.2 10.2L13 13"/>',
-		check: '<path d="M3.5 8.5l3 3 6-7"/>',
-		library: '<path d="M3 3.5h3v9H3zM7 3.5h3v9H7zM11.2 4l2 8.5"/>',
-		sliders: '<path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/><circle cx="5.5" cy="4.5" r="1.6" fill="currentColor" stroke="none"/><circle cx="10" cy="8" r="1.6" fill="currentColor" stroke="none"/><circle cx="6.5" cy="11.5" r="1.6" fill="currentColor" stroke="none"/>',
-		google: '<circle cx="8" cy="8" r="5.5"/><path d="M2.6 8h10.8M8 2.6c1.6 1.7 2.4 3.5 2.4 5.4S9.6 11.7 8 13.4C6.4 11.7 5.6 9.9 5.6 8S6.4 4.3 8 2.6z"/>',
-		compress: '<path d="M8 2v3.5M6.2 4L8 5.8 9.8 4M8 14v-3.5M6.2 12L8 10.2 9.8 12M3 8h10"/>'
+		back: '<path d="M15 6L9 12L15 18"/>',
+		plus: '<path d="M6 12H12M18 12H12M12 12V6M12 12V18"/>',
+		check: '<path d="M5 13L9 17L19 7"/>',
+		close: '<path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426"/>',
+		search: '<path d="M17 17L21 21"/><path d="M3 11C3 15.4183 6.58172 19 11 19C13.213 19 15.2161 18.1015 16.6644 16.6493C18.1077 15.2022 19 13.2053 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11Z"/>',
+		refresh: '<path d="M21.8883 13.5C21.1645 18.3113 17.013 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C16.1006 2 19.6248 4.46819 21.1679 8"/><path d="M17 8H21.4C21.7314 8 22 7.73137 22 7.4V3"/>',
+		undo: '<path d="M4.5 8C8.5 8 11 8 15 8C15 8 15 8 15 8C15 8 20 8 20 12.7059C20 18 15 18 15 18C11.5714 18 9.71429 18 6.28571 18"/><path d="M7.5 11.5C6.13317 10.1332 5.36683 9.36683 4 8C5.36683 6.63317 6.13317 5.86683 7.5 4.5"/>',
+		edit: '<path d="M14.3632 5.65156L15.8431 4.17157C16.6242 3.39052 17.8905 3.39052 18.6716 4.17157L20.0858 5.58579C20.8668 6.36683 20.8668 7.63316 20.0858 8.41421L18.6058 9.8942M14.3632 5.65156L4.74749 15.2672C4.41542 15.5993 4.21079 16.0376 4.16947 16.5054L3.92738 19.2459C3.87261 19.8659 4.39148 20.3848 5.0115 20.33L7.75191 20.0879C8.21972 20.0466 8.65806 19.8419 8.99013 19.5099L18.6058 9.8942M14.3632 5.65156L18.6058 9.8942"/>',
+		trash: '<path d="M20 9L18.005 20.3463C17.8369 21.3026 17.0062 22 16.0353 22H7.96474C6.99379 22 6.1631 21.3026 5.99496 20.3463L4 9"/><path d="M21 6L15.375 6M3 6L8.625 6M8.625 6V4C8.625 2.89543 9.52043 2 10.625 2H13.375C14.4796 2 15.375 2.89543 15.375 4V6M8.625 6L15.375 6"/>',
+		library: '<path d="M21 3.6V20.4C21 20.7314 20.7314 21 20.4 21H3.6C3.26863 21 3 20.7314 3 20.4V3.6C3 3.26863 3.26863 3 3.6 3H20.4C20.7314 3 21 3.26863 21 3.6Z"/><path d="M7 9V7L17 7V9"/><path d="M12 7V17M12 17H10M12 17H14"/>',
+		upload: '<path d="M6 20L18 20"/><path d="M12 16V4M12 4L15.5 7.5M12 4L8.5 7.5"/>',
+		cloudUpload: '<path d="M12 22V13M12 13L15.5 16.5M12 13L8.5 16.5"/><path d="M20 17.6073C21.4937 17.0221 23 15.6889 23 13C23 9 19.6667 8 18 8C18 6 18 2 12 2C6 2 6 6 6 8C4.33333 8 1 9 1 13C1 15.6889 2.50628 17.0221 4 17.6073"/>',
+		google: '<path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/><path d="M2.5 12.5L8 14.5L7 18L8 21"/><path d="M17 20.5L16.5 18L14 17V13.5L17 12.5L21.5 13"/><path d="M19 5.5L18.5 7L15 7.5V10.5L17.5 9.5H19.5L21.5 10.5"/><path d="M2.5 10.5L5 8.5L7.5 8L9.5 5L8.5 3"/>',
+		settings: '<path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"/><path d="M19.6224 10.3954L18.5247 7.7448L20 6L18 4L16.2647 5.48295L13.5578 4.36974L12.9353 2H10.981L10.3491 4.40113L7.70441 5.51596L6 4L4 6L5.45337 7.78885L4.3725 10.4463L2 11V13L4.40111 13.6555L5.51575 16.2997L4 18L6 20L7.79116 18.5403L10.397 19.6123L11 22H13L13.6045 19.6132L16.2551 18.5155C16.6969 18.8313 18 20 18 20L20 18L18.5159 16.2494L19.6139 13.598L21.9999 12.9772L22 11L19.6224 10.3954Z"/>',
+		transfer: '<path d="M17 20V4M17 4L20 7M17 4L14 7"/><path d="M7 4V20M7 20L10 17M7 20L4 17"/>',
+		layoutRow: '<path d="M3 5H21"/><path d="M3 12H21"/><path d="M3 19H21"/>',
+		layoutGrid: '<path d="M14 20.4V14.6C14 14.2686 14.2686 14 14.6 14H20.4C20.7314 14 21 14.2686 21 14.6V20.4C21 20.7314 20.7314 21 20.4 21H14.6C14.2686 21 14 20.7314 14 20.4Z"/><path d="M3 20.4V14.6C3 14.2686 3.26863 14 3.6 14H9.4C9.73137 14 10 14.2686 10 14.6V20.4C10 20.7314 9.73137 21 9.4 21H3.6C3.26863 21 3 20.7314 3 20.4Z"/><path d="M14 9.4V3.6C14 3.26863 14.2686 3 14.6 3H20.4C20.7314 3 21 3.26863 21 3.6V9.4C21 9.73137 20.7314 10 20.4 10H14.6C14.2686 10 14 9.73137 14 9.4Z"/><path d="M3 9.4V3.6C3 3.26863 3.26863 3 3.6 3H9.4C9.73137 3 10 3.26863 10 3.6V9.4C10 9.73137 9.73137 10 9.4 10H3.6C3.26863 10 3 9.73137 3 9.4Z"/>',
+		layoutCompact: '<path d="M8 6L20 6"/><path d="M4 6.01L4.01 5.99889"/><path d="M4 12.01L4.01 11.9989"/><path d="M4 18.01L4.01 17.9989"/><path d="M8 12L20 12"/><path d="M8 18L20 18"/>',
+		compress: '<path d="M18 12L6 12"/><path d="M12 22V16M12 16L15 19M12 16L9 19"/><path d="M12 2V8M12 8L15 5M12 8L9 5"/>'
 	};
 
+	var ICON_SIZES = { sm: 14, md: 16, lg: 32 };
+
+	/**
+	 * Build an icon element.
+	 *
+	 * @param {string} name   Key in PATHS.
+	 * @param {string} [size] One of ICON_SIZES. Defaults to 'md'.
+	 * @return {SVGElement} Decorative icon, hidden from assistive technology.
+	 */
 	function icon(name, size) {
+		var variant = ICON_SIZES[size] ? size : 'md';
+		var markup = PATHS[name];
 		var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-		svg.setAttribute('viewBox', '0 0 16 16');
-		svg.setAttribute('width', size || 14);
-		svg.setAttribute('height', size || 14);
+
+		if (!markup && window.console && window.console.warn) {
+			window.console.warn('Etch Font Manager: no icon named "' + name + '".');
+		}
+
+		svg.setAttribute('class', variant === 'md' ? 'efm-icon' : 'efm-icon efm-icon--' + variant);
+		svg.setAttribute('viewBox', '0 0 24 24');
+		svg.setAttribute('width', ICON_SIZES[variant]);
+		svg.setAttribute('height', ICON_SIZES[variant]);
 		svg.setAttribute('fill', 'none');
 		svg.setAttribute('stroke', 'currentColor');
 		svg.setAttribute('stroke-width', '1.5');
 		svg.setAttribute('stroke-linecap', 'round');
 		svg.setAttribute('stroke-linejoin', 'round');
 		svg.setAttribute('aria-hidden', 'true');
-		svg.innerHTML = PATHS[name] || '';
+		svg.setAttribute('focusable', 'false');
+		svg.innerHTML = markup || '';
+
 		return svg;
 	}
 
@@ -486,8 +528,8 @@
 		{ key: 'library', icon: 'library', label: function () { return s('library', 'Library'); } },
 		{ key: 'upload', icon: 'upload', label: function () { return s('upload', 'Upload fonts'); } },
 		{ key: 'google', icon: 'google', label: function () { return s('googleFonts', 'Google Fonts'); } },
-		{ key: 'settings', icon: 'sliders', label: function () { return s('settings', 'Settings'); } },
-		{ key: 'tools', icon: 'file', label: function () { return s('tools', 'Import & export'); } }
+		{ key: 'settings', icon: 'settings', label: function () { return s('settings', 'Settings'); } },
+		{ key: 'tools', icon: 'transfer', label: function () { return s('tools', 'Import & export'); } }
 	];
 
 	/**
@@ -863,7 +905,7 @@
 					onclick: function () {
 						go(view.key);
 					}
-				}, [icon(view.icon, 14), el('span', { text: view.label() })])
+				}, [icon(view.icon), el('span', { text: view.label() })])
 			);
 		});
 
@@ -1029,6 +1071,17 @@
 			compact: s('layoutCompact', 'Compact')
 		};
 
+		/*
+		 * Icon and label together, not icon alone: the three layouts are not
+		 * self-evident from a glyph, and dropping the labels would trade
+		 * discoverability for a few pixels of toolbar width.
+		 */
+		var glyphs = {
+			row: 'layoutRow',
+			grid: 'layoutGrid',
+			compact: 'layoutCompact'
+		};
+
 		return el('div', {
 			class: 'efm-segmented',
 			role: 'radiogroup',
@@ -1041,7 +1094,6 @@
 				role: 'radio',
 				class: 'efm-segmented__item' + (on ? ' is-on' : ''),
 				'aria-checked': on ? 'true' : 'false',
-				text: labels[name],
 				onclick: function () {
 					if (state.layout === name) {
 						return;
@@ -1051,7 +1103,7 @@
 					savePrefs();
 					render();
 				}
-			});
+			}, [icon(glyphs[name], 'sm'), el('span', { text: labels[name] })]);
 		}));
 	}
 
@@ -1134,7 +1186,6 @@
 			el('button', {
 				type: 'button',
 				class: 'efm-btn efm-btn--outline efm-btn--sm',
-				text: s('restoreAll', 'Restore all') + ' (' + inTrash.length + ')',
 				onclick: function () {
 					state.families.forEach(function (family) {
 						family.trashed = false;
@@ -1142,11 +1193,10 @@
 					state.dirty = true;
 					render();
 				}
-			}),
+			}, [icon('undo', 'sm'), el('span', { text: s('restoreAll', 'Restore all') + ' (' + inTrash.length + ')' })]),
 			el('button', {
 				type: 'button',
 				class: 'efm-btn efm-btn--outline efm-btn--sm',
-				text: s('emptyTrash', 'Empty trash'),
 				onclick: function () {
 					if (!window.confirm(s('confirmEmptyTrash', 'Delete every family in the trash for good? Their font files stay on the server and can be removed from Import & export.'))) {
 						return;
@@ -1159,7 +1209,7 @@
 					state.dirty = true;
 					render();
 				}
-			})
+			}, [icon('trash', 'sm'), el('span', { text: s('emptyTrash', 'Empty trash') })])
 		]));
 
 		var grid = el('div', { class: 'efm-grid' });
@@ -1178,13 +1228,12 @@
 						el('button', {
 							type: 'button',
 							class: 'efm-btn efm-btn--outline efm-btn--sm',
-							text: s('restoreFamily', 'Restore'),
 							onclick: function () {
 								family.trashed = false;
 								state.dirty = true;
 								render();
 							}
-						}),
+						}, [icon('undo', 'sm'), el('span', { text: s('restoreFamily', 'Restore') })]),
 						el('button', {
 							type: 'button',
 							class: 'efm-icon-btn efm-icon-btn--danger',
@@ -1200,7 +1249,7 @@
 								state.dirty = true;
 								render();
 							}
-						}, [icon('trash', 13)])
+						}, [icon('trash')])
 					])
 				]),
 				el('div', { class: 'efm-card__meta' }, [
@@ -1226,12 +1275,12 @@
 
 		contentEl.appendChild(previewToolbar(
 			el('div', { class: 'efm-toolbar__lead' }, [
-				el('div', { class: 'efm-search' }, [icon('search', 13), search]),
+				el('div', { class: 'efm-search' }, [icon('search', 'sm'), search]),
 				el('button', {
 					type: 'button',
 					class: 'efm-btn efm-btn--outline',
 					onclick: addFamily
-				}, [icon('plus', 12), el('span', { text: s('newFamily', 'New family') })]),
+				}, [icon('plus', 'sm'), el('span', { text: s('newFamily', 'New family') })]),
 				layoutToggle()
 			])
 		));
@@ -1291,12 +1340,11 @@
 							el('button', {
 								type: 'button',
 								class: 'efm-btn efm-btn--outline efm-btn--sm',
-								text: s('manageFamily', 'Manage'),
 								onclick: function () {
 									state.editing = row.index;
 									render();
 								}
-							}),
+							}, [icon('edit', 'sm'), el('span', { text: s('manageFamily', 'Manage') })]),
 							el('button', {
 								type: 'button',
 								class: 'efm-icon-btn efm-icon-btn--danger',
@@ -1305,7 +1353,7 @@
 								onclick: function () {
 									trashFamily(row.index);
 								}
-							}, [icon('trash', 13)])
+							}, [icon('trash')])
 						])
 					]),
 					enabled ? null : el('p', { class: 'efm-notice', text: s('disabledNotice', 'Disabled. Its files are kept, but it is not loaded on the site.') }),
@@ -1339,7 +1387,7 @@
 						state.editing = null;
 						render();
 					}
-				}, [icon('back', 13)]),
+				}, [icon('back')]),
 				el('h2', { class: 'efm-breadcrumb__title', text: family.name })
 			])
 		);
@@ -1433,7 +1481,7 @@
 					state.dirty = true;
 					render();
 				}
-			}, [icon('plus', 12), el('span', { text: s('addVariant', 'Add variant') })])
+			}, [icon('plus', 'sm'), el('span', { text: s('addVariant', 'Add variant') })])
 		);
 	}
 
@@ -1831,7 +1879,7 @@
 					state.dirty = true;
 					render();
 				}
-			}, [icon('trash', 13)])
+			}, [icon('trash')])
 		]);
 	}
 
@@ -1872,7 +1920,7 @@
 				uploadFiles(event.dataTransfer.files);
 			}
 		}, [
-			icon('upload', 22),
+			icon('cloudUpload', 'lg'),
 			el('p', { class: 'efm-dropzone__title', text: s('upload', 'Upload font files') }),
 			el('p', { class: 'efm-dropzone__hint', text: s('uploadHint', 'Drop woff2, woff, ttf or otf files here, or click to browse.') }),
 			input
@@ -1938,7 +1986,7 @@
 							onclick: function () {
 								convertExisting(file);
 							}
-						}, [icon('compress', 13)])
+						}, [icon('compress')])
 						// Keeps the delete button in its own column on rows that
 						// cannot be converted.
 						: el('span', {}),
@@ -1960,7 +2008,7 @@
 								deleteFile(file.name);
 							}
 						}
-					}, [icon('trash', 13)])
+					}, [icon('trash')])
 				])
 			);
 		});
@@ -2118,7 +2166,7 @@
 						state.detail = null;
 						render();
 					}
-				}, [icon('back', 12), el('span', { text: s('backToBrowse', 'Back') })])
+				}, [icon('back', 'sm'), el('span', { text: s('backToBrowse', 'Back') })])
 			])
 		));
 
@@ -2208,12 +2256,11 @@
 				el('button', {
 					type: 'button',
 					class: 'efm-btn efm-btn--ghost efm-btn--sm',
-					text: s('resetAxes', 'Reset axes'),
 					onclick: function () {
 						delete state.axisValues[font.family];
 						render();
 					}
-				})
+				}, [icon('refresh', 'sm'), el('span', { text: s('resetAxes', 'Reset axes') })])
 			]));
 
 			contentEl.appendChild(cssLine);
@@ -2307,7 +2354,7 @@
 					installGoogleFont(font.family, chosen, useVariable, cuts);
 				}
 			}),
-			installed ? el('span', { class: 'efm-badge' }, [icon('check', 11), el('span', { text: s('installed', 'Installed') })]) : null
+			installed ? el('span', { class: 'efm-badge' }, [icon('check', 'sm'), el('span', { text: s('installed', 'Installed') })]) : null
 		]));
 
 		contentEl.appendChild(el('p', { class: 'efm-muted' }, [
@@ -2423,7 +2470,7 @@
 
 		contentEl.appendChild(previewToolbar(
 			el('div', { class: 'efm-toolbar__lead' }, [
-				el('div', { class: 'efm-search' }, [icon('search', 13), search]),
+				el('div', { class: 'efm-search' }, [icon('search', 'sm'), search]),
 				categorySelect,
 				subsetSelect,
 				variableSelect,
@@ -2431,10 +2478,9 @@
 				el('button', {
 					type: 'button',
 					class: 'efm-btn efm-btn--ghost efm-btn--sm',
-					text: s('resetAll', 'Reset all'),
 					disabled: !googleFiltered(),
 					onclick: resetGoogleFilters
-				}),
+				}, [icon('refresh', 'sm'), el('span', { text: s('resetAll', 'Reset all') })]),
 				layoutToggle()
 			])
 		));
@@ -2462,13 +2508,12 @@
 				el('button', {
 					type: 'button',
 					class: 'efm-btn efm-btn--ghost efm-btn--sm',
-					text: s('clearSelection', 'Clear'),
 					disabled: 0 === state.busy.indexOf('install:'),
 					onclick: function () {
 						state.picked = [];
 						render();
 					}
-				}),
+				}, [icon('close', 'sm'), el('span', { text: s('clearSelection', 'Clear') })]),
 				el('button', {
 					type: 'button',
 					class: 'efm-btn efm-btn--primary efm-btn--sm',
@@ -2526,7 +2571,7 @@
 							})
 						]),
 						el('div', { class: 'efm-card__actions' }, [
-							installed ? el('span', { class: 'efm-badge' }, [icon('check', 11), el('span', { text: s('installed', 'Installed') })]) : null,
+							installed ? el('span', { class: 'efm-badge' }, [icon('check', 'sm'), el('span', { text: s('installed', 'Installed') })]) : null,
 							el('button', {
 								type: 'button',
 								class: 'efm-btn efm-btn--sm ' + (installed ? 'efm-btn--outline' : 'efm-btn--primary'),

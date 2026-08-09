@@ -59,6 +59,31 @@
 	box-shadow: var(--etch-focus-box-shadow, 0 0 0 1px #28557b, 0 0 0 2px #469fea);
 }
 
+/* -------------------------------- Icons -------------------------------- */
+
+/*
+ * Icons are authored on a 24x24 grid at 1.5 stroke, matching Etch's own
+ * interface icons. Rendering that grid at 16px lands the stroke on 1 device
+ * pixel, which is what Etch's icons resolve to as well. Sizing lives here so
+ * call sites only choose a step, never a pixel value.
+ */
+
+.efm-icon {
+	inline-size: var(--e-icon-size-l, 16px);
+	block-size: var(--e-icon-size-l, 16px);
+	flex: 0 0 auto;
+}
+
+.efm-icon--sm {
+	inline-size: var(--e-icon-size-m, 14px);
+	block-size: var(--e-icon-size-m, 14px);
+}
+
+.efm-icon--lg {
+	inline-size: 32px;
+	block-size: 32px;
+}
+
 /* ------------------------------- Header -------------------------------- */
 
 .efm-header {
@@ -276,7 +301,7 @@
 
 .efm-search .efm-input {
 	inline-size: 240px;
-	padding-inline-start: 26px;
+	padding-inline-start: 28px;
 }
 
 /* -------------------------------- Grid --------------------------------- */
@@ -383,7 +408,10 @@
 }
 
 .efm-segmented__item {
-	padding-inline: 10px;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding-inline: 8px;
 	block-size: 20px;
 	border: 0;
 	border-radius: calc(var(--efm-radius) - 2px);
@@ -1023,7 +1051,7 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	gap: 6px;
+	gap: 4px;
 	block-size: 28px;
 	padding-inline: 12px;
 	border: 1px solid transparent;
@@ -1082,8 +1110,8 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	inline-size: 24px;
-	block-size: 24px;
+	inline-size: calc(var(--e-icon-size-l, 16px) + var(--e-icon-padding, 6px) * 2);
+	block-size: calc(var(--e-icon-size-l, 16px) + var(--e-icon-padding, 6px) * 2);
 	flex: 0 0 auto;
 	border: 0;
 	border-radius: var(--efm-radius);

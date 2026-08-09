@@ -71,7 +71,12 @@
 		detail: null,
 		axisValues: {},
 		axisNames: {},
-		subsetTouched: {}
+		subsetTouched: {},
+		// Convert TTF and OTF to WOFF2 on upload. On by default because there is
+		// no reason to serve an uncompressed sfnt to a browser in 2026.
+		convert: true,
+		convertLog: [],
+		converting: ''
 	};
 
 	// Families whose variable face has been aliased and injected.
@@ -126,6 +131,10 @@
 		if (typeof saved.previewCustom === 'string') {
 			state.previewCustom = saved.previewCustom;
 		}
+
+		if (typeof saved.convert === 'boolean') {
+			state.convert = saved.convert;
+		}
 	}
 
 	function savePrefs() {
@@ -133,7 +142,8 @@
 			window.localStorage.setItem(PREFS_KEY, JSON.stringify({
 				layout: state.layout,
 				previewSize: state.previewSize,
-				previewCustom: state.previewCustom
+				previewCustom: state.previewCustom,
+				convert: state.convert
 			}));
 		} catch (e) {
 			// A refused write is not worth surfacing; the session still works.
@@ -285,7 +295,8 @@
 		check: '<path d="M3.5 8.5l3 3 6-7"/>',
 		library: '<path d="M3 3.5h3v9H3zM7 3.5h3v9H7zM11.2 4l2 8.5"/>',
 		sliders: '<path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/><circle cx="5.5" cy="4.5" r="1.6" fill="currentColor" stroke="none"/><circle cx="10" cy="8" r="1.6" fill="currentColor" stroke="none"/><circle cx="6.5" cy="11.5" r="1.6" fill="currentColor" stroke="none"/>',
-		google: '<circle cx="8" cy="8" r="5.5"/><path d="M2.6 8h10.8M8 2.6c1.6 1.7 2.4 3.5 2.4 5.4S9.6 11.7 8 13.4C6.4 11.7 5.6 9.9 5.6 8S6.4 4.3 8 2.6z"/>'
+		google: '<circle cx="8" cy="8" r="5.5"/><path d="M2.6 8h10.8M8 2.6c1.6 1.7 2.4 3.5 2.4 5.4S9.6 11.7 8 13.4C6.4 11.7 5.6 9.9 5.6 8S6.4 4.3 8 2.6z"/>',
+		compress: '<path d="M8 2v3.5M6.2 4L8 5.8 9.8 4M8 14v-3.5M6.2 12L8 10.2 9.8 12M3 8h10"/>'
 	};
 
 	function icon(name, size) {
@@ -658,8 +669,14 @@
 		state.status = message ? { message: message, type: type || 'info' } : null;
 		renderStatus();
 
-		if (message && type !== 'error') {
-			window.clearTimeout(setStatus._timer);
+		// Always cancel a pending clear. A timer left over from an earlier
+		// transient message used to fire on top of whatever replaced it, wiping
+		// an error or a progress line that should have stayed.
+		window.clearTimeout(setStatus._timer);
+
+		// 'progress' stays put: a long conversion would otherwise clear the only
+		// sign that anything is still happening.
+		if (message && type !== 'error' && type !== 'progress') {
 			setStatus._timer = window.setTimeout(function () {
 				state.status = null;
 				renderStatus();
@@ -1771,6 +1788,32 @@
 		]);
 
 		contentEl.appendChild(dropzone);
+
+		if (converterAvailable()) {
+			contentEl.appendChild(el('label', { class: 'efm-toggle efm-toggle--convert' }, [
+				el('input', {
+					type: 'checkbox',
+					class: 'efm-checkbox',
+					checked: !!state.convert,
+					onchange: function (event) {
+						state.convert = event.target.checked;
+						savePrefs();
+					}
+				}),
+				el('span', {}, [
+					el('span', { class: 'efm-toggle__label', text: s('convertUpload', 'Convert TTF and OTF to WOFF2') }),
+					el('span', {
+						class: 'efm-field__hint',
+						text: s('convertHint', 'Runs in your browser, so the font is never sent anywhere but your own site. WOFF2 is normally 30 to 65% smaller and is what every current browser prefers. Only the container changes: glyphs, variable axes and OpenType features are untouched. It is not a subsetter, so a font that is large because of its character coverage stays large.')
+					})
+				])
+			]));
+		}
+
+		if (state.convertLog.length) {
+			contentEl.appendChild(convertReport());
+		}
+
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('files', 'Uploaded files') }));
 
 		if (!state.files.length) {
@@ -1783,6 +1826,7 @@
 				el('span', { text: s('file', 'File') }),
 				el('span', { text: s('type', 'Type') }),
 				el('span', { text: s('size', 'Size') }),
+				el('span', { text: '' }),
 				el('span', { text: '' })
 			])
 		]);
@@ -1793,6 +1837,20 @@
 					el('span', { class: 'efm-file__name', text: file.name, title: file.name }),
 					el('span', { class: 'efm-muted', text: (file.ext || '').toUpperCase() + ' · ' + (file.weight || '400') + (file.style === 'italic' ? ' ' + s('italic', 'Italic') : '') }),
 					el('span', { class: 'efm-muted', text: formatSize(file.size) + (fileUsedBy(file.name).length ? ' · ' + s('inUse', 'in use') : '') }),
+					CONVERTIBLE[file.ext] && converterAvailable()
+						? el('button', {
+							type: 'button',
+							class: 'efm-icon-btn',
+							disabled: !!state.converting,
+							'aria-label': s('convertFile', 'Convert to WOFF2'),
+							title: s('convertFile', 'Convert to WOFF2'),
+							onclick: function () {
+								convertExisting(file);
+							}
+						}, [icon('compress', 13)])
+						// Keeps the delete button in its own column on rows that
+						// cannot be converted.
+						: el('span', {}),
 					el('button', {
 						type: 'button',
 						class: 'efm-icon-btn efm-icon-btn--danger',
@@ -3392,28 +3450,357 @@
 		}).catch(fail);
 	}
 
+	/* ------------------------------ Converter ---------------------------- */
+
+	/*
+	 * TTF and OTF are uncompressed sfnt containers. WOFF2 is the same font in a
+	 * Brotli-compressed wrapper, so the conversion is lossless: glyphs, variable
+	 * axes, named instances and OpenType features all survive untouched. It is
+	 * not a subsetter, though — a font that is large because it carries 20,000
+	 * CJK glyphs comes out smaller but still large.
+	 *
+	 * google/woff2 compiled to WebAssembly does the work, in a worker, in the
+	 * browser (assets/wasm/). Nothing is uploaded in order to convert. The
+	 * plugin posts the WOFF2 result to /upload exactly as if the user had picked
+	 * that file themselves, so the whole server side is unchanged.
+	 */
+
+	var CONVERTIBLE = { ttf: true, otf: true };
+
+	// Brotli quality 11 runs at roughly a second per 100 KB. Anything still
+	// going after two minutes is not going to finish.
+	var CONVERT_TIMEOUT = 120000;
+
+	var converter = {
+		worker: null,
+		jobs: {},
+		seq: 0,
+		// Latches once the worker cannot start. A site with a strict
+		// Content-Security-Policy (no wasm-unsafe-eval, no worker-src) must fall
+		// back to plain uploads rather than throw on every file.
+		broken: false
+	};
+
+	function extensionOf(name) {
+		var dot = String(name || '').lastIndexOf('.');
+		return dot === -1 ? '' : String(name).slice(dot + 1).toLowerCase();
+	}
+
+	function woff2Name(name) {
+		var dot = String(name).lastIndexOf('.');
+		return (dot === -1 ? String(name) : String(name).slice(0, dot)) + '.woff2';
+	}
+
+	/**
+	 * Does a run of bytes carry the WOFF2 signature?
+	 *
+	 * The same check the PHP side runs before writing anything to disk. Doing it
+	 * here too means a bad conversion is caught before it is ever uploaded.
+	 *
+	 * @param {Uint8Array} bytes Leading bytes.
+	 * @return {boolean}
+	 */
+	function isWoff2(bytes) {
+		return bytes.length > 4 && 0x77 === bytes[0] && 0x4f === bytes[1] && 0x46 === bytes[2] && 0x32 === bytes[3];
+	}
+
+	function converterAvailable() {
+		return !converter.broken &&
+			!!cfg.wasmUrl &&
+			typeof window.Worker === 'function' &&
+			typeof window.WebAssembly !== 'undefined';
+	}
+
+	function converterWorker() {
+		if (converter.worker) {
+			return converter.worker;
+		}
+
+		var worker = new window.Worker(cfg.wasmUrl + 'woff2-worker.js');
+
+		worker.onmessage = function (event) {
+			var message = event.data || {};
+			var job = message.id ? converter.jobs[message.id] : null;
+
+			if (!job) {
+				// A failure carrying no job id means the module itself did not
+				// load, so everything queued behind it is doomed as well.
+				if ('error' === message.type) {
+					breakConverter(message.error);
+				}
+				return;
+			}
+
+			delete converter.jobs[message.id];
+			window.clearTimeout(job.timer);
+
+			if ('done' === message.type) {
+				job.resolve(message.buffer);
+			} else {
+				job.reject(new Error(message.error || s('convertFailed', 'Could not convert this font.')));
+			}
+		};
+
+		// Fires when the worker script itself fails to load, parse or run.
+		worker.onerror = function () {
+			breakConverter();
+		};
+
+		converter.worker = worker;
+
+		return worker;
+	}
+
+	/**
+	 * Stand the converter down for the rest of the session.
+	 *
+	 * @param {string} message Reason, if the worker gave one.
+	 */
+	function breakConverter(message) {
+		converter.broken = true;
+
+		if (converter.worker) {
+			converter.worker.terminate();
+			converter.worker = null;
+		}
+
+		Object.keys(converter.jobs).forEach(function (id) {
+			var job = converter.jobs[id];
+			delete converter.jobs[id];
+			window.clearTimeout(job.timer);
+			job.reject(new Error(message || s('convertBlocked', 'The converter could not start in this browser.')));
+		});
+	}
+
+	/**
+	 * Compress sfnt bytes to WOFF2.
+	 *
+	 * @param {ArrayBuffer} buffer Source bytes. Transferred to the worker.
+	 * @return {Promise} Resolves with an ArrayBuffer of WOFF2 bytes.
+	 */
+	function convertBuffer(buffer) {
+		return new Promise(function (resolve, reject) {
+			var worker;
+
+			try {
+				worker = converterWorker();
+			} catch (e) {
+				breakConverter(e && e.message);
+				reject(new Error(s('convertBlocked', 'The converter could not start in this browser.')));
+				return;
+			}
+
+			var id = ++converter.seq;
+
+			converter.jobs[id] = {
+				resolve: resolve,
+				reject: reject,
+				timer: window.setTimeout(function () {
+					delete converter.jobs[id];
+					reject(new Error(s('convertTimeout', 'Converting took too long and was stopped.')));
+				}, CONVERT_TIMEOUT)
+			};
+
+			worker.postMessage({ id: id, type: 'convert', buffer: buffer }, [buffer]);
+		});
+	}
+
+	/**
+	 * Decide what to actually upload for one picked file.
+	 *
+	 * A conversion failure is never fatal: the original file is uploaded and the
+	 * reason is logged, so a browser that cannot run the converter still gets
+	 * its font installed.
+	 *
+	 * @param {File} file Picked file.
+	 * @return {Promise} Resolves with { blob, filename, converted, from, to }.
+	 */
+	function prepareUpload(file) {
+		var plain = {
+			blob: file,
+			filename: file.name,
+			converted: false,
+			from: file.size,
+			to: file.size
+		};
+
+		if (!state.convert || !CONVERTIBLE[extensionOf(file.name)] || !converterAvailable()) {
+			return Promise.resolve(plain);
+		}
+
+		return file.arrayBuffer().then(convertBuffer).then(function (result) {
+			var bytes = new Uint8Array(result);
+
+			// Only take the result if it really is a WOFF2 and really is smaller.
+			// Anything else and the original file is the better upload.
+			if (!isWoff2(bytes) || bytes.length >= file.size) {
+				return plain;
+			}
+
+			return {
+				blob: new Blob([bytes], { type: 'font/woff2' }),
+				filename: woff2Name(file.name),
+				converted: true,
+				from: file.size,
+				to: bytes.length
+			};
+		}).catch(function (error) {
+			plain.error = (error && error.message) || s('convertFailed', 'Could not convert this font.');
+			return plain;
+		});
+	}
+
+	function logConversion(name, item) {
+		state.convertLog.push({
+			name: name,
+			from: item.from,
+			to: item.to,
+			saved: item.from ? Math.round((1 - item.to / item.from) * 100) : 0,
+			error: item.error || ''
+		});
+	}
+
+	function convertReport() {
+		var list = el('ul', { class: 'efm-convert-log' });
+
+		state.convertLog.forEach(function (entry) {
+			list.appendChild(el('li', { class: 'efm-convert-log__item' + (entry.error ? ' is-error' : '') }, [
+				el('span', { class: 'efm-file__name', text: entry.name, title: entry.name }),
+				el('span', {
+					class: 'efm-muted',
+					text: entry.error
+						? entry.error
+						: formatSize(entry.from) + ' → ' + formatSize(entry.to) + ' · ' + entry.saved + '% ' + s('smaller', 'smaller')
+				})
+			]));
+		});
+
+		return el('div', { class: 'efm-convert-report' }, [
+			el('h3', { class: 'efm-section-title', text: s('converted', 'Converted') }),
+			list
+		]);
+	}
+
+	/**
+	 * Convert a file that is already on the server.
+	 *
+	 * The WOFF2 is uploaded alongside the original and any variant mapping the
+	 * old file is repointed at the new one. The original is deliberately left in
+	 * place: deleting bytes is the one thing this plugin always asks about
+	 * first, and Tools → Unused files already exists to sweep it up.
+	 *
+	 * @param {Object} file Entry from state.files.
+	 */
+	function convertExisting(file) {
+		if (state.converting) {
+			return;
+		}
+
+		// Repointing variants writes the family list back to the server, which
+		// would take the saved version and drop anything edited but not saved.
+		if (state.dirty && !window.confirm(s('convertDirty', 'Converting saves the family mapping. Unsaved changes will be discarded. Continue?'))) {
+			return;
+		}
+
+		state.converting = file.name;
+		state.convertLog = [];
+		setStatus(s('converting', 'Converting…') + ' · ' + file.name, 'progress');
+		render();
+
+		var stored;
+
+		fetch(file.url, { credentials: 'same-origin' }).then(function (response) {
+			if (!response.ok) {
+				throw new Error(s('convertNoRead', 'Could not read the file from the fonts folder.'));
+			}
+			return response.arrayBuffer();
+		}).then(convertBuffer).then(function (result) {
+			var bytes = new Uint8Array(result);
+
+			if (!isWoff2(bytes)) {
+				throw new Error(s('convertFailed', 'Could not convert this font.'));
+			}
+
+			stored = { from: file.size, to: bytes.length };
+
+			var form = new FormData();
+			form.append('file', new Blob([bytes], { type: 'font/woff2' }), woff2Name(file.name));
+
+			return request('/upload', { method: 'POST', body: form });
+		}).then(function (result) {
+			applyState(result && result.state);
+
+			// store_upload() renames on collision, so the mapping has to follow
+			// the name the server actually wrote, not the one we asked for.
+			var written = (result && result.file && result.file.name) || woff2Name(file.name);
+			var remapped = 0;
+
+			state.families.forEach(function (family) {
+				(family.variants || []).forEach(function (variant) {
+					if (variant.file === file.name) {
+						variant.file = written;
+						remapped++;
+					}
+				});
+			});
+
+			logConversion(file.name, stored);
+
+			if (!remapped) {
+				return null;
+			}
+
+			return request('/families', { method: 'POST', body: { families: state.families } })
+				.then(function (next) {
+					applyState(next);
+				});
+		}).then(function () {
+			setStatus(s('converted', 'Converted') + ' · ' + formatSize(stored.from) + ' → ' + formatSize(stored.to));
+		}).catch(fail).then(function () {
+			state.converting = '';
+			render();
+		});
+	}
+
 	function uploadFiles(fileList) {
 		var files = Array.prototype.slice.call(fileList || []);
 		if (!files.length) {
 			return;
 		}
 
-		setStatus(s('uploading', 'Uploading…'));
+		state.convertLog = [];
 
 		var chain = Promise.resolve();
+		var done = 0;
 
 		files.forEach(function (file) {
 			chain = chain.then(function () {
+				var converting = state.convert && converterAvailable() && CONVERTIBLE[extensionOf(file.name)];
+
+				setStatus(
+					(converting ? s('converting', 'Converting…') : s('uploading', 'Uploading…')) +
+					' ' + (done + 1) + '/' + files.length + ' · ' + file.name,
+					'progress'
+				);
+
+				return prepareUpload(file);
+			}).then(function (item) {
+				if (item.converted || item.error) {
+					logConversion(file.name, item);
+				}
+
 				var form = new FormData();
-				form.append('file', file);
+				form.append('file', item.blob, item.filename);
+
 				return request('/upload', { method: 'POST', body: form }).then(function (result) {
 					applyState(result && result.state);
+					done++;
 				});
 			});
 		});
 
 		chain.then(function () {
-			setStatus(s('uploaded', 'Uploaded') + ' · ' + files.length);
+			setStatus(s('uploaded', 'Uploaded') + ' · ' + done);
 		}).catch(fail).then(render);
 	}
 

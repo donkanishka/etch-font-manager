@@ -746,6 +746,12 @@
 	border-block-start: 1px solid var(--efm-line);
 }
 
+/* The files table carries a Convert action as well as Delete. */
+.efm-table--files .efm-table__head,
+.efm-table--files .efm-table__row {
+	grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) 28px 28px;
+}
+
 .efm-file__name {
 	overflow: hidden;
 	white-space: nowrap;
@@ -888,6 +894,46 @@
 
 .efm-file-input {
 	display: none;
+}
+
+/* ------------------------------ Converter ------------------------------ */
+
+.efm-toggle--convert {
+	margin-block-start: var(--e-space-m, 12px);
+}
+
+.efm-convert-report {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-block-start: var(--e-space-m, 12px);
+}
+
+.efm-convert-log {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	padding: 0;
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+	list-style: none;
+	overflow: hidden;
+}
+
+.efm-convert-log__item {
+	display: grid;
+	grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+	align-items: center;
+	gap: 8px;
+	padding: 6px 8px;
+}
+
+.efm-convert-log__item + .efm-convert-log__item {
+	border-block-start: 1px solid var(--efm-line);
+}
+
+.efm-convert-log__item.is-error {
+	color: var(--efm-danger, #e06c6c);
 }
 
 /* -------------------------------- Empty -------------------------------- */

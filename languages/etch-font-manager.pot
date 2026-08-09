@@ -189,7 +189,7 @@ msgstr ""
 
 #: includes/class-efm-builder.php:335
 #: includes/class-efm-builder.php:336
-#: includes/class-efm-builder.php:484
+#: includes/class-efm-builder.php:485
 msgid "Installed"
 msgstr ""
 
@@ -452,7 +452,7 @@ msgid "Use this anywhere a font family is expected. It already includes the fall
 msgstr ""
 
 #: includes/class-efm-builder.php:403
-#: includes/class-efm-builder.php:478
+#: includes/class-efm-builder.php:479
 msgid "Google Fonts"
 msgstr ""
 
@@ -689,11 +689,11 @@ msgid "Uploaded"
 msgstr ""
 
 #: includes/class-efm-builder.php:464
-msgid "Convert TTF and OTF to WOFF2"
+msgid "Convert TTF, OTF and WOFF to WOFF2"
 msgstr ""
 
 #: includes/class-efm-builder.php:465
-msgid "Runs in your browser, so the font is never sent anywhere but your own site. WOFF2 is normally 30 to 65% smaller and is what every current browser prefers. Only the container changes: glyphs, variable axes and OpenType features are untouched. It is not a subsetter, so a font that is large because of its character coverage stays large."
+msgid "Runs in your browser, so the font is never sent anywhere but your own site. WOFF2 is what every current browser prefers: normally 40 to 65% smaller than TTF or OTF, and around 20% smaller than WOFF. Only the container changes: glyphs, variable axes and OpenType features are untouched. It is not a subsetter, so a font that is large because of its character coverage stays large."
 msgstr ""
 
 #: includes/class-efm-builder.php:466
@@ -729,70 +729,74 @@ msgid "Could not read the file from the fonts folder."
 msgstr ""
 
 #: includes/class-efm-builder.php:474
-msgid "Converting saves the family mapping. Unsaved changes will be discarded. Continue?"
+msgid "This WOFF file is damaged and could not be read."
 msgstr ""
 
 #: includes/class-efm-builder.php:475
-msgid "Uploaded files"
+msgid "Converting saves the family mapping. Unsaved changes will be discarded. Continue?"
 msgstr ""
 
 #: includes/class-efm-builder.php:476
-msgid "No files uploaded yet."
+msgid "Uploaded files"
 msgstr ""
 
 #: includes/class-efm-builder.php:477
+msgid "No files uploaded yet."
+msgstr ""
+
+#: includes/class-efm-builder.php:478
 msgid "Delete file"
 msgstr ""
 
-#: includes/class-efm-builder.php:479
+#: includes/class-efm-builder.php:480
 msgid "Search Google Fonts"
 msgstr ""
 
-#: includes/class-efm-builder.php:480
+#: includes/class-efm-builder.php:481
 msgid "Searching…"
 msgstr ""
 
-#: includes/class-efm-builder.php:481
+#: includes/class-efm-builder.php:482
 msgid "No fonts found."
 msgstr ""
 
-#: includes/class-efm-builder.php:482
+#: includes/class-efm-builder.php:483
 msgid "Install"
 msgstr ""
 
-#: includes/class-efm-builder.php:483
+#: includes/class-efm-builder.php:484
 msgid "Installing…"
 msgstr ""
 
-#: includes/class-efm-builder.php:485
+#: includes/class-efm-builder.php:486
 msgid "Weight"
 msgstr ""
 
-#: includes/class-efm-builder.php:486
+#: includes/class-efm-builder.php:487
 msgid "Style"
 msgstr ""
 
-#: includes/class-efm-builder.php:487
+#: includes/class-efm-builder.php:488
 msgid "File"
 msgstr ""
 
-#: includes/class-efm-builder.php:488
+#: includes/class-efm-builder.php:489
 msgid "Normal"
 msgstr ""
 
-#: includes/class-efm-builder.php:489
+#: includes/class-efm-builder.php:490
 msgid "Italic"
 msgstr ""
 
-#: includes/class-efm-builder.php:490
+#: includes/class-efm-builder.php:491
 msgid "Delete this file from the fonts folder?"
 msgstr ""
 
-#: includes/class-efm-builder.php:491
+#: includes/class-efm-builder.php:492
 msgid "Something went wrong."
 msgstr ""
 
-#: includes/class-efm-builder.php:492
+#: includes/class-efm-builder.php:493
 msgid "The quick brown fox"
 msgstr ""
 

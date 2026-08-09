@@ -1,10 +1,10 @@
 {
-  "version": "1.17.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.17.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.17.0",
+  "version": "1.18.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.18.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.18.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
   "date": "2026-08-09",
-  "notes": "BREAKING: the Automatic.css heading and text font mapping has been removed. Use the per-family CSS variable instead. Theme is now Settings."
+  "notes": "Adds a TTF and OTF to WOFF2 converter that runs in your browser. Typical saving is 30 to 65%, the conversion is lossless, and no font is sent to a third party."
 }

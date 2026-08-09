@@ -12,791 +12,795 @@ msgstr ""
 "X-Domain: etch-font-manager\n"
 
 #: includes/class-efm-builder.php:290
-msgid "Fonts"
+msgid "Font Manager"
 msgstr ""
 
 #: includes/class-efm-builder.php:291
-msgid "Library"
+msgid "Back to Builder"
 msgstr ""
 
 #: includes/class-efm-builder.php:292
-msgid "Settings"
+msgid "Library"
 msgstr ""
 
 #: includes/class-efm-builder.php:293
-msgid "Close"
+msgid "Settings"
 msgstr ""
 
 #: includes/class-efm-builder.php:294
-#: includes/class-efm-builder.php:339
-msgid "Back"
+msgid "Close"
 msgstr ""
 
 #: includes/class-efm-builder.php:295
+#: includes/class-efm-builder.php:340
+msgid "Back"
+msgstr ""
+
 #: includes/class-efm-builder.php:296
+#: includes/class-efm-builder.php:297
 msgid "Manage"
 msgstr ""
 
-#: includes/class-efm-builder.php:297
-#: includes/class-efm-builder.php:334
+#: includes/class-efm-builder.php:298
+#: includes/class-efm-builder.php:335
 msgid "family"
 msgstr ""
 
-#: includes/class-efm-builder.php:298
+#: includes/class-efm-builder.php:299
 msgid "families"
 msgstr ""
 
-#: includes/class-efm-builder.php:299
+#: includes/class-efm-builder.php:300
 msgid "file"
 msgstr ""
 
-#: includes/class-efm-builder.php:300
+#: includes/class-efm-builder.php:301
 msgid "files"
 msgstr ""
 
-#: includes/class-efm-builder.php:301
+#: includes/class-efm-builder.php:302
 msgid "Filter families"
 msgstr ""
 
-#: includes/class-efm-builder.php:302
+#: includes/class-efm-builder.php:303
 msgid "No families match that filter."
 msgstr ""
 
-#: includes/class-efm-builder.php:303
+#: includes/class-efm-builder.php:304
 msgid "No variants mapped yet."
 msgstr ""
 
-#: includes/class-efm-builder.php:304
+#: includes/class-efm-builder.php:305
 msgid "Preview text"
 msgstr ""
 
-#: includes/class-efm-builder.php:305
+#: includes/class-efm-builder.php:306
 msgid "Preview size"
 msgstr ""
 
-#: includes/class-efm-builder.php:306
+#: includes/class-efm-builder.php:307
 msgid "Each family in its own script"
 msgstr ""
 
-#: includes/class-efm-builder.php:307
+#: includes/class-efm-builder.php:308
 msgid "Auto"
 msgstr ""
 
-#: includes/class-efm-builder.php:308
+#: includes/class-efm-builder.php:309
 msgid "Latin"
 msgstr ""
 
-#: includes/class-efm-builder.php:309
+#: includes/class-efm-builder.php:310
 msgid "123"
 msgstr ""
 
-#: includes/class-efm-builder.php:310
+#: includes/class-efm-builder.php:311
 msgid "Layout"
 msgstr ""
 
-#: includes/class-efm-builder.php:311
+#: includes/class-efm-builder.php:312
 msgid "Row"
 msgstr ""
 
-#: includes/class-efm-builder.php:312
+#: includes/class-efm-builder.php:313
 msgid "Grid"
 msgstr ""
 
-#: includes/class-efm-builder.php:313
+#: includes/class-efm-builder.php:314
 msgid "Compact"
 msgstr ""
 
-#: includes/class-efm-builder.php:314
+#: includes/class-efm-builder.php:315
 msgid "Writing system"
 msgstr ""
 
-#: includes/class-efm-builder.php:315
+#: includes/class-efm-builder.php:316
 msgid "Any writing system"
 msgstr ""
 
-#: includes/class-efm-builder.php:316
+#: includes/class-efm-builder.php:317
 msgid "Technology"
 msgstr ""
 
-#: includes/class-efm-builder.php:317
+#: includes/class-efm-builder.php:318
 msgid "Any technology"
 msgstr ""
 
-#: includes/class-efm-builder.php:318
+#: includes/class-efm-builder.php:319
 msgid "Variable only"
 msgstr ""
 
-#: includes/class-efm-builder.php:319
+#: includes/class-efm-builder.php:320
 msgid "Static only"
 msgstr ""
 
-#: includes/class-efm-builder.php:320
+#: includes/class-efm-builder.php:321
 msgid "Trending"
 msgstr ""
 
-#: includes/class-efm-builder.php:321
+#: includes/class-efm-builder.php:322
 msgid "Newest"
 msgstr ""
 
-#: includes/class-efm-builder.php:322
+#: includes/class-efm-builder.php:323
 msgid "Reset all"
 msgstr ""
 
-#: includes/class-efm-builder.php:323
+#: includes/class-efm-builder.php:324
 msgid "of"
 msgstr ""
 
-#: includes/class-efm-builder.php:324
+#: includes/class-efm-builder.php:325
 msgid "selected"
 msgstr ""
 
-#: includes/class-efm-builder.php:325
+#: includes/class-efm-builder.php:326
 msgid "Clear"
 msgstr ""
 
-#: includes/class-efm-builder.php:326
+#: includes/class-efm-builder.php:327
 msgid "Install selected"
 msgstr ""
 
-#: includes/class-efm-builder.php:327
+#: includes/class-efm-builder.php:328
 msgid "Select"
 msgstr ""
 
-#: includes/class-efm-builder.php:328
+#: includes/class-efm-builder.php:329
 msgid "Size of the whole family at Google. What you install depends on the subsets and weights chosen below."
 msgstr ""
 
-#: includes/class-efm-builder.php:329
-#: includes/class-efm-builder.php:434
+#: includes/class-efm-builder.php:330
+#: includes/class-efm-builder.php:435
 msgid "Variable"
 msgstr ""
 
-#: includes/class-efm-builder.php:330
+#: includes/class-efm-builder.php:331
 msgid "axis"
 msgstr ""
 
-#: includes/class-efm-builder.php:331
+#: includes/class-efm-builder.php:332
 msgid "axes"
 msgstr ""
 
-#: includes/class-efm-builder.php:332
+#: includes/class-efm-builder.php:333
 msgid "style"
 msgstr ""
 
-#: includes/class-efm-builder.php:333
+#: includes/class-efm-builder.php:334
 msgid "styles"
 msgstr ""
 
-#: includes/class-efm-builder.php:335
 #: includes/class-efm-builder.php:336
-#: includes/class-efm-builder.php:485
+#: includes/class-efm-builder.php:337
+#: includes/class-efm-builder.php:486
 msgid "Installed"
 msgstr ""
 
-#: includes/class-efm-builder.php:337
+#: includes/class-efm-builder.php:338
 msgid "failed"
 msgstr ""
 
-#: includes/class-efm-builder.php:338
+#: includes/class-efm-builder.php:339
 msgid "Open the type tester"
 msgstr ""
 
-#: includes/class-efm-builder.php:340
-#: includes/class-efm-builder.php:361
+#: includes/class-efm-builder.php:341
+#: includes/class-efm-builder.php:362
 msgid "Added"
 msgstr ""
 
-#: includes/class-efm-builder.php:341
+#: includes/class-efm-builder.php:342
 msgid "default"
 msgstr ""
 
-#: includes/class-efm-builder.php:342
+#: includes/class-efm-builder.php:343
 msgid "Reset axes"
 msgstr ""
 
-#: includes/class-efm-builder.php:343
+#: includes/class-efm-builder.php:344
 msgid "This family has no variable axes, so there is nothing to adjust."
 msgstr ""
 
-#: includes/class-efm-builder.php:344
+#: includes/class-efm-builder.php:345
 msgid "View on Google Fonts"
 msgstr ""
 
-#: includes/class-efm-builder.php:345
+#: includes/class-efm-builder.php:346
 msgid "variable"
 msgstr ""
 
-#: includes/class-efm-builder.php:346
+#: includes/class-efm-builder.php:347
 msgid "Type"
 msgstr ""
 
-#: includes/class-efm-builder.php:347
+#: includes/class-efm-builder.php:348
 msgid "Size"
 msgstr ""
 
-#: includes/class-efm-builder.php:348
-#: includes/class-efm-builder.php:404
+#: includes/class-efm-builder.php:349
+#: includes/class-efm-builder.php:405
 msgid "Subsets"
 msgstr ""
 
-#: includes/class-efm-builder.php:349
+#: includes/class-efm-builder.php:350
 msgid "Weights"
 msgstr ""
 
-#: includes/class-efm-builder.php:350
+#: includes/class-efm-builder.php:351
 msgid "All"
 msgstr ""
 
-#: includes/class-efm-builder.php:351
+#: includes/class-efm-builder.php:352
 msgid "None"
 msgstr ""
 
-#: includes/class-efm-builder.php:352
+#: includes/class-efm-builder.php:353
 msgid "Override theme styles"
 msgstr ""
 
-#: includes/class-efm-builder.php:353
+#: includes/class-efm-builder.php:354
 msgid "Adds !important, for when a theme stylesheet loads later or wins on specificity."
 msgstr ""
 
-#: includes/class-efm-builder.php:354
+#: includes/class-efm-builder.php:355
 msgid "Restore all"
 msgstr ""
 
-#: includes/class-efm-builder.php:355
+#: includes/class-efm-builder.php:356
 msgid "Empty trash"
 msgstr ""
 
-#: includes/class-efm-builder.php:356
+#: includes/class-efm-builder.php:357
 msgid "Delete every family in the trash for good? Their font files stay on the server and can be removed from Import & export."
 msgstr ""
 
-#: includes/class-efm-builder.php:357
+#: includes/class-efm-builder.php:358
 msgid "Families"
 msgstr ""
 
-#: includes/class-efm-builder.php:358
+#: includes/class-efm-builder.php:359
 msgid "Include the font files"
 msgstr ""
 
-#: includes/class-efm-builder.php:359
+#: includes/class-efm-builder.php:360
 msgid "Makes a much larger file that rebuilds anywhere. Without it, Google families are re-downloaded on import and hand-uploaded fonts have to be uploaded again."
 msgstr ""
 
-#: includes/class-efm-builder.php:360
+#: includes/class-efm-builder.php:361
 msgid "Nothing has been changed yet. This is what importing would do:"
 msgstr ""
 
-#: includes/class-efm-builder.php:362
+#: includes/class-efm-builder.php:363
 msgid "Overwritten"
 msgstr ""
 
-#: includes/class-efm-builder.php:363
+#: includes/class-efm-builder.php:364
 msgid "Removed"
 msgstr ""
 
-#: includes/class-efm-builder.php:364
+#: includes/class-efm-builder.php:365
 msgid "Font files included in the file"
 msgstr ""
 
-#: includes/class-efm-builder.php:365
+#: includes/class-efm-builder.php:366
 msgid "Font files that would still be missing afterwards"
 msgstr ""
 
-#: includes/class-efm-builder.php:366
+#: includes/class-efm-builder.php:367
 msgid "Import now"
 msgstr ""
 
-#: includes/class-efm-builder.php:367
+#: includes/class-efm-builder.php:368
 msgid "Cancel"
 msgstr ""
 
-#: includes/class-efm-builder.php:368
+#: includes/class-efm-builder.php:369
 msgid "Font files written from the file"
 msgstr ""
 
-#: includes/class-efm-builder.php:369
+#: includes/class-efm-builder.php:370
 msgid "Rejected, because they are not valid font files:"
 msgstr ""
 
-#: includes/class-efm-builder.php:370
+#: includes/class-efm-builder.php:371
 msgid "Stylesheet"
 msgstr ""
 
-#: includes/class-efm-builder.php:371
+#: includes/class-efm-builder.php:372
 msgid "Last generated"
 msgstr ""
 
-#: includes/class-efm-builder.php:372
+#: includes/class-efm-builder.php:373
 msgid "The stylesheet has not been generated yet."
 msgstr ""
 
-#: includes/class-efm-builder.php:373
+#: includes/class-efm-builder.php:374
 msgid "Print the CSS inline"
 msgstr ""
 
-#: includes/class-efm-builder.php:374
+#: includes/class-efm-builder.php:375
 msgid "Saves one request but the CSS cannot be cached separately. Worth it for a small font set, not for a large one."
 msgstr ""
 
-#: includes/class-efm-builder.php:375
+#: includes/class-efm-builder.php:376
 msgid "Regenerate stylesheet"
 msgstr ""
 
-#: includes/class-efm-builder.php:376
+#: includes/class-efm-builder.php:377
 msgid "Stylesheet regenerated."
 msgstr ""
 
-#: includes/class-efm-builder.php:377
+#: includes/class-efm-builder.php:378
 msgid "Privacy"
 msgstr ""
 
-#: includes/class-efm-builder.php:378
+#: includes/class-efm-builder.php:379
 msgid "Block Google Fonts loaded by other plugins"
 msgstr ""
 
-#: includes/class-efm-builder.php:379
+#: includes/class-efm-builder.php:380
 msgid "Stops theme and plugin stylesheets that point at fonts.googleapis.com, and removes the matching preconnect hints. It cannot reach an @import inside a theme stylesheet or a link tag printed straight into the page. Your own local fonts are unaffected."
 msgstr ""
 
-#: includes/class-efm-builder.php:380
+#: includes/class-efm-builder.php:381
 msgid "Apply to"
 msgstr ""
 
-#: includes/class-efm-builder.php:381
+#: includes/class-efm-builder.php:382
 msgid "Optional. A comma separated selector list this family is applied to, so you do not have to write the rule yourself."
 msgstr ""
 
-#: includes/class-efm-builder.php:382
+#: includes/class-efm-builder.php:383
 msgid "Generated CSS"
 msgstr ""
 
-#: includes/class-efm-builder.php:383
+#: includes/class-efm-builder.php:384
 msgid "This family is not loaded, so it contributes no CSS."
 msgstr ""
 
-#: includes/class-efm-builder.php:384
+#: includes/class-efm-builder.php:385
 msgid "No variants mapped yet, so this family contributes no CSS."
 msgstr ""
 
-#: includes/class-efm-builder.php:385
+#: includes/class-efm-builder.php:386
 msgid "These families came from Google Fonts, so their files can be fetched again with the same subsets and weights:"
 msgstr ""
 
-#: includes/class-efm-builder.php:386
+#: includes/class-efm-builder.php:387
 msgid "Download missing Google fonts"
 msgstr ""
 
-#: includes/class-efm-builder.php:387
+#: includes/class-efm-builder.php:388
 msgid "Downloading…"
 msgstr ""
 
-#: includes/class-efm-builder.php:388
+#: includes/class-efm-builder.php:389
 msgid "Downloaded"
 msgstr ""
 
-#: includes/class-efm-builder.php:389
+#: includes/class-efm-builder.php:390
 msgid "Could not download:"
 msgstr ""
 
-#: includes/class-efm-builder.php:390
+#: includes/class-efm-builder.php:391
 msgid "Trash"
 msgstr ""
 
-#: includes/class-efm-builder.php:391
+#: includes/class-efm-builder.php:392
 msgid "These families are not loaded on the site. Their font files are still on the server, so restoring one brings it back exactly as it was."
 msgstr ""
 
-#: includes/class-efm-builder.php:392
+#: includes/class-efm-builder.php:393
 msgid "Enable"
 msgstr ""
 
-#: includes/class-efm-builder.php:393
+#: includes/class-efm-builder.php:394
 msgid "Disable"
 msgstr ""
 
-#: includes/class-efm-builder.php:394
+#: includes/class-efm-builder.php:395
 msgid "Move to trash"
 msgstr ""
 
-#: includes/class-efm-builder.php:395
+#: includes/class-efm-builder.php:396
 msgid "Restore"
 msgstr ""
 
-#: includes/class-efm-builder.php:396
+#: includes/class-efm-builder.php:397
 msgid "Delete permanently"
 msgstr ""
 
-#: includes/class-efm-builder.php:397
+#: includes/class-efm-builder.php:398
 msgid "Disabled. Its files are kept, but it is not loaded on the site."
 msgstr ""
 
-#: includes/class-efm-builder.php:398
+#: includes/class-efm-builder.php:399
 msgid "Load this family on the site"
 msgstr ""
 
-#: includes/class-efm-builder.php:399
+#: includes/class-efm-builder.php:400
 msgid "Turn off to stop the font loading without deleting anything. Files and weight mapping are kept."
 msgstr ""
 
-#: includes/class-efm-builder.php:400
+#: includes/class-efm-builder.php:401
 msgid "Delete this family for good? Its font files stay on the server and can be removed from Import & export."
 msgstr ""
 
-#: includes/class-efm-builder.php:401
+#: includes/class-efm-builder.php:402
 msgid "CSS variable"
 msgstr ""
 
-#: includes/class-efm-builder.php:402
+#: includes/class-efm-builder.php:403
 msgid "Use this anywhere a font family is expected. It already includes the fallback stack."
 msgstr ""
 
-#: includes/class-efm-builder.php:403
-#: includes/class-efm-builder.php:479
+#: includes/class-efm-builder.php:404
+#: includes/class-efm-builder.php:480
 msgid "Google Fonts"
 msgstr ""
 
-#: includes/class-efm-builder.php:405
+#: includes/class-efm-builder.php:406
 msgid "Download selection"
 msgstr ""
 
-#: includes/class-efm-builder.php:406
+#: includes/class-efm-builder.php:407
 msgid "Installed as a variable font: one file per subset covering every weight."
 msgstr ""
 
-#: includes/class-efm-builder.php:407
+#: includes/class-efm-builder.php:408
 msgid "Unused files"
 msgstr ""
 
-#: includes/class-efm-builder.php:408
+#: includes/class-efm-builder.php:409
 msgid "These font files are on the server but no family uses them, usually from deselecting a weight. Deleting them frees space; the weight can be downloaded again at any time."
 msgstr ""
 
-#: includes/class-efm-builder.php:409
+#: includes/class-efm-builder.php:410
 msgid "Every font file on the server is in use."
 msgstr ""
 
-#: includes/class-efm-builder.php:410
+#: includes/class-efm-builder.php:411
 msgid "Delete unused files"
 msgstr ""
 
-#: includes/class-efm-builder.php:411
+#: includes/class-efm-builder.php:412
 msgid "Delete these font files from the server?"
 msgstr ""
 
-#: includes/class-efm-builder.php:412
+#: includes/class-efm-builder.php:413
 msgid "Deleted"
 msgstr ""
 
-#: includes/class-efm-builder.php:413
+#: includes/class-efm-builder.php:414
 msgid "Import & export"
 msgstr ""
 
-#: includes/class-efm-builder.php:414
+#: includes/class-efm-builder.php:415
 msgid "Export"
 msgstr ""
 
-#: includes/class-efm-builder.php:415
+#: includes/class-efm-builder.php:416
 msgid "Download families, their variant mapping and assignments as a JSON file. Choose which families to include, and whether to bundle the font files with them."
 msgstr ""
 
-#: includes/class-efm-builder.php:416
+#: includes/class-efm-builder.php:417
 msgid "Download configuration"
 msgstr ""
 
-#: includes/class-efm-builder.php:417
+#: includes/class-efm-builder.php:418
 msgid "Configuration downloaded."
 msgstr ""
 
-#: includes/class-efm-builder.php:418
+#: includes/class-efm-builder.php:419
 msgid "Import"
 msgstr ""
 
-#: includes/class-efm-builder.php:419
+#: includes/class-efm-builder.php:420
 msgid "Load a configuration exported from another site."
 msgstr ""
 
-#: includes/class-efm-builder.php:420
+#: includes/class-efm-builder.php:421
 msgid "Choose a file…"
 msgstr ""
 
-#: includes/class-efm-builder.php:421
+#: includes/class-efm-builder.php:422
 msgid "Import mode"
 msgstr ""
 
-#: includes/class-efm-builder.php:422
+#: includes/class-efm-builder.php:423
 msgid "Replace everything"
 msgstr ""
 
-#: includes/class-efm-builder.php:423
+#: includes/class-efm-builder.php:424
 msgid "Merge with existing families"
 msgstr ""
 
-#: includes/class-efm-builder.php:424
+#: includes/class-efm-builder.php:425
 msgid "That file is not valid JSON."
 msgstr ""
 
-#: includes/class-efm-builder.php:425
+#: includes/class-efm-builder.php:426
 msgid "These files are referenced but not present in the fonts folder. Upload them, or reinstall the family from Google Fonts:"
 msgstr ""
 
-#: includes/class-efm-builder.php:426
+#: includes/class-efm-builder.php:427
 msgid "imported"
 msgstr ""
 
-#: includes/class-efm-builder.php:427
+#: includes/class-efm-builder.php:428
 msgid "Category"
 msgstr ""
 
-#: includes/class-efm-builder.php:428
+#: includes/class-efm-builder.php:429
 msgid "All categories"
 msgstr ""
 
-#: includes/class-efm-builder.php:429
+#: includes/class-efm-builder.php:430
 msgid "Sort by"
 msgstr ""
 
-#: includes/class-efm-builder.php:430
+#: includes/class-efm-builder.php:431
 msgid "Most popular"
 msgstr ""
 
-#: includes/class-efm-builder.php:431
+#: includes/class-efm-builder.php:432
 msgid "A to Z"
 msgstr ""
 
-#: includes/class-efm-builder.php:432
+#: includes/class-efm-builder.php:433
 msgid "Load more"
 msgstr ""
 
-#: includes/class-efm-builder.php:433
+#: includes/class-efm-builder.php:434
 msgid "Loading…"
 msgstr ""
 
-#: includes/class-efm-builder.php:435
+#: includes/class-efm-builder.php:436
 msgid "one file per subset instead of one per weight"
 msgstr ""
 
-#: includes/class-efm-builder.php:436
+#: includes/class-efm-builder.php:437
 msgid "Delivery"
 msgstr ""
 
-#: includes/class-efm-builder.php:437
+#: includes/class-efm-builder.php:438
 msgid "Loading behaviour"
 msgstr ""
 
-#: includes/class-efm-builder.php:438
+#: includes/class-efm-builder.php:439
 msgid "swap shows a fallback until the font arrives. optional skips the font entirely on slow connections, which removes layout shift."
 msgstr ""
 
-#: includes/class-efm-builder.php:439
+#: includes/class-efm-builder.php:440
 msgid "Preload this family"
 msgstr ""
 
-#: includes/class-efm-builder.php:440
+#: includes/class-efm-builder.php:441
 msgid "Fetches the regular weight early. Use it only for fonts visible above the fold; preloading everything slows the page down."
 msgstr ""
 
-#: includes/class-efm-builder.php:441
+#: includes/class-efm-builder.php:442
 msgid "Fallback stack"
 msgstr ""
 
-#: includes/class-efm-builder.php:442
+#: includes/class-efm-builder.php:443
 msgid "Shown while the font loads, and if it fails. A close match reduces layout shift."
 msgstr ""
 
-#: includes/class-efm-builder.php:443
+#: includes/class-efm-builder.php:444
 msgid "Reinstall"
 msgstr ""
 
-#: includes/class-efm-builder.php:444
+#: includes/class-efm-builder.php:445
 msgid "in use"
 msgstr ""
 
-#: includes/class-efm-builder.php:445
+#: includes/class-efm-builder.php:446
 msgid "You have unsaved font changes. Close and discard them?"
 msgstr ""
 
-#: includes/class-efm-builder.php:446
+#: includes/class-efm-builder.php:447
 msgid "It is mapped by:"
 msgstr ""
 
-#: includes/class-efm-builder.php:447
+#: includes/class-efm-builder.php:448
 msgid "Those variants will be removed too."
 msgstr ""
 
-#: includes/class-efm-builder.php:448
+#: includes/class-efm-builder.php:449
 msgid "No font families yet."
 msgstr ""
 
-#: includes/class-efm-builder.php:449
+#: includes/class-efm-builder.php:450
 msgid "Upload a font file or install one from Google Fonts."
 msgstr ""
 
-#: includes/class-efm-builder.php:450
+#: includes/class-efm-builder.php:451
 msgid "New family"
 msgstr ""
 
-#: includes/class-efm-builder.php:451
+#: includes/class-efm-builder.php:452
 msgid "Family name"
 msgstr ""
 
-#: includes/class-efm-builder.php:452
+#: includes/class-efm-builder.php:453
 msgid "Add variant"
 msgstr ""
 
-#: includes/class-efm-builder.php:453
+#: includes/class-efm-builder.php:454
 msgid "Remove variant"
 msgstr ""
 
-#: includes/class-efm-builder.php:454
+#: includes/class-efm-builder.php:455
 msgid "variants"
 msgstr ""
 
-#: includes/class-efm-builder.php:455
+#: includes/class-efm-builder.php:456
 msgid "variant"
 msgstr ""
 
-#: includes/class-efm-builder.php:456
+#: includes/class-efm-builder.php:457
 msgid "Save changes"
 msgstr ""
 
-#: includes/class-efm-builder.php:457
+#: includes/class-efm-builder.php:458
 msgid "Saving…"
 msgstr ""
 
-#: includes/class-efm-builder.php:458
+#: includes/class-efm-builder.php:459
 msgid "Fonts saved."
 msgstr ""
 
-#: includes/class-efm-builder.php:459
+#: includes/class-efm-builder.php:460
 msgid "Discard"
 msgstr ""
 
-#: includes/class-efm-builder.php:460
+#: includes/class-efm-builder.php:461
 msgid "Upload fonts"
 msgstr ""
 
-#: includes/class-efm-builder.php:461
+#: includes/class-efm-builder.php:462
 msgid "Drop woff2, woff, ttf or otf files here, or click to browse."
 msgstr ""
 
-#: includes/class-efm-builder.php:462
+#: includes/class-efm-builder.php:463
 msgid "Uploading…"
 msgstr ""
 
-#: includes/class-efm-builder.php:463
+#: includes/class-efm-builder.php:464
 msgid "Uploaded"
 msgstr ""
 
-#: includes/class-efm-builder.php:464
+#: includes/class-efm-builder.php:465
 msgid "Convert TTF, OTF and WOFF to WOFF2"
 msgstr ""
 
-#: includes/class-efm-builder.php:465
+#: includes/class-efm-builder.php:466
 msgid "Runs in your browser, so the font is never sent anywhere but your own site. WOFF2 is what every current browser prefers: normally 40 to 65% smaller than TTF or OTF, and around 20% smaller than WOFF. Only the container changes: glyphs, variable axes and OpenType features are untouched. It is not a subsetter, so a font that is large because of its character coverage stays large."
 msgstr ""
 
-#: includes/class-efm-builder.php:466
+#: includes/class-efm-builder.php:467
 msgid "Convert to WOFF2"
 msgstr ""
 
-#: includes/class-efm-builder.php:467
+#: includes/class-efm-builder.php:468
 msgid "Converting…"
 msgstr ""
 
-#: includes/class-efm-builder.php:468
+#: includes/class-efm-builder.php:469
 msgid "Converted"
 msgstr ""
 
-#: includes/class-efm-builder.php:469
+#: includes/class-efm-builder.php:470
 msgid "smaller"
 msgstr ""
 
-#: includes/class-efm-builder.php:470
+#: includes/class-efm-builder.php:471
 msgid "Could not convert this font."
 msgstr ""
 
-#: includes/class-efm-builder.php:471
+#: includes/class-efm-builder.php:472
 msgid "Converting took too long and was stopped."
 msgstr ""
 
-#: includes/class-efm-builder.php:472
+#: includes/class-efm-builder.php:473
 msgid "The converter could not start in this browser."
 msgstr ""
 
-#: includes/class-efm-builder.php:473
+#: includes/class-efm-builder.php:474
 msgid "Could not read the file from the fonts folder."
 msgstr ""
 
-#: includes/class-efm-builder.php:474
+#: includes/class-efm-builder.php:475
 msgid "This WOFF file is damaged and could not be read."
 msgstr ""
 
-#: includes/class-efm-builder.php:475
+#: includes/class-efm-builder.php:476
 msgid "Converting saves the family mapping. Unsaved changes will be discarded. Continue?"
 msgstr ""
 
-#: includes/class-efm-builder.php:476
+#: includes/class-efm-builder.php:477
 msgid "Uploaded files"
 msgstr ""
 
-#: includes/class-efm-builder.php:477
+#: includes/class-efm-builder.php:478
 msgid "No files uploaded yet."
 msgstr ""
 
-#: includes/class-efm-builder.php:478
+#: includes/class-efm-builder.php:479
 msgid "Delete file"
 msgstr ""
 
-#: includes/class-efm-builder.php:480
+#: includes/class-efm-builder.php:481
 msgid "Search Google Fonts"
 msgstr ""
 
-#: includes/class-efm-builder.php:481
+#: includes/class-efm-builder.php:482
 msgid "Searching…"
 msgstr ""
 
-#: includes/class-efm-builder.php:482
+#: includes/class-efm-builder.php:483
 msgid "No fonts found."
 msgstr ""
 
-#: includes/class-efm-builder.php:483
+#: includes/class-efm-builder.php:484
 msgid "Install"
 msgstr ""
 
-#: includes/class-efm-builder.php:484
+#: includes/class-efm-builder.php:485
 msgid "Installing…"
 msgstr ""
 
-#: includes/class-efm-builder.php:486
+#: includes/class-efm-builder.php:487
 msgid "Weight"
 msgstr ""
 
-#: includes/class-efm-builder.php:487
+#: includes/class-efm-builder.php:488
 msgid "Style"
 msgstr ""
 
-#: includes/class-efm-builder.php:488
+#: includes/class-efm-builder.php:489
 msgid "File"
 msgstr ""
 
-#: includes/class-efm-builder.php:489
+#: includes/class-efm-builder.php:490
 msgid "Normal"
 msgstr ""
 
-#: includes/class-efm-builder.php:490
+#: includes/class-efm-builder.php:491
 msgid "Italic"
 msgstr ""
 
-#: includes/class-efm-builder.php:491
+#: includes/class-efm-builder.php:492
 msgid "Delete this file from the fonts folder?"
 msgstr ""
 
-#: includes/class-efm-builder.php:492
+#: includes/class-efm-builder.php:493
 msgid "Something went wrong."
 msgstr ""
 
-#: includes/class-efm-builder.php:493
+#: includes/class-efm-builder.php:494
 msgid "The quick brown fox"
 msgstr ""
 

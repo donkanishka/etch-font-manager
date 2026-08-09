@@ -1,0 +1,149 @@
+name: Build WOFF2 WASM
+
+# The font converter runs google/woff2 in the browser. There is no Node
+# toolchain in this project and no Emscripten anywhere near it, so the binary is
+# built here and the artefacts are committed back to the repo. Run this by hand
+# from the Actions tab when a pin below changes; it is deliberately not part of
+# every push.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/woff2/**'
+      - '.github/workflows/build-wasm.yml'
+
+permissions:
+  contents: write
+
+env:
+  # Pinned so the committed binary is reproducible. Bump deliberately, and note
+  # the change in assets/wasm/BUILD.txt (this workflow rewrites it).
+  EMSDK_VERSION: 3.1.64
+  WOFF2_REF: fb9c3379f2605b10f3e8f1d9636664ab5576775c
+  BROTLI_REF: v1.1.0
+
+jobs:
+  build:
+    name: Compile and commit
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+
+      - name: Fetch upstream sources
+        run: |
+          git clone --quiet https://github.com/google/woff2.git build/woff2
+          git -C build/woff2 checkout --quiet "$WOFF2_REF"
+          git clone --quiet --branch "$BROTLI_REF" --depth 1 https://github.com/google/brotli.git build/brotli
+
+      # Only the encoder half of woff2 is compiled. The plugin converts TTF and
+      # OTF to WOFF2 and never goes the other way, so woff2_dec.cc and the
+      # brotli decoder are left out.
+      #
+      # -DFONT_COMPRESSION_BIN is what upstream's Makefile uses to turn on
+      # progress logging to stdout. It is omitted here on purpose: in a Web
+      # Worker that logging is pure noise.
+      - name: Compile
+        run: |
+          mkdir -p assets/wasm
+          emcc \
+            -O3 \
+            -std=c++11 \
+            -D__STDC_FORMAT_MACROS \
+            -I build/woff2/include \
+            -I build/woff2/src \
+            -I build/brotli/c/include \
+            src/woff2/api.cpp \
+            build/woff2/src/font.cc \
+            build/woff2/src/glyph.cc \
+            build/woff2/src/normalize.cc \
+            build/woff2/src/table_tags.cc \
+            build/woff2/src/transform.cc \
+            build/woff2/src/variable_length.cc \
+            build/woff2/src/woff2_common.cc \
+            build/woff2/src/woff2_enc.cc \
+            build/woff2/src/woff2_out.cc \
+            build/brotli/c/common/*.c \
+            build/brotli/c/enc/*.c \
+            -o assets/wasm/woff2.js \
+            -s WASM=1 \
+            -s MODULARIZE=1 \
+            -s EXPORT_NAME=EFMWoff2 \
+            -s ENVIRONMENT=worker,node \
+            -s ALLOW_MEMORY_GROWTH=1 \
+            -s INITIAL_MEMORY=33554432 \
+            -s FILESYSTEM=0 \
+            -s INVOKE_RUN=0 \
+            -s ASSERTIONS=0 \
+            -s EXPORTED_FUNCTIONS='["_efm_ttf_to_woff2","_efm_output","_efm_release","_malloc","_free"]' \
+            -s EXPORTED_RUNTIME_METHODS='["HEAPU8"]'
+
+      # A build that produces a file but cannot convert a font is worse than a
+      # build that fails, because it would be committed and shipped. Both
+      # flavours of sfnt are exercised: TrueType outlines and CFF (.otf).
+      - name: Smoke test
+        run: |
+          curl -sSLo /tmp/test.ttf https://raw.githubusercontent.com/adobe-fonts/source-code-pro/release/TTF/SourceCodePro-Regular.ttf
+          curl -sSLo /tmp/test.otf https://raw.githubusercontent.com/adobe-fonts/source-code-pro/release/OTF/SourceCodePro-Regular.otf
+          node --input-type=commonjs -e '
+            const fs = require("fs");
+            const factory = require("./assets/wasm/woff2.js");
+            factory().then((m) => {
+              for (const name of ["/tmp/test.ttf", "/tmp/test.otf"]) {
+                const input = fs.readFileSync(name);
+                const addr = m._malloc(input.length);
+                m.HEAPU8.set(input, addr);
+                const length = m._efm_ttf_to_woff2(addr, input.length);
+                m._free(addr);
+                if (!length) { throw new Error(name + ": conversion returned 0"); }
+                const out = m.HEAPU8.slice(m._efm_output(), m._efm_output() + length);
+                m._efm_release();
+                const signature = Buffer.from(out.slice(0, 4)).toString("latin1");
+                if (signature !== "wOF2") { throw new Error(name + ": bad signature " + signature); }
+                if (length >= input.length) { throw new Error(name + ": output not smaller"); }
+                console.log(name, input.length, "->", length, "bytes");
+              }
+              console.log("smoke test OK");
+            }).catch((error) => { console.error(error); process.exit(1); });
+          '
+
+      - name: Record provenance
+        run: |
+          {
+            echo "Built by .github/workflows/build-wasm.yml"
+            echo "Run:      ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "Date:     $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "emsdk:    $EMSDK_VERSION"
+            echo "woff2:    google/woff2 @ $WOFF2_REF"
+            echo "brotli:   google/brotli @ $BROTLI_REF"
+            echo
+            echo "woff2.js   $(stat -c%s assets/wasm/woff2.js) bytes  sha256 $(sha256sum assets/wasm/woff2.js | cut -d' ' -f1)"
+            echo "woff2.wasm $(stat -c%s assets/wasm/woff2.wasm) bytes  sha256 $(sha256sum assets/wasm/woff2.wasm | cut -d' ' -f1)"
+            echo
+            echo "google/woff2 and google/brotli are both MIT. Copies of their licences"
+            echo "are in assets/wasm/LICENSE-woff2.txt and assets/wasm/LICENSE-brotli.txt."
+          } > assets/wasm/BUILD.txt
+          cp build/woff2/LICENSE assets/wasm/LICENSE-woff2.txt
+          cp build/brotli/LICENSE assets/wasm/LICENSE-brotli.txt
+          cat assets/wasm/BUILD.txt
+
+      - name: Commit artefacts
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f assets/wasm/woff2.js assets/wasm/woff2.wasm assets/wasm/BUILD.txt \
+            assets/wasm/LICENSE-woff2.txt assets/wasm/LICENSE-brotli.txt
+          if git diff --staged --quiet; then
+            echo 'Binary unchanged, nothing to commit.'
+            exit 0
+          fi
+          git commit -m 'Build WOFF2 converter (woff2 ${{ env.WOFF2_REF }}, brotli ${{ env.BROTLI_REF }})'
+          git push

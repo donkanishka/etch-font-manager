@@ -2,6 +2,14 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.19.3
+
+### Changed
+
+- **The back button tooltip now sits below the button, centred on it**, instead of off to the side. Measured
+  from Etch's own back button on a live builder: 5px below, horizontally centred to the pixel. Like Etch's, it
+  overhangs the button on both sides and can reach over the Settings Bar.
+
 ## 1.19.2
 
 Three follow-ups to 1.19.1, reported from a live builder. Two of them turned out to be the same root cause.

@@ -12,6 +12,7 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 - **Full-screen manager** — mirrors Etch's native manager pattern (Content Hub, Style Manager, Asset Manager): a takeover surface beside the settings bar, a 40px header and a 256px inner navigation column, all built from Etch's own design tokens so it follows the builder's colour scheme.
 - **Specimen-first browsing** — Library and Google Fonts render in your choice of **Row**, **Grid** or **Compact** layout, with editable preview text, a 14-72px size slider, and each family previewed in its own script rather than a Latin pangram.
 - **Upload fonts** — drag and drop `.woff2`, `.woff`, `.ttf`, `.otf` files.
+- **Built-in WOFF2 converter** — drop a `.ttf` or `.otf` and it is converted to WOFF2 before it is uploaded, typically 30-65% smaller (Source Code Pro: 205 KB → 72 KB from TTF, 128 KB → 74 KB from OTF). Files already on the server can be converted from the Uploaded files list, with every family variant repointed at the new file automatically. It runs entirely in your browser — `google/woff2` compiled to WebAssembly, in a Web Worker — so **no font is ever sent to a third-party service**. The conversion is lossless: variable axes, named instances and OpenType features are carried through untouched. It is not a subsetter.
 - **Google Fonts** — search, live preview, and one-click install. Files are downloaded locally, so the frontend makes no requests to Google.
 - **Subset support** — choose which subsets to download (latin, latin-ext, sinhala, tamil, cyrillic, greek, vietnamese and so on). Each `@font-face` gets a matching `unicode-range`, so browsers only fetch the scripts a page actually uses.
 - **Filename detection** — weight and style are read from uploaded file names (`Inter-SemiBoldItalic.woff2`, `Roboto-300.woff2`, variable axes) and applied when the file is mapped.
@@ -166,6 +167,17 @@ node --check assets/panel.js
 ```
 
 The same checks run in CI on every push.
+
+### The WOFF2 binary
+
+`assets/wasm/woff2.js` and `assets/wasm/woff2.wasm` are compiled artefacts, not hand-written source. They are
+built by `.github/workflows/build-wasm.yml` from `src/woff2/api.cpp` linked against pinned revisions of
+[google/woff2](https://github.com/google/woff2) and [google/brotli](https://github.com/google/brotli), both MIT.
+The workflow smoke-tests every build against a real TTF **and** a real OTF before committing it, and records the
+emsdk version, upstream commits, file sizes and SHA-256 sums in `assets/wasm/BUILD.txt`.
+
+Run it by hand from the Actions tab after changing a pin. Do not edit the artefacts; they will be overwritten.
+Only the encoder is compiled — the plugin never converts WOFF2 back to TTF.
 
 The test suite is deliberately dependency free — no Composer, no PHPUnit, no WordPress test suite — so it runs
 anywhere PHP does. It stubs only the handful of WordPress functions the tested methods actually reach, and

@@ -2,6 +2,39 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.18.0
+
+### Added
+
+- **A font converter, in the builder.** Drop a `.ttf` or `.otf` on the Upload screen and it is converted to
+  WOFF2 before it is uploaded. Typical saving is 30 to 65%: Source Code Pro measured 205 KB → 72 KB from TTF and
+  128 KB → 74 KB from OTF. The toggle sits under the dropzone, is on by default, and is remembered per browser.
+- **Convert files already on the server.** Each `.ttf` or `.otf` row in *Uploaded files* gets a Convert action.
+  The WOFF2 is uploaded alongside the original and every family variant mapping the old file is repointed at the
+  new one automatically. The original is left on disk — sweep it up through Tools → Unused files when you are
+  happy with the result.
+
+### How it works
+
+- Conversion runs entirely in your browser: `google/woff2` compiled to WebAssembly, in a Web Worker. **No font
+  is ever sent to a third party.** The plugin uploads the WOFF2 result to your own site exactly as if you had
+  picked that file yourself, so nothing about the server side changed.
+- The conversion is lossless. Only the container changes; glyphs, variable axes, named instances and OpenType
+  features are carried through untouched. It is **not** a subsetter, so a font that is large because of its
+  character coverage will still be large.
+- The result is verified before it is uploaded. It has to carry the `wOF2` signature and it has to be smaller
+  than the original, otherwise the original file is uploaded instead.
+- If the browser cannot run the converter — no `WebAssembly`, no workers, or a Content-Security-Policy without
+  `wasm-unsafe-eval` — the toggle disappears and uploads behave exactly as they did in 1.17.0. The feature can
+  never block an upload.
+
+### Build
+
+- New `.github/workflows/build-wasm.yml` compiles `src/woff2/api.cpp` against pinned `google/woff2` and
+  `google/brotli` with Emscripten, smoke-tests the result against a real TTF **and** a real OTF, and commits
+  `assets/wasm/`. Provenance, sizes and SHA-256 sums are recorded in `assets/wasm/BUILD.txt`. Both upstreams are
+  MIT; their licences ship alongside the binary.
+
 ## 1.17.0
 
 > ### BREAKING CHANGE

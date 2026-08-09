@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.17.0
+Stable tag: 1.18.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -19,6 +19,7 @@ Features:
 * Native Settings Bar control, grouped with Etch's own managers
 * Full-screen manager styled from Etch's own design tokens
 * Drag and drop uploads for woff2, woff, ttf and otf
+* Built-in TTF and OTF to WOFF2 converter that runs in your browser, so nothing is sent to a third-party service
 * Google Fonts search, preview and one-click local install
 * A CSS variable per family, --efm-family-{slug}, ready to drop into Automatic.css or any style record
 * Fonts load on the frontend, in the Etch canvas iframe and in the block editor
@@ -45,6 +46,12 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.18.0 =
+* Drop a .ttf or .otf on the Upload screen and it is converted to WOFF2 before uploading, typically 30 to 65% smaller. Source Code Pro went 205 KB to 72 KB from TTF and 128 KB to 74 KB from OTF.
+* Files already on the server get a Convert action, and every family variant mapping the old file is repointed at the new one automatically.
+* Conversion runs entirely in your browser using google/woff2 compiled to WebAssembly. No font is ever sent to a third party, and the conversion is lossless: variable axes, named instances and OpenType features all survive.
+* If a browser or a strict Content-Security-Policy cannot run the converter, the toggle is hidden and uploads behave exactly as before.
 
 = 1.17.0 =
 * BREAKING: the Automatic.css mapping is gone. The plugin no longer writes --heading-font-family or --text-font-family. Set them in Automatic.css itself using the per-family variable, for example --heading-font-family: var(--efm-family-inter).

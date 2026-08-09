@@ -2,6 +2,29 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.19.2
+
+Three follow-ups to 1.19.1, reported from a live builder. Two of them turned out to be the same root cause.
+
+### Fixed
+
+- **The Settings Bar icon stayed looking active after the panel closed.** Closing the manager returned focus to
+  the control, and Etch styles those buttons on plain `:focus` rather than `:focus-visible` — so the icon kept a
+  highlight while a different manager was open, showing two active buttons at once.
+- **Clicking the back button popped the "Font Manager" tooltip** over the builder. Same cause: Etch's tooltips
+  open on focus as well as hover.
+
+  Focus is now only returned to the control when the manager is closed **from the keyboard** — Escape, or Enter
+  on the back button, detected by a click event with `detail` 0. Keyboard users keep the focus return that
+  matters for them; a mouse click leaves focus wherever the user actually put it.
+
+### Added
+
+- **The back button has a proper tooltip.** It previously relied on `title`, which renders the slow OS tooltip.
+  It now matches the Settings Bar tooltips Etch renders, measured from a live builder and reproduced in CSS.
+  `title` was dropped so the two cannot show at once. Etch labels its own back button "Back to Builder", which
+  is what this one says.
+
 ## 1.19.1
 
 ### Changed

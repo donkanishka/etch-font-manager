@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.19.1
+Stable tag: 1.19.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,12 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.19.2 =
+* Fixed: the Settings Bar icon stayed looking active after the panel closed, so two buttons appeared active at once.
+* Fixed: clicking the back button popped the "Font Manager" tooltip over the builder. Same cause as above, since Etch styles those buttons on focus and opens their tooltips on focus.
+* Focus now returns to the control only when the panel is closed from the keyboard, which is the case that needs it.
+* The back button has a proper tooltip matching the ones Etch renders, instead of the slow browser default.
 
 = 1.19.1 =
 * The Settings Bar control and the panel heading now read "Font Manager", matching how Content Hub, Asset Manager, Style Manager and Loop Manager name themselves.

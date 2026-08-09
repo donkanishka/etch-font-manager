@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.19.4
+Stable tag: 1.20.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,14 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.20.0 =
+* Every icon in the manager is redrawn on Etch's own grid: 24x24 at 1.5 stroke, rendered at 16px, so the strokes now match the icons Etch draws in Content Hub and Asset Manager instead of looking heavier than them.
+* Fixed: the Import & export icon never rendered at all, because the view asked for an icon that had never been defined.
+* Manage, Restore, Restore all, Reset axes, Reset all, Clear and Empty trash now have icons. Their labels are unchanged.
+* The Row / Grid / Compact toggle shows an icon beside each label. The labels stay, because the three layouts are not obvious from a glyph alone.
+* Icon buttons and the spacing between a button's icon and its label now match Etch's own measurements instead of hardcoded values.
+* No change to behaviour, settings or stored data.
 
 = 1.19.4 =
 * Fixed: the back button tooltip was partly hidden behind the Settings Bar, which paints above the panel. The panel is now lifted above the bar only while that tooltip is showing, so Etch's own Settings Bar tooltips are unaffected.

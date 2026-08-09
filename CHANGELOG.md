@@ -2,6 +2,45 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.20.0
+
+The manager's icons were redrawn on Etch's own grid. Nothing about how the plugin behaves has changed.
+
+### Changed
+
+- **Every icon is now drawn on a 24x24 grid at 1.5 stroke and rendered at 16px**, which is the spec Etch uses
+  for its own interface icons; at that size the stroke resolves to a single device pixel, exactly as Etch's do.
+  The old set used the same 1.5 stroke on a 16x16 grid, making each stroke 2.25x heavier relative to the grid,
+  which is why it read as cruder than the icons sitting beside it in Content Hub, Asset Manager and Style
+  Manager.
+
+  Paths come from [Iconoir](https://iconoir.com) (MIT), whose regular set is authored to precisely that spec, so
+  no per-icon stroke correction is needed. They are inlined rather than fetched: the manager still renders with
+  no network request and the plugin still has no build step. Nineteen icons, every one of them used.
+
+- **Icon sizes moved out of the JavaScript and into CSS.** Call sites choose a step — 14px, 16px or 32px —
+  instead of passing 11, 12, 13, 14 or 22 as they did before. `.efm-icon` reads `--e-icon-size-l` and
+  `--e-icon-size-m` from Etch.
+
+- **Seven actions that were text-only now carry an icon**: Manage, Restore, Restore all, Reset axes, Reset all,
+  Clear and Empty trash. Their labels are unchanged.
+
+- **The Row / Grid / Compact toggle shows an icon beside each label.** The labels were kept rather than replaced
+  by glyphs alone, because the three layouts are not self-evident from a picture. The glyphs were picked by
+  rendering candidates at the shipped 14px instead of at a comfortable size: a ruled-table glyph and a 3x3 dot
+  grid both turned to mush that small, so Row is three bars, Grid is a 2x2 tile and Compact is a dot-and-line
+  list.
+
+- **Two measurements corrected against Etch's own controls.** Icon buttons are now
+  `--e-icon-size-l + --e-icon-padding * 2`, which resolves to 28px and matches Etch's, instead of a hardcoded
+  24px. The gap between a button's icon and its label is 4px, matching `.etch-builder-button`, instead of 6px.
+
+### Fixed
+
+- **The Import & export icon never rendered.** The view asked for an icon named `file` and no such icon was
+  ever defined, so an empty `<svg>` shipped in its place. It has a proper icon now, and an unknown icon name
+  logs a warning instead of silently producing nothing.
+
 ## 1.19.4
 
 ### Fixed

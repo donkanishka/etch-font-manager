@@ -462,6 +462,102 @@
 	flex-wrap: nowrap;
 }
 
+/* ---------------------------- Family detail ---------------------------- */
+
+/* A title that opens the type tester, without looking like a form control. */
+.efm-linkbtn {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+}
+
+.efm-linkbtn:hover {
+	color: var(--efm-accent);
+	text-decoration: underline;
+}
+
+.efm-detail__head {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.efm-detail__title {
+	margin: 0;
+	font-size: var(--e-font-size-l, 13px);
+	font-weight: 500;
+}
+
+.efm-detail__actions {
+	display: flex;
+	gap: 8px;
+}
+
+/*
+ * The tester wraps, unlike the grid specimens. Judging an axis needs more than
+ * one clipped line, and this is the one place with room for it.
+ */
+.efm-tester {
+	margin: 0;
+	padding: var(--e-space-m, 12px);
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+	background: var(--efm-surface);
+	color: var(--efm-text);
+	line-height: 1.3;
+	word-break: break-word;
+}
+
+.efm-axes {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: var(--e-space-m, 12px);
+}
+
+.efm-axis {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.efm-axis__label {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+}
+
+.efm-axis__name {
+	font-size: var(--e-font-size-s, 11px);
+	color: var(--efm-text);
+}
+
+.efm-axis__tag {
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 10px;
+	color: var(--efm-muted);
+}
+
+.efm-axis__value {
+	margin-inline-start: auto;
+	font-variant-numeric: tabular-nums;
+	font-size: var(--e-font-size-s, 11px);
+	color: var(--efm-accent);
+}
+
+.efm-axis__range {
+	font-size: 10px;
+	color: var(--efm-muted);
+}
+
+.efm-code--inline {
+	max-height: none;
+	font-size: 11px;
+}
+
 .efm-card {
 	display: flex;
 	flex-direction: column;

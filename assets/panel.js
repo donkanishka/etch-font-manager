@@ -70,8 +70,13 @@
 		subsetList: [],
 		picked: [],
 		detail: null,
-		axisValues: {}
+		axisValues: {},
+		axisNames: {},
+		subsetTouched: {}
 	};
+
+	// Families whose variable face has been aliased and injected.
+	var vfLoaded = {};
 
 	/* --------------------------------------------------------------------- */
 	/* Preferences                                                            */
@@ -1857,7 +1862,383 @@
 
 	/* ---------------------------- Google Fonts --------------------------- */
 
+	/* --------------------------- Family detail --------------------------- */
+
+	/**
+	 * A private family name for the variable face.
+	 *
+	 * The browse grid has already loaded a static preview face under the real
+	 * family name. Injecting the variable face under that same name would leave
+	 * the browser free to keep matching the static one, and the axis sliders
+	 * would move with nothing happening. Aliasing removes the ambiguity.
+	 *
+	 * @param {string} family Family name.
+	 * @return {string}
+	 */
+	function vfAlias(family) {
+		return 'EFM VF ' + family;
+	}
+
+	function trimNumber(value) {
+		return String(Number(value));
+	}
+
+	/**
+	 * Build the css2 axis spec for a family, e.g. "GRAD,opsz,wght@-1..0,17..18,400..700".
+	 *
+	 * Requesting a family without this returns a **static instance**, not the
+	 * variable font — measured against the live API. Google wants uppercase axis
+	 * tags before lowercase ones, each group alphabetical.
+	 *
+	 * @param {object} font Index record.
+	 * @return {string} Empty when the family has no axes.
+	 */
+	function axisSpec(font) {
+		var axes = ((font && font.axes) || []).slice();
+
+		if (!axes.length) {
+			return '';
+		}
+
+		axes.sort(function (a, b) {
+			var au = a.tag.charAt(0) === a.tag.charAt(0).toUpperCase();
+			var bu = b.tag.charAt(0) === b.tag.charAt(0).toUpperCase();
+
+			if (au !== bu) {
+				return au ? -1 : 1;
+			}
+
+			return a.tag < b.tag ? -1 : (a.tag > b.tag ? 1 : 0);
+		});
+
+		return axes.map(function (a) {
+			return a.tag;
+		}).join(',') + '@' + axes.map(function (a) {
+			return trimNumber(a.min) + '..' + trimNumber(a.max);
+		}).join(',');
+	}
+
+	/**
+	 * Fetch the variable face and re-declare it under the alias.
+	 *
+	 * fonts.googleapis.com serves css2 with Access-Control-Allow-Origin: *, so
+	 * the response can be read and rewritten rather than only linked.
+	 *
+	 * @param {object}   font Index record.
+	 * @param {Function} done Called once the face is available.
+	 */
+	function loadVariableFace(font, done) {
+		var alias = vfAlias(font.family);
+		var spec = axisSpec(font);
+
+		if (!spec || vfLoaded[alias]) {
+			done();
+			return;
+		}
+
+		vfLoaded[alias] = true;
+
+		window.fetch(
+			'https://fonts.googleapis.com/css2?family=' + encodeURIComponent(font.family) +
+				':' + spec + '&display=swap'
+		)
+			.then(function (response) {
+				return response.ok ? response.text() : null;
+			})
+			.then(function (css) {
+				if (!css) {
+					vfLoaded[alias] = false;
+					done();
+					return;
+				}
+
+				var style = document.createElement('style');
+
+				style.className = 'efm-vf-face';
+				style.textContent = css.replace(/font-family:\s*'[^']*'/g, "font-family: '" + alias + "'");
+				document.head.appendChild(style);
+				done();
+			})
+			.catch(function () {
+				vfLoaded[alias] = false;
+				done();
+			});
+	}
+
+	function axisState(family) {
+		if (!state.axisValues[family]) {
+			state.axisValues[family] = {};
+		}
+
+		return state.axisValues[family];
+	}
+
+	function axisValue(font, axis) {
+		var held = axisState(font.family);
+
+		return held[axis.tag] === undefined ? axis.def : held[axis.tag];
+	}
+
+	function variationSettings(font) {
+		var axes = (font.axes || []);
+
+		if (!axes.length) {
+			return '';
+		}
+
+		return axes.map(function (axis) {
+			return '"' + axis.tag + '" ' + trimNumber(axisValue(font, axis));
+		}).join(', ');
+	}
+
+	/**
+	 * Type tester for one family: the whole face, driven live by its own axes.
+	 *
+	 * @param {object} font Index record.
+	 */
+	function renderGoogleDetail(font) {
+		var axes = font.axes || [];
+		var alias = vfAlias(font.family);
+		var hasVariable = !!axes.length;
+
+		contentEl.appendChild(previewToolbar(
+			el('div', { class: 'efm-toolbar__lead' }, [
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--outline efm-btn--sm',
+					onclick: function () {
+						state.detail = null;
+						render();
+					}
+				}, [icon('back', 12), el('span', { text: s('backToBrowse', 'Back') })])
+			])
+		));
+
+		contentEl.appendChild(el('div', { class: 'efm-detail__head' }, [
+			el('h2', { class: 'efm-detail__title', text: font.family }),
+			font.designers && font.designers.length
+				? el('p', { class: 'efm-card__by', text: font.designers.join(', ') })
+				: null,
+			el('div', { class: 'efm-chips' }, [
+				font.category ? el('span', { class: 'efm-chip', text: font.category }) : null
+			].concat((font.classes || []).map(function (name) {
+				return el('span', { class: 'efm-chip', text: name });
+			})).concat([
+				el('span', { class: 'efm-chip', text: stylesLabel(font) }),
+				font.size ? el('span', { class: 'efm-chip', text: formatSize(font.size) }) : null,
+				font.added ? el('span', { class: 'efm-chip', text: s('addedOn', 'Added') + ' ' + font.added }) : null
+			]))
+		]));
+
+		// The tester renders in the aliased face so the sliders cannot be silently
+		// overridden by the static preview face already loaded for the grid.
+		var tester = el('p', {
+			class: 'efm-tester',
+			'data-efm-specimen': 'true',
+			'data-efm-subsets': (font.subsets || []).join(','),
+			'data-efm-script': font.script || '',
+			text: sampleFor(font),
+			style: {
+				'font-family': '"' + alias + '", "' + font.family + '", sans-serif',
+				'font-size': state.previewSize + 'px',
+				'font-variation-settings': variationSettings(font) || 'normal'
+			}
+		});
+
+		contentEl.appendChild(tester);
+
+		if (hasVariable) {
+			var cssLine = el('code', {
+				class: 'efm-code efm-code--inline',
+				text: 'font-variation-settings: ' + variationSettings(font) + ';'
+			});
+
+			var repaint = function () {
+				var settings = variationSettings(font);
+
+				tester.style.setProperty('font-variation-settings', settings || 'normal');
+				cssLine.textContent = 'font-variation-settings: ' + settings + ';';
+			};
+
+			contentEl.appendChild(el('div', { class: 'efm-axes' }, axes.map(function (axis) {
+				var meta = state.axisNames[axis.tag] || {};
+				var step = Math.pow(10, meta.precision || 0);
+				var valueLabel = el('span', {
+					class: 'efm-axis__value',
+					text: trimNumber(axisValue(font, axis))
+				});
+
+				return el('label', { class: 'efm-axis' }, [
+					el('span', { class: 'efm-axis__label' }, [
+						el('span', { class: 'efm-axis__name', text: meta.name || axis.tag }),
+						el('span', { class: 'efm-axis__tag', text: axis.tag }),
+						valueLabel
+					]),
+					el('input', {
+						type: 'range',
+						class: 'efm-range',
+						min: trimNumber(axis.min),
+						max: trimNumber(axis.max),
+						step: trimNumber(step),
+						value: trimNumber(axisValue(font, axis)),
+						'aria-label': (meta.name || axis.tag) + ' (' + axis.tag + ')',
+						oninput: function (event) {
+							axisState(font.family)[axis.tag] = parseFloat(event.target.value);
+							valueLabel.textContent = event.target.value;
+							repaint();
+						}
+					}),
+					el('span', {
+						class: 'efm-axis__range',
+						text: trimNumber(axis.min) + ' – ' + trimNumber(axis.max) +
+							' · ' + s('axisDefault', 'default') + ' ' + trimNumber(axis.def)
+					})
+				]);
+			})));
+
+			contentEl.appendChild(el('div', { class: 'efm-detail__actions' }, [
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--ghost efm-btn--sm',
+					text: s('resetAxes', 'Reset axes'),
+					onclick: function () {
+						delete state.axisValues[font.family];
+						render();
+					}
+				})
+			]));
+
+			contentEl.appendChild(cssLine);
+		} else {
+			contentEl.appendChild(el('p', {
+				class: 'efm-muted',
+				text: s('noAxes', 'This family has no variable axes, so there is nothing to adjust.')
+			}));
+		}
+
+		/*
+		 * The same install controls as the browse card. A tester you cannot install
+		 * from would just send the user back to the grid to start again.
+		 */
+		var installed = state.families.some(function (family) {
+			return (family.name || '').toLowerCase() === font.family.toLowerCase();
+		});
+		var chosen = selectedSubsets(font);
+		var available = font.subsets && font.subsets.length ? font.subsets : ['latin'];
+		var useVariable = hasVariable && state.variable[font.family] !== false;
+		var allCuts = availableCuts(font);
+		var cuts = selectedCuts(font);
+		var pickCuts = !useVariable && allCuts.length > 1;
+
+		contentEl.appendChild(el('div', { class: 'efm-subsets' }, [
+			el('span', { class: 'efm-subsets__label', text: s('subsets', 'Subsets') }),
+			el('div', { class: 'efm-chips' }, available.map(function (sub) {
+				var on = chosen.indexOf(sub) !== -1;
+
+				return el('button', {
+					type: 'button',
+					class: 'efm-chip efm-chip--toggle' + (on ? ' is-on' : ''),
+					'aria-pressed': on ? 'true' : 'false',
+					text: sub,
+					onclick: function () {
+						toggleSubset(font, sub);
+					}
+				});
+			}))
+		]));
+
+		if (hasVariable) {
+			contentEl.appendChild(el('label', { class: 'efm-toggle efm-toggle--inline' }, [
+				el('input', {
+					type: 'checkbox',
+					class: 'efm-checkbox',
+					checked: useVariable,
+					onchange: function (event) {
+						state.variable[font.family] = event.target.checked;
+						render();
+					}
+				}),
+				el('span', {}, [
+					el('span', { class: 'efm-toggle__label', text: s('variableCut', 'Variable') }),
+					el('span', {
+						class: 'efm-field__hint',
+						text: s('variableHint', 'one file per subset instead of one per weight')
+					})
+				])
+			]));
+		}
+
+		if (pickCuts) {
+			contentEl.appendChild(el('div', { class: 'efm-subsets' }, [
+				el('span', { class: 'efm-subsets__label', text: s('weights', 'Weights') }),
+				el('div', { class: 'efm-chips' }, allCuts.map(function (cut) {
+					var on = cuts.indexOf(cut) !== -1;
+
+					return el('button', {
+						type: 'button',
+						class: 'efm-chip efm-chip--toggle' + (on ? ' is-on' : ''),
+						'aria-pressed': on ? 'true' : 'false',
+						text: cutLabel(cut),
+						onclick: function () {
+							toggleCut(font, cut);
+						}
+					});
+				}))
+			]));
+		}
+
+		contentEl.appendChild(el('div', { class: 'efm-detail__actions' }, [
+			el('button', {
+				type: 'button',
+				class: 'efm-btn ' + (installed ? 'efm-btn--outline' : 'efm-btn--primary'),
+				text: state.busy === 'install:' + font.family
+					? s('installing', 'Installing…')
+					: (installed ? s('reinstall', 'Reinstall') : s('install', 'Install')),
+				disabled: 0 === state.busy.indexOf('install:') || !chosen.length || (pickCuts && !cuts.length),
+				onclick: function () {
+					installGoogleFont(font.family, chosen, useVariable, cuts);
+				}
+			}),
+			installed ? el('span', { class: 'efm-badge' }, [icon('check', 11), el('span', { text: s('installed', 'Installed') })]) : null
+		]));
+
+		contentEl.appendChild(el('p', { class: 'efm-muted' }, [
+			el('a', {
+				href: 'https://fonts.google.com/specimen/' + font.family.replace(/ /g, '+'),
+				target: '_blank',
+				rel: 'noopener noreferrer',
+				text: s('viewOnGoogle', 'View on Google Fonts')
+			})
+		]));
+
+		loadVariableFace(font, function () {
+			// Nothing to repaint: the alias is already in the tester's stack, so the
+			// face swaps in as soon as the style element lands.
+		});
+	}
+
 	function renderGoogle() {
+		var detail = null;
+		var i;
+
+		if (state.detail) {
+			for (i = 0; i < state.results.length; i++) {
+				if (state.results[i].family === state.detail) {
+					detail = state.results[i];
+					break;
+				}
+			}
+
+			// The record is only in the current result page, so a filter change can
+			// strand the detail view. Falling back to the grid beats an empty pane.
+			if (detail) {
+				renderGoogleDetail(detail);
+				return;
+			}
+
+			state.detail = null;
+		}
+
 		var search = el('input', {
 			type: 'search',
 			class: 'efm-input',
@@ -1906,6 +2287,7 @@
 			'aria-label': s('writingSystem', 'Writing system'),
 			onchange: function (event) {
 				state.subset = event.target.value;
+				resetSubsetDefaults();
 				searchGoogle();
 			}
 		}, [el('option', { value: '', text: s('allScripts', 'Any writing system'), selected: !state.subset })]);
@@ -2023,7 +2405,18 @@
 								}
 							})
 						]),
-						el('h2', { class: 'efm-card__title', text: font.family }),
+						el('h2', { class: 'efm-card__title' }, [
+							el('button', {
+								type: 'button',
+								class: 'efm-linkbtn',
+								text: font.family,
+								title: s('openDetail', 'Open the type tester'),
+								onclick: function () {
+									state.detail = font.family;
+									render();
+								}
+							})
+						]),
 						el('div', { class: 'efm-card__actions' }, [
 							installed ? el('span', { class: 'efm-badge' }, [icon('check', 11), el('span', { text: s('installed', 'Installed') })]) : null,
 							el('button', {
@@ -2257,8 +2650,28 @@
 	function selectedSubsets(font) {
 		if (!state.subsets[font.family]) {
 			var available = font.subsets && font.subsets.length ? font.subsets : ['latin'];
+
+			/*
+			 * The family's own script is preselected alongside latin.
+			 *
+			 * Latin alone was the default, which meant installing Gemunu Libre or
+			 * Noto Sans Sinhala from a single click produced a family with **no
+			 * Sinhala glyphs**, silently falling back to a system font. That is
+			 * gotcha #4, and defaulting to latin-only reintroduced it every time
+			 * the user did not think to tick the box.
+			 */
+			var own = SCRIPT_SUBSET[font.script || ''];
+
+			/*
+			 * An active writing-system filter counts as the user asking for that
+			 * script. Families like Google Sans carry sinhala without it being
+			 * their primary script, so primaryScript alone would still install
+			 * them latin-only right after a search for Sinhala faces.
+			 */
+			var asked = state.subset || '';
+
 			state.subsets[font.family] = available.filter(function (sub) {
-				return sub === 'latin';
+				return sub === 'latin' || (own && sub === own) || (asked && sub === asked);
 			});
 
 			if (!state.subsets[font.family].length) {
@@ -2279,7 +2692,26 @@
 			chosen.splice(at, 1);
 		}
 
+		// Marks this family as the user's own choice, so changing the writing-system
+		// filter later cannot quietly overwrite it.
+		state.subsetTouched[font.family] = true;
 		render();
+	}
+
+	/**
+	 * Drop auto-selected subset defaults so they are recomputed.
+	 *
+	 * Defaults are cached per family on first render. Without this, a family
+	 * already shown before the writing-system filter was applied keeps its
+	 * latin-only default — which is how Google Sans stayed latin-only in a
+	 * Sinhala-filtered list. Families the user has touched are left alone.
+	 */
+	function resetSubsetDefaults() {
+		Object.keys(state.subsets).forEach(function (family) {
+			if (!state.subsetTouched[family]) {
+				delete state.subsets[family];
+			}
+		});
 	}
 
 	/**
@@ -3145,6 +3577,7 @@
 		state.subset = '';
 		state.variableOnly = '';
 		state.sort = 'popularity';
+		resetSubsetDefaults();
 		searchGoogle();
 	}
 
@@ -3168,6 +3601,10 @@
 				 */
 				if (data && data.subsetList && data.subsetList.length && !state.subsetList.length) {
 					state.subsetList = data.subsetList;
+				}
+
+				if (data && data.axisNames) {
+					state.axisNames = data.axisNames;
 				}
 			})
 			.catch(fail)

@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.15.0
+Stable tag: 1.16.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,11 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.16.0 =
+* Click a family to open a type tester with live sliders for every variable axis it has, named properly (Weight, Optical Size, Grade) rather than raw tags.
+* Fixed non-Latin families installing with latin only. Gemunu Libre or Noto Sans Sinhala installed in one click previously shipped no Sinhala glyphs at all.
+* Install controls now live in the type tester too, so you can audition a face and install it without going back.
 
 = 1.15.0 =
 * Row, Grid and Compact layouts for the Library and the Google Fonts browser, remembered between sessions.

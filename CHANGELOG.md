@@ -2,6 +2,40 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.16.0
+
+Finishes the last item from the fonts.google.com review: the specimen detail view, held back from 1.15.0 rather
+than shipped untested.
+
+### Added
+
+- **Type tester per family.** Click a family name in the Google Fonts browser to open it full width, with a
+  live slider for **every** variable axis it carries. Axes are labelled from Google's own registry, so
+  `YTLC` reads as *Lowercase Height* and each slider steps at the axis's real precision rather than always by 1.
+  Roboto Flex gives all thirteen. The exact `font-variation-settings` is shown as you drag, ready to paste.
+- **Install from the tester.** Subsets, weights, the variable toggle and Install are all present, so a face can
+  be auditioned and installed without going back to the grid.
+- Family metadata in one place: designers, category, classifications, style or axis count, size, date added, and
+  a link to the family on Google Fonts.
+
+### Fixed
+
+- **Non-Latin families installed with no glyphs for their own script.** The subset default was latin-only, so
+  installing Gemunu Libre, Yaldevi, Maname or Noto Sans Sinhala in one click produced a family that silently
+  fell back to a system font. The family's own primary script is now preselected alongside latin, and an active
+  writing-system filter counts as asking for that script too. This is gotcha #4 in the project notes, and the
+  latin-only default was reintroducing it on every install where the user did not think to tick the box.
+- Subset defaults are recomputed when the writing-system filter changes. They were cached per family on first
+  render, so a family already on screen before the filter was applied kept its latin-only default. Choices the
+  user has made by hand are never overwritten.
+
+### Notes
+
+- The tester requests the variable face under a **private alias**. Requesting `family=Inter` alone returns a
+  **static instance**, not the variable font, so sliders against it would move with nothing happening; and
+  injecting the variable face under the real family name leaves the browser free to keep matching the static
+  preview face already loaded for the grid. Both were measured against the live API, not assumed.
+
 ## 1.15.0
 
 A rebuild of the Google Fonts browser, modelled on fonts.google.com. Almost all of it is presentation over

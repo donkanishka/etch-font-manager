@@ -671,11 +671,6 @@
 	font-size: var(--e-font-size-s, 11px);
 }
 
-.efm-chip--role {
-	border-color: color-mix(in srgb, var(--efm-accent) 45%, transparent);
-	color: var(--efm-accent);
-}
-
 .efm-chip--toggle {
 	cursor: pointer;
 	transition: background-color .12s ease, color .12s ease, border-color .12s ease;
@@ -857,32 +852,6 @@
 }
 
 /* -------------------------------- Sample ------------------------------- */
-
-.efm-sample {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	padding: var(--e-space-l, 16px);
-	border: 1px solid var(--efm-line);
-	border-radius: var(--efm-radius);
-	background: var(--efm-surface);
-}
-
-.efm-sample__heading {
-	margin: 0;
-	font-size: 30px;
-	font-weight: 700;
-	line-height: 1.15;
-}
-
-.efm-sample__body {
-	margin: 0;
-	max-inline-size: 60ch;
-	font-size: 15px;
-	font-weight: 400;
-	line-height: 1.6;
-	color: var(--efm-muted);
-}
 
 /* ------------------------------ Dropzone ------------------------------- */
 

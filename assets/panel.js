@@ -31,7 +31,6 @@
 		settings: (cfg.state && cfg.state.settings) || {},
 		cssUrl: (cfg.state && cfg.state.cssUrl) || '',
 		cssVersion: (cfg.state && cfg.state.cssVersion) || '',
-		acssActive: !!(cfg.state && cfg.state.acssActive),
 		view: 'library',
 		editing: null,
 		filter: '',
@@ -285,7 +284,7 @@
 		search: '<circle cx="7.2" cy="7.2" r="3.7"/><path d="M10.2 10.2L13 13"/>',
 		check: '<path d="M3.5 8.5l3 3 6-7"/>',
 		library: '<path d="M3 3.5h3v9H3zM7 3.5h3v9H7zM11.2 4l2 8.5"/>',
-		palette: '<circle cx="8" cy="8" r="5.5"/><circle cx="6" cy="6.4" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="6.4" r=".9" fill="currentColor" stroke="none"/><circle cx="8" cy="10.4" r=".9" fill="currentColor" stroke="none"/>',
+		sliders: '<path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/><circle cx="5.5" cy="4.5" r="1.6" fill="currentColor" stroke="none"/><circle cx="10" cy="8" r="1.6" fill="currentColor" stroke="none"/><circle cx="6.5" cy="11.5" r="1.6" fill="currentColor" stroke="none"/>',
 		google: '<circle cx="8" cy="8" r="5.5"/><path d="M2.6 8h10.8M8 2.6c1.6 1.7 2.4 3.5 2.4 5.4S9.6 11.7 8 13.4C6.4 11.7 5.6 9.9 5.6 8S6.4 4.3 8 2.6z"/>'
 	};
 
@@ -331,26 +330,6 @@
 
 	function familyStack(name) {
 		return name ? '"' + name + '", sans-serif' : 'inherit';
-	}
-
-	/**
-	 * Where a family is assigned, so destructive actions can warn first.
-	 *
-	 * @param {string} name Family name.
-	 * @return {string[]} Human readable roles.
-	 */
-	function familyRoles(name) {
-		var roles = [];
-		var lower = (name || '').toLowerCase();
-
-		if (lower && (state.settings.heading_font || '').toLowerCase() === lower) {
-			roles.push(s('headingFont', 'Heading font'));
-		}
-		if (lower && (state.settings.text_font || '').toLowerCase() === lower) {
-			roles.push(s('textFont', 'Text font'));
-		}
-
-		return roles;
 	}
 
 	/**
@@ -495,7 +474,7 @@
 		{ key: 'library', icon: 'library', label: function () { return s('library', 'Library'); } },
 		{ key: 'upload', icon: 'upload', label: function () { return s('upload', 'Upload fonts'); } },
 		{ key: 'google', icon: 'google', label: function () { return s('googleFonts', 'Google Fonts'); } },
-		{ key: 'theme', icon: 'palette', label: function () { return s('theme', 'Theme'); } },
+		{ key: 'settings', icon: 'sliders', label: function () { return s('settings', 'Settings'); } },
 		{ key: 'tools', icon: 'file', label: function () { return s('tools', 'Import & export'); } }
 	];
 
@@ -745,7 +724,7 @@
 		} else if (state.view === 'tools') {
 			renderTools();
 		} else {
-			renderTheme();
+			renderSettings();
 		}
 	}
 
@@ -1008,14 +987,6 @@
 	 */
 	function setFamilyEnabled(index, enabled) {
 		var family = state.families[index];
-		var roles = familyRoles(family.name);
-
-		if (!enabled && roles.length && !window.confirm(
-			s('confirmDisableAssigned', 'This family is assigned as:') + ' ' + roles.join(', ') + '.\n' +
-			s('confirmDisableAssignedHint', 'Disabling it means that text falls back to another font. Continue?')
-		)) {
-			return;
-		}
 
 		family.enabled = enabled;
 		state.dirty = true;
@@ -1030,14 +1001,6 @@
 	 */
 	function trashFamily(index) {
 		var family = state.families[index];
-		var roles = familyRoles(family.name);
-
-		if (roles.length && !window.confirm(
-			s('confirmTrashAssigned', 'This family is assigned as:') + ' ' + roles.join(', ') + '.\n' +
-			s('confirmTrashAssignedHint', 'Moving it to the trash means that text falls back to another font. The assignment returns if you restore it. Continue?')
-		)) {
-			return;
-		}
 
 		family.trashed = true;
 		state.editing = null;
@@ -1197,7 +1160,6 @@
 			var family = row.family;
 			var variants = family.variants || [];
 			var weights = variants.map(function (v) { return v.weight; }).filter(function (w, i, arr) { return arr.indexOf(w) === i; }).sort();
-			var roles = familyRoles(family.name);
 			var subsetList = variants.map(function (v) { return v.subset; }).filter(function (sub, i, arr) {
 				return sub && arr.indexOf(sub) === i;
 			}).sort();
@@ -1240,9 +1202,6 @@
 					]),
 					enabled ? null : el('p', { class: 'efm-notice', text: s('disabledNotice', 'Disabled. Its files are kept, but it is not loaded on the site.') }),
 					specimen(family.name, subsetList),
-					roles.length ? el('div', { class: 'efm-chips' }, roles.map(function (role) {
-						return el('span', { class: 'efm-chip efm-chip--role', text: role });
-					})) : null,
 					subsetList.length ? el('div', { class: 'efm-chips' }, subsetList.map(function (sub) {
 						return el('span', { class: 'efm-chip', text: sub });
 					})) : null,
@@ -2880,27 +2839,7 @@
 
 	/* -------------------------------- Theme ------------------------------ */
 
-	function renderTheme() {
-		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('acssMapping', 'Automatic.css mapping') }));
-		contentEl.appendChild(el('p', { class: 'efm-muted', text: s('acssHint', 'Maps the selected families to --heading-font-family and --text-font-family.') }));
-
-		if (!state.acssActive) {
-			contentEl.appendChild(el('p', { class: 'efm-notice', text: s('acssMissing', 'Automatic.css was not detected. The variables are still written.') }));
-		}
-
-		contentEl.appendChild(
-			el('div', { class: 'efm-fields' }, [
-				el('label', { class: 'efm-field' }, [
-					el('span', { class: 'efm-field__label', text: s('headingFont', 'Heading font') }),
-					familySelect('heading_font')
-				]),
-				el('label', { class: 'efm-field' }, [
-					el('span', { class: 'efm-field__label', text: s('textFont', 'Text font') }),
-					familySelect('text_font')
-				])
-			])
-		);
-
+	function renderSettings() {
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('stylesheet', 'Stylesheet') }));
 		contentEl.appendChild(el('p', {
 			class: 'efm-muted',
@@ -2954,21 +2893,6 @@
 					el('span', { class: 'efm-toggle__label', text: s('blockGoogle', 'Block Google Fonts loaded by other plugins') }),
 					el('span', { class: 'efm-field__hint', text: s('blockGoogleHint', 'Stops theme and plugin stylesheets that point at fonts.googleapis.com, and removes the matching preconnect hints. It cannot reach an @import inside a theme stylesheet or a link tag printed straight into the page. Your own local fonts are unaffected.') })
 				])
-			])
-		);
-
-		contentEl.appendChild(
-			el('div', { class: 'efm-sample' }, [
-				el('p', {
-					class: 'efm-sample__heading',
-					text: s('sampleHeading', 'Typography that ships'),
-					style: { 'font-family': familyStack(state.settings.heading_font) }
-				}),
-				el('p', {
-					class: 'efm-sample__body',
-					text: s('sampleBody', 'Body copy renders in the text family. Upload a font or install one from Google Fonts, map its weights, then assign it here.'),
-					style: { 'font-family': familyStack(state.settings.text_font) }
-				})
 			])
 		);
 
@@ -3435,28 +3359,6 @@
 		reader.readAsText(file);
 	}
 
-	function familySelect(key) {
-		var select = el('select', {
-			class: 'efm-input efm-input--select',
-			onchange: function (event) {
-				state.settings[key] = event.target.value;
-				render();
-			}
-		});
-
-		select.appendChild(el('option', { value: '', text: s('none', 'None'), selected: !state.settings[key] }));
-
-		state.families.forEach(function (family) {
-			select.appendChild(el('option', {
-				value: family.name,
-				text: family.name,
-				selected: state.settings[key] === family.name
-			}));
-		});
-
-		return select;
-	}
-
 	/* ------------------------------- Actions ----------------------------- */
 
 	function addFamily() {
@@ -3682,9 +3584,6 @@
 		request('/settings', {
 			method: 'POST',
 			body: {
-				heading_font: state.settings.heading_font || '',
-				text_font: state.settings.text_font || '',
-				acss_enabled: true,
 				inline_css: !!state.settings.inline_css,
 				block_google: !!state.settings.block_google
 			}

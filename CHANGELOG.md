@@ -2,6 +2,56 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.17.0
+
+> ### BREAKING CHANGE
+>
+> **The Automatic.css font mapping has been removed.** The plugin no longer writes
+> `--heading-font-family` or `--text-font-family`. If a site relied on it, those variables disappear as soon as
+> the stylesheet regenerates, and headings or body copy will fall back to whatever Automatic.css is otherwise
+> set to.
+>
+> **What to do instead.** Every family is already published as `--efm-family-{slug}` (added in 1.9.0), carrying
+> its full fallback stack. Set the ACSS variable from it, in Automatic.css itself:
+>
+> ```css
+> :root {
+>   --heading-font-family: var(--efm-family-inter);
+>   --text-font-family: var(--efm-family-montserrat);
+> }
+> ```
+>
+> That is one line each, it lives where the rest of your typography already lives, and it no longer fights ACSS
+> for ownership of the same variable. The old mapping wrote `!important` precisely because it was fighting.
+
+### Removed
+
+- **The Automatic.css mapping**: the heading and text font selects, the "Automatic.css was not detected" notice,
+  and the generated `:root` block. The `heading_font`, `text_font` and `acss_enabled` settings and their REST
+  arguments are gone with it, along with ACSS detection.
+- **The live type sample.** It existed only to preview the two selects, and previewed nothing without them.
+- **The "Heading font" / "Text font" role chips** on Library cards, and the confirmations warning that a family
+  was "assigned" before disabling or trashing it. Nothing can be assigned any more, so they could never fire.
+- Internals that had no remaining caller: `familyRoles()`, `familySelect()`, `EFM_Builder::acss_active()`,
+  `acssActive` in the REST state, `EFM_Fonts::prune_settings()` (its only job was clearing stale assignments) and
+  `EFM_Fonts::stack_for_name()`.
+- The legacy *Etch Custom Fonts* importer no longer reads `ecf_acss_settings`. It existed only to copy those two
+  assignments across, and then wrote an empty settings array. Families still import as before.
+
+### Changed
+
+- **Theme is now Settings**, with an icon that matches. It holds stylesheet delivery and the privacy option, which
+  is all that was ever in it besides the mapping.
+
+### Housekeeping found while auditing
+
+- Removed **7 translation strings that were already unused** before this release: `add`, `googleHint`,
+  `removeFamily`, `none`, `unsaved`, `confirmRemoveAssigned`, `confirmRemoveAssignedHint`.
+- Removed a **stray duplicated docblock** in `class-efm-fonts.php` that had no function beneath it.
+- **Rebuilt the translation template from source**, 208 strings with accurate line references. The previous file
+  had drifted because entries were appended by hand in 1.15.0 and 1.16.0.
+- Translation keys are now exactly **192 used and 192 defined**, with none missing and none unused.
+
 ## 1.16.0
 
 Finishes the last item from the fonts.google.com review: the specimen detail view, held back from 1.15.0 rather

@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.16.0
+Stable tag: 1.17.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,7 +12,7 @@ Manage self-hosted custom fonts directly inside the Etch builder, with a native 
 
 == Description ==
 
-Etch Font Manager adds a Fonts control to the Etch builder Settings Bar using Etch's official Controls API. Upload font files, install Google Fonts locally, map families to weights and styles, and wire them into Automatic.css without leaving the builder.
+Etch Font Manager adds a Fonts control to the Etch builder Settings Bar using Etch's official Controls API. Upload font files, install Google Fonts locally, map families to weights and styles, and publish each one as a CSS variable you can use anywhere, without leaving the builder.
 
 Features:
 
@@ -20,7 +20,7 @@ Features:
 * Full-screen manager styled from Etch's own design tokens
 * Drag and drop uploads for woff2, woff, ttf and otf
 * Google Fonts search, preview and one-click local install
-* Automatic.css mapping for --heading-font-family and --text-font-family
+* A CSS variable per family, --efm-family-{slug}, ready to drop into Automatic.css or any style record
 * Fonts load on the frontend, in the Etch canvas iframe and in the block editor
 * Self-hosted files, so no frontend requests to Google
 
@@ -45,6 +45,11 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.17.0 =
+* BREAKING: the Automatic.css mapping is gone. The plugin no longer writes --heading-font-family or --text-font-family. Set them in Automatic.css itself using the per-family variable, for example --heading-font-family: var(--efm-family-inter).
+* The Theme section is now called Settings and holds only stylesheet delivery and the privacy option.
+* Removed everything the mapping was propping up: the live type sample, the heading/text role chips, and the warnings about disabling a family that was "assigned".
 
 = 1.16.0 =
 * Click a family to open a type tester with live sliders for every variable axis it has, named properly (Weight, Optical Size, Grade) rather than raw tags.

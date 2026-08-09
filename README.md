@@ -15,17 +15,16 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 - **Google Fonts** — search, live preview, and one-click install. Files are downloaded locally, so the frontend makes no requests to Google.
 - **Subset support** — choose which subsets to download (latin, latin-ext, sinhala, tamil, cyrillic, greek, vietnamese and so on). Each `@font-face` gets a matching `unicode-range`, so browsers only fetch the scripts a page actually uses.
 - **Filename detection** — weight and style are read from uploaded file names (`Inter-SemiBoldItalic.woff2`, `Roboto-300.woff2`, variable axes) and applied when the file is mapped.
-- **Delivery controls** — per-family `font-display`, a preload toggle for above-the-fold fonts, and a fallback stack that is written into the Automatic.css variables.
+- **Delivery controls** — per-family `font-display`, a preload toggle for above-the-fold fonts, and a fallback stack that is carried into the family's own CSS variable.
 - **Enable, disable and trash** — switch a family off without deleting it (no `@font-face`, no custom property, no preload, but files and mapping are kept), or move it to a trash you can restore from. Deleting permanently drops the record only; font files are always removed by a separate explicit action.
-- **Guard rails** — warnings before closing with unsaved edits, removing a family that is assigned as the heading or text font, or deleting a file that variants still map.
+- **Guard rails** — warnings before closing with unsaved edits, or deleting a file that variants still map.
 - **Family and variant mapping** — assign files to weights and styles, all inline in the panel.
-- **A CSS variable per family** — every family is published as `--efm-family-{slug}`, so `"Noto Sans Sinhala"` is usable as `var(--efm-family-noto-sans-sinhala)` in an Etch style record, an ACSS override or any stylesheet. The value carries the family's fallback stack, and the family editor shows the variable ready to copy.
+- **A CSS variable per family** — every family is published as `--efm-family-{slug}`, so `"Noto Sans Sinhala"` is usable as `var(--efm-family-noto-sans-sinhala)` in an Etch style record, an ACSS override or any stylesheet. The value carries the family's fallback stack, and the family editor shows the variable ready to copy. This is the intended way to wire a family into Automatic.css: set `--heading-font-family: var(--efm-family-inter)` in ACSS itself, where the rest of your typography already lives.
 - **Portable import and export** — export chosen families as JSON, optionally with the font files bundled in, and preview exactly what an import will add, overwrite and remove before applying it. Bundled files are validated by their format signature before being written.
 - **Stylesheet delivery** — the generated CSS is cached to a file and enqueued, or printed inline if you prefer one less request. Shows when it was last built, with a regenerate action.
 - **Blocks other plugins' Google Fonts** — an optional privacy setting that dequeues any stylesheet pointing at `fonts.googleapis.com` and strips the matching preconnect hints.
 - **Apply to your own selectors** — give a family a selector list such as `h1, .site-title` and the rule is written for you.
 - **Generated CSS preview** — see exactly what a family contributes, live as you edit it.
-- **Automatic.css integration** — map families to `--heading-font-family` and `--text-font-family`.
 - **Instant canvas refresh** — the generated stylesheet is reloaded in the builder shell and canvas iframe after every change; no page reload.
 - **Self-hosted and GDPR friendly** — everything is served from your own fonts directory.
 - **Block editor aware** — family names are registered in `theme.json` so Gutenberg font pickers list them (without duplicate `@font-face` output).
@@ -35,7 +34,7 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 - WordPress 6.0+
 - PHP 7.4+
 - Etch 1.6+ (the Controls API is required for the in-builder panel)
-- Automatic.css is optional
+- Automatic.css is optional; families are exposed as CSS variables you can feed into it
 
 ## Installation
 
@@ -88,8 +87,8 @@ Already installed? Use **Reinstall** to add a subset later.
 
 **Import & export** — download the whole configuration as JSON and load it on another site, in replace or merge mode. Any font file a family references but that is missing from the destination is listed after the import.
 
-**Theme** — pick the heading and text families and see them applied to a live sample. These are written as
-`--heading-font-family` and `--text-font-family`, which Automatic.css consumes directly.
+**Settings** — choose whether the generated stylesheet is enqueued as a file or printed inline, see when it was
+last built, regenerate it on demand, and optionally block Google Fonts loaded by other themes and plugins.
 
 ## How fonts are delivered
 

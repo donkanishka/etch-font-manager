@@ -899,10 +899,14 @@
 /* ------------------------------- Tooltip ------------------------------- */
 
 /*
- * Matches the Settings Bar tooltips Etch renders through Bits UI, measured
- * from a live builder: #1d1d20 at 11px/500, 4px 8px, 6px radius, placed to the
- * inline-end of its anchor. Reproduced in CSS rather than borrowing Etch's
- * component, which is Svelte and not ours to mount.
+ * Matches the tooltips Etch renders through Bits UI, measured from a live
+ * builder: #1d1d20 at 11px/500, 4px 8px, 6px radius, sitting 5px below its
+ * anchor and horizontally centred on it. Reproduced in CSS rather than
+ * borrowing Etch's component, which is Svelte and not ours to mount.
+ *
+ * Centring means the tooltip overhangs the button on both sides and can reach
+ * over the Settings Bar. That is what Etch's own does, and no ancestor here
+ * clips it.
  */
 
 .efm-tooltip {
@@ -912,9 +916,9 @@
 .efm-tooltip::after {
 	content: attr(data-efm-tooltip);
 	position: absolute;
-	inset-inline-start: calc(100% + 8px);
-	inset-block-start: 50%;
-	translate: 0 -50%;
+	inset-block-start: calc(100% + 5px);
+	inset-inline-start: 50%;
+	translate: -50% 0;
 	z-index: 3;
 	padding: 4px 8px;
 	border-radius: var(--e-border-radius, 6px);

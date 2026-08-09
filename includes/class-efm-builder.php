@@ -270,6 +270,10 @@ class EFM_Builder {
 				'nonce'     => wp_create_nonce( 'wp_rest' ),
 				'placement' => $placement,
 				'icon'      => $icon,
+				// Directory the converter worker and its WASM binary live in. Left
+				// empty when the binary has not been built, which turns the whole
+				// converter off in the panel rather than failing at click time.
+				'wasmUrl'   => file_exists( EFM_DIR . 'assets/wasm/woff2.wasm' ) ? esc_url_raw( EFM_URL . 'assets/wasm/' ) : '',
 				'state'     => EFM_Rest::state(),
 				'i18n'      => self::strings(),
 			)
@@ -457,6 +461,17 @@ class EFM_Builder {
 			'uploadHint'     => __( 'Drop woff2, woff, ttf or otf files here, or click to browse.', 'etch-font-manager' ),
 			'uploading'      => __( 'Uploading…', 'etch-font-manager' ),
 			'uploaded'       => __( 'Uploaded', 'etch-font-manager' ),
+			'convertUpload'  => __( 'Convert TTF and OTF to WOFF2', 'etch-font-manager' ),
+			'convertHint'    => __( 'Runs in your browser, so the font is never sent anywhere but your own site. WOFF2 is normally 30 to 65% smaller and is what every current browser prefers. Only the container changes: glyphs, variable axes and OpenType features are untouched. It is not a subsetter, so a font that is large because of its character coverage stays large.', 'etch-font-manager' ),
+			'convertFile'    => __( 'Convert to WOFF2', 'etch-font-manager' ),
+			'converting'     => __( 'Converting…', 'etch-font-manager' ),
+			'converted'      => __( 'Converted', 'etch-font-manager' ),
+			'smaller'        => __( 'smaller', 'etch-font-manager' ),
+			'convertFailed'  => __( 'Could not convert this font.', 'etch-font-manager' ),
+			'convertTimeout' => __( 'Converting took too long and was stopped.', 'etch-font-manager' ),
+			'convertBlocked' => __( 'The converter could not start in this browser.', 'etch-font-manager' ),
+			'convertNoRead'  => __( 'Could not read the file from the fonts folder.', 'etch-font-manager' ),
+			'convertDirty'   => __( 'Converting saves the family mapping. Unsaved changes will be discarded. Continue?', 'etch-font-manager' ),
 			'files'          => __( 'Uploaded files', 'etch-font-manager' ),
 			'noFiles'        => __( 'No files uploaded yet.', 'etch-font-manager' ),
 			'deleteFile'     => __( 'Delete file', 'etch-font-manager' ),

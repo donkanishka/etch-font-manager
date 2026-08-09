@@ -1,10 +1,10 @@
 {
-  "version": "1.19.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.19.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.19.0",
+  "version": "1.19.1",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.19.1/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.19.1",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
   "date": "2026-08-09",
-  "notes": "WOFF files now convert to WOFF2 as well, so all four accepted formats behave the same way. Typically 17 to 23% smaller, with no extra download."
+  "notes": "The control is now called Font Manager, the back button reads Back to Builder, and opening another Settings Bar manager closes this one so exactly one panel is open at a time."
 }

@@ -2609,6 +2609,8 @@
 		]));
 
 		if (hasVariable) {
+			// The detail view is one family on a full pane, so it keeps the whole
+			// sentence; only the stacking goes.
 			contentEl.appendChild(el('label', { class: 'efm-toggle efm-toggle--inline' }, [
 				el('input', {
 					type: 'checkbox',
@@ -2903,7 +2905,15 @@
 						? el('p', { class: 'efm-card__by', text: font.designers.join(', ') })
 						: null,
 					specimen(font.family, font.subsets, font.script),
-					hasVariable ? el('label', { class: 'efm-toggle efm-toggle--inline' }, [
+					/*
+					 * One line. The axis range earns its place on a card, but the
+					 * explanation behind it does not need repeating twenty-four
+					 * times down a grid, so it moves to the label's tooltip.
+					 */
+					hasVariable ? el('label', {
+						class: 'efm-toggle efm-toggle--inline',
+						title: s('variableHint', 'one file per subset instead of one per weight')
+					}, [
 						el('input', {
 							type: 'checkbox',
 							class: 'efm-checkbox',
@@ -2915,10 +2925,7 @@
 						}),
 						el('span', {}, [
 							el('span', { class: 'efm-toggle__label', text: s('variableCut', 'Variable') }),
-							el('span', {
-								class: 'efm-field__hint',
-								text: font.wght.min + '–' + font.wght.max + ' · ' + s('variableHint', 'one file per subset instead of one per weight')
-							})
+							el('span', { class: 'efm-field__hint', text: font.wght.min + '–' + font.wght.max })
 						])
 					]) : null,
 					pickCuts ? chipWall(

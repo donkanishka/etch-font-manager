@@ -595,6 +595,23 @@
 	grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
 }
 
+/*
+ * Row already wraps its specimen; grid did not, so at anything above about 30px
+ * the sample was cut mid-word with an ellipsis. Two lines, clamped, with the box
+ * held at exactly that height so a one-line family and a two-line family still
+ * line up beside each other.
+ */
+.efm-grid--grid .efm-specimen {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	min-block-size: 2.5em;
+	max-block-size: 2.5em;
+	white-space: normal;
+	overflow: hidden;
+}
+
 .efm-grid--row {
 	grid-template-columns: 1fr;
 }
@@ -1160,6 +1177,22 @@
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
+}
+
+/*
+ * A one-line toggle. This modifier was already in the markup and in the compact
+ * layout's hide list, but it never had a rule of its own, so it rendered as the
+ * default stacked toggle: label on one line, explanation on the next, repeated
+ * down every card in the grid.
+ */
+.efm-toggle--inline {
+	align-items: center;
+}
+
+.efm-toggle.efm-toggle--inline > span {
+	flex-direction: row;
+	align-items: baseline;
+	gap: 6px;
 }
 
 .efm-toggle__label {

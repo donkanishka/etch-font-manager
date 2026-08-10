@@ -2,6 +2,53 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.21.0
+
+The panel's styling now runs off a single declared set of Etch tokens instead of an ad-hoc mix of tokens and
+literals. Appearance only: no behaviour, markup or stored data changed.
+
+### Changed
+
+- **Every value the panel uses is declared in one bridge** at the top of `.efm-manager`, each reading an Etch
+  token first and only then falling back to a literal. Fifteen properties, all of them consumed. The control
+  height is derived the way Etch derives it — one icon plus the input padding on each side — which resolves to
+  the 28px Etch uses for both `.etch-input-wrapper` and its own buttons.
+
+- **The active navigation item no longer uses the accent.** Measured off a live Asset Manager sidebar: Etch fills
+  it with `--e-base-light` behind near-white text, at a 6px radius with 6px/8px padding and a 6px gap. Inactive
+  items were muted, where Etch keeps them at full foreground strength so only the active fill marks where you
+  are.
+
+- **Section headings are 13px/600 in near-white**, matching Etch. They were 11px muted uppercase with added
+  tracking, a treatment that appears nowhere in the builder. The same uppercasing and tracking came off the
+  navigation group label, the subsets label and the table header.
+
+- **Buttons mirror `.etch-builder-button`**: the same 4px icon-to-label gap, 6px radius, `--e-transition`
+  timing and 30% disabled opacity. The primary variant's hover drops to near-black with light text, copied off
+  Etch rather than invented.
+
+- **Inputs follow `.etch-input-wrapper`**, taking `--e-input-padding-block` and `--e-input-padding-inline`,
+  and selects take the `--e-base-light` fill Etch gives its select trigger, so a chooser reads differently from
+  a text field.
+
+- **The accent is a signal again, not a surface.** Etch floods with the accent in exactly one place — its default
+  button variant — and otherwise uses it as a text or border colour. The panel had been filling the active nav
+  item, the layout toggle and the subset chips with it. Those now take a raised fill and colour the accent
+  instead.
+
+- The panel's typeface reads `--e-font-interface` instead of hardcoding Inter, and every transition uses Etch's
+  `--e-transition` rather than a slightly quicker curve of its own.
+
+### Fixed
+
+- **`.efm-btn--ghost` had no rule at all.** The markup had asked for it since it was written, so "Reset all",
+  "Clear" and "Load more" all silently rendered as the default filled variant instead of quiet buttons.
+- **`.efm-btn--block` had no rule either**, so "Load more" never spanned its row.
+- **`--efm-danger` was referenced but never declared**, leaving the conversion log's error colour on its
+  literal fallback.
+- **The input corner radius read `--etch-input-radius`**, a property Etch does not define, so it never tracked
+  `--e-border-radius` as intended.
+
 ## 1.20.0
 
 The manager's icons were redrawn on Etch's own grid. Nothing about how the plugin behaves has changed.

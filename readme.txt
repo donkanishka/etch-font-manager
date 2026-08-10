@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.20.0
+Stable tag: 1.21.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,15 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.21.0 =
+* The panel's colours, spacing, typography and motion now come from one declared set of Etch tokens instead of a mix of tokens and hardcoded values.
+* The active section in the sidebar is marked the way Etch marks it, with a raised fill and near-white text, rather than flooded with the accent colour. Same for the layout toggle and the subset chips.
+* Section headings match Etch's own: 13px semi-bold, with no uppercasing and no added letter spacing.
+* Buttons and inputs now match Etch's measurements for height, padding, corner radius, icon spacing and transition timing.
+* Fixed: the quiet "ghost" button style had no rule at all, so Reset all, Clear and Load more rendered as filled buttons by mistake.
+* Fixed: Load more was never full width, the conversion log's error colour fell back to a hardcoded red, and the input corner radius never tracked Etch's radius token.
+* No change to behaviour, settings or stored data.
 
 = 1.20.0 =
 * Every icon in the manager is redrawn on Etch's own grid: 24x24 at 1.5 stroke, rendered at 16px, so the strokes now match the icons Etch draws in Content Hub and Asset Manager instead of looking heavier than them.

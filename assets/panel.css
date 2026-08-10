@@ -257,9 +257,18 @@
 	color: var(--efm-surface-raised);
 }
 
-/* Etch's stat cards: value over label on a raised fill, at a 4px radius. */
+/*
+ * Etch's stat cards, measured off its Asset Manager sidebar: a raised fill at a
+ * 4px radius with 8px padding, the value at 13/700 over the label at 11/400 in
+ * the same near-white, and a 16px icon opposite at --etch-inactive-icon.
+ *
+ * Etch lays two out side by side in a 300px column. Three with icons will not
+ * fit across 256px, so they stack one per row and keep the card's own left text
+ * / right icon arrangement.
+ */
 .efm-nav__meta {
 	display: flex;
+	flex-direction: column;
 	gap: 4px;
 	margin-block-start: auto;
 	padding-block-start: var(--e-space-m, 12px);
@@ -267,27 +276,36 @@
 
 .efm-stat {
 	display: flex;
-	flex-direction: column;
-	gap: 5px;
-	flex: 1 1 0;
-	min-inline-size: 0;
-	padding: var(--e-space-xs, 6px);
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--e-space-s, 8px);
+	padding: var(--e-panel-padding, 8px);
 	border-radius: 4px;
 	background: var(--efm-surface-raised);
+	color: var(--efm-text-strong);
+}
+
+.efm-stat .efm-icon {
+	opacity: var(--etch-inactive-icon, 75%);
+}
+
+.efm-stat__text {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	min-inline-size: 0;
 }
 
 .efm-stat__value {
 	font-size: var(--e-font-size-l, 13px);
 	font-weight: 700;
 	line-height: 1;
-	color: var(--efm-text-strong);
 }
 
 .efm-stat__label {
 	font-size: var(--e-font-size-s, 11px);
 	font-weight: 400;
 	line-height: 1;
-	color: var(--efm-muted);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;

@@ -322,6 +322,8 @@
 		layoutRow: '<path d="M3 5H21"/><path d="M3 12H21"/><path d="M3 19H21"/>',
 		layoutGrid: '<path d="M14 20.4V14.6C14 14.2686 14.2686 14 14.6 14H20.4C20.7314 14 21 14.2686 21 14.6V20.4C21 20.7314 20.7314 21 20.4 21H14.6C14.2686 21 14 20.7314 14 20.4Z"/><path d="M3 20.4V14.6C3 14.2686 3.26863 14 3.6 14H9.4C9.73137 14 10 14.2686 10 14.6V20.4C10 20.7314 9.73137 21 9.4 21H3.6C3.26863 21 3 20.7314 3 20.4Z"/><path d="M14 9.4V3.6C14 3.26863 14.2686 3 14.6 3H20.4C20.7314 3 21 3.26863 21 3.6V9.4C21 9.73137 20.7314 10 20.4 10H14.6C14.2686 10 14 9.73137 14 9.4Z"/><path d="M3 9.4V3.6C3 3.26863 3.26863 3 3.6 3H9.4C9.73137 3 10 3.26863 10 3.6V9.4C10 9.73137 9.73137 10 9.4 10H3.6C3.26863 10 3 9.73137 3 9.4Z"/>',
 		layoutCompact: '<path d="M8 6L20 6"/><path d="M4 6.01L4.01 5.99889"/><path d="M4 12.01L4.01 11.9989"/><path d="M4 18.01L4.01 17.9989"/><path d="M8 12L20 12"/><path d="M8 18L20 18"/>',
+		textSize: '<path d="M3 7L3 5L17 5V7"/><path d="M10 5L10 19M10 19H12M10 19H8"/><path d="M13 14L13 12H21V14"/><path d="M17 12V19M17 19H15.5M17 19H18.5"/>',
+		page: '<path d="M4 21.4V2.6C4 2.26863 4.26863 2 4.6 2H16.2515C16.4106 2 16.5632 2.06321 16.6757 2.17574L19.8243 5.32426C19.9368 5.43679 20 5.5894 20 5.74853V21.4C20 21.7314 19.7314 22 19.4 22H4.6C4.26863 22 4 21.7314 4 21.4Z"/><path d="M8 10L16 10"/><path d="M8 18L16 18"/><path d="M8 14L12 14"/><path d="M16 2V5.4C16 5.73137 16.2686 6 16.6 6H20"/>',
 		compress: '<path d="M18 12L6 12"/><path d="M12 22V16M12 16L15 19M12 16L9 19"/><path d="M12 2V8M12 8L15 5M12 8L9 5"/>'
 	};
 
@@ -956,22 +958,29 @@
 
 		/*
 		 * Etch closes its Asset Manager sidebar with stat cards rather than a run
-		 * of text: a bold value over a quiet label on a raised fill. Three across
-		 * instead of Etch's two, because this column is narrower than its 300px
-		 * and the icons it pairs with each value would not fit.
+		 * of text: a bold value over a label on a raised fill, with a muted icon
+		 * opposite. Stacked one per row rather than Etch's two across, because
+		 * this column is 256px against its 300px and three cards carrying icons
+		 * will not sit side by side in it.
+		 *
+		 * The families card reuses the Library icon on purpose, so the number and
+		 * the section it counts are visibly the same thing.
 		 */
-		function stat(value, label) {
+		function stat(value, label, glyph) {
 			return el('div', { class: 'efm-stat' }, [
-				el('span', { class: 'efm-stat__value', text: String(value) }),
-				el('span', { class: 'efm-stat__label', text: label })
+				el('span', { class: 'efm-stat__text' }, [
+					el('span', { class: 'efm-stat__value', text: String(value) }),
+					el('span', { class: 'efm-stat__label', text: label })
+				]),
+				icon(glyph)
 			]);
 		}
 
 		navEl.appendChild(
 			el('div', { class: 'efm-nav__meta' }, [
-				stat(live.length, plural(live.length, s('familyLabel', 'family'), s('familiesLabel', 'families'))),
-				stat(variantCount, plural(variantCount, s('variant', 'variant'), s('variants', 'variants'))),
-				stat(state.files.length, plural(state.files.length, s('fileLabel', 'file'), s('filesLabel', 'files')))
+				stat(live.length, plural(live.length, s('familyLabel', 'family'), s('familiesLabel', 'families')), 'library'),
+				stat(variantCount, plural(variantCount, s('variant', 'variant'), s('variants', 'variants')), 'textSize'),
+				stat(state.files.length, plural(state.files.length, s('fileLabel', 'file'), s('filesLabel', 'files')), 'page')
 			])
 		);
 	}

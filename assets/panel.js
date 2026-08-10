@@ -1127,6 +1127,32 @@
 	}
 
 	/**
+	 * Placeholder cards shown while the catalogue is loading.
+	 *
+	 * Swapping the grid for a line of text collapses the pane and then reflows it
+	 * when results land. Blocks of the same shape hold the layout still and show
+	 * roughly how much is coming.
+	 *
+	 * The grid itself is hidden from assistive technology; the live region beside
+	 * it carries the announcement, so a screen reader hears "Searching" once
+	 * rather than a description of six empty boxes.
+	 */
+	function skeletonGrid(count) {
+		var grid = el('div', { class: gridClass(), 'aria-hidden': 'true' });
+		var i;
+
+		for (i = 0; i < count; i += 1) {
+			grid.appendChild(el('div', { class: 'efm-card efm-skeleton' }, [
+				el('span', { class: 'efm-skeleton__bar efm-skeleton__bar--title' }),
+				el('span', { class: 'efm-skeleton__bar efm-skeleton__bar--specimen' }),
+				el('span', { class: 'efm-skeleton__bar efm-skeleton__bar--meta' })
+			]));
+		}
+
+		return grid;
+	}
+
+	/**
 	 * A titled box grouping related controls.
 	 *
 	 * Settings and Import & export were flat runs of headings, checkboxes and
@@ -1401,7 +1427,7 @@
 	function emptyState(title, hint, cta, onCta) {
 		return el('div', { class: 'efm-empty' }, [
 			el('p', { class: 'efm-empty__title', text: title }),
-			el('p', { class: 'efm-empty__hint', text: hint }),
+			hint ? el('p', { class: 'efm-empty__hint', text: hint }) : null,
 			cta ? el('button', { type: 'button', class: 'efm-btn efm-btn--primary', text: cta, onclick: onCta }) : null
 		]);
 	}
@@ -2762,12 +2788,20 @@
 		));
 
 		if (state.searching) {
-			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('searching', 'Searching…') }));
+			contentEl.appendChild(el('p', { class: 'efm-sr-only', role: 'status', text: s('searching', 'Searching…') }));
+			contentEl.appendChild(skeletonGrid(6));
 			return;
 		}
 
 		if (!state.results.length) {
-			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('noResults', 'No fonts found.') }));
+			// An empty catalogue is almost always a filter, so offer the way out
+			// rather than leaving a dead end.
+			contentEl.appendChild(emptyState(
+				s('noResults', 'No fonts found.'),
+				null,
+				googleFiltered() ? s('resetAll', 'Reset all') : null,
+				resetGoogleFilters
+			));
 			return;
 		}
 

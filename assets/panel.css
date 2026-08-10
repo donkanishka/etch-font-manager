@@ -149,26 +149,45 @@
 	margin-inline-start: auto;
 }
 
+/*
+ * Status is a toast at the foot of the panel rather than small print in the
+ * header. It reports the result of something you just did, and the header is
+ * the furthest point from where most of those actions live.
+ *
+ * The element, its role and its aria-live are unchanged; only where it sits
+ * and what it looks like moved, so announcements behave exactly as before.
+ */
 .efm-status {
-	display: inline;
-	margin-inline-start: auto;
-	padding: 0;
-	border: 0;
-	font-size: var(--e-font-size-s, 11px);
-	color: var(--efm-muted);
+	position: absolute;
+	inset-block-end: var(--e-space-m, 12px);
+	inset-inline-end: var(--e-space-m, 12px);
+	z-index: 30;
+	max-inline-size: 44ch;
+	padding: var(--efm-pad-block) var(--e-space-m, 12px);
+	border: 1px solid var(--e-border-color, #36363a);
+	border-radius: var(--efm-radius);
+	background: var(--efm-surface-raised);
+	box-shadow: 0 6px 20px rgb(0 0 0 / .35);
+	color: var(--efm-text);
+	font-size: var(--e-font-size-m, 12px);
+	animation: efm-toast-in var(--efm-transition);
 }
 
+/* Nothing to report, nothing on screen. */
 .efm-status:empty {
-	margin-inline-start: 0;
+	display: none;
 }
 
 .efm-status.is-error {
+	border-color: color-mix(in srgb, var(--efm-danger) 45%, transparent);
 	color: var(--efm-danger);
 }
 
-.efm-header__actions:not(:empty) + .efm-status,
-.efm-status:not(:empty) + .efm-header__actions {
-	margin-inline-start: 0;
+@keyframes efm-toast-in {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
 }
 
 /* -------------------------------- Body --------------------------------- */
@@ -425,6 +444,62 @@
 
 .efm-popover[hidden] {
 	display: none;
+}
+
+/* ------------------------------ Skeleton ------------------------------- */
+
+/*
+ * Placeholder cards. Deliberately the same shape as a real card so the grid
+ * does not jump when results replace them.
+ */
+
+.efm-skeleton {
+	gap: var(--e-space-m, 12px);
+	pointer-events: none;
+}
+
+.efm-skeleton__bar {
+	display: block;
+	block-size: 12px;
+	border-radius: 4px;
+	background: color-mix(in srgb, var(--efm-text) 10%, transparent);
+	animation: efm-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.efm-skeleton__bar--title {
+	inline-size: 45%;
+}
+
+.efm-skeleton__bar--specimen {
+	block-size: 32px;
+	inline-size: 85%;
+}
+
+.efm-skeleton__bar--meta {
+	inline-size: 30%;
+	margin-block-start: auto;
+}
+
+@keyframes efm-skeleton-pulse {
+	50% {
+		opacity: .45;
+	}
+}
+
+/*
+ * Available to a screen reader, invisible on screen. Used where a live region
+ * has to carry an announcement that the visible element cannot.
+ */
+.efm-sr-only {
+	position: absolute;
+	inline-size: 1px;
+	block-size: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
 }
 
 /* ------------------------------- Section ------------------------------- */
@@ -1451,7 +1526,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.efm-manager * {
+	.efm-manager *,
+	.efm-manager *::before,
+	.efm-manager *::after {
 		transition: none !important;
+		/* The skeleton pulse and the toast entrance are animations, which the
+		   previous guard did not reach. */
+		animation: none !important;
 	}
 }

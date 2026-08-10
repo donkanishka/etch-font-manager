@@ -1,10 +1,10 @@
 {
-  "version": "1.22.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.22.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.22.0",
+  "version": "1.23.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.23.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.23.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
   "date": "2026-08-10",
-  "notes": "Collapses the Google Fonts filters behind one button, rebuilds the panel's surfaces and sidebar to match Etch's own managers, and caps help text to a readable width."
+  "notes": "Font cards now line up: long subset and weight lists collapse behind a disclosure, card footers are pinned, and the Settings and Import & export screens are grouped into boxes."
 }

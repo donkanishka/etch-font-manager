@@ -1,10 +1,10 @@
 {
-  "version": "1.23.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.23.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.23.0",
+  "version": "1.24.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.24.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.24.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
   "date": "2026-08-10",
-  "notes": "Font cards now line up: long subset and weight lists collapse behind a disclosure, card footers are pinned, and the Settings and Import & export screens are grouped into boxes."
+  "notes": "Google Fonts loads behind placeholder cards instead of collapsing the layout, status messages move to a toast at the foot of the panel, and a no-results search offers a way back."
 }

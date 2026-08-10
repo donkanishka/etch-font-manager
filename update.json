@@ -1,10 +1,10 @@
 {
-  "version": "1.24.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.24.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.24.0",
+  "version": "1.24.1",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.24.1/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.24.1",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
   "date": "2026-08-10",
-  "notes": "Google Fonts loads behind placeholder cards instead of collapsing the layout, status messages move to a toast at the foot of the panel, and a no-results search offers a way back."
+  "notes": "Grid previews wrap instead of being cut mid-word, and the Variable option is back to one line with its explanation on hover."
 }

@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.21.0
+Stable tag: 1.22.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,14 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.22.0 =
+* The Google Fonts toolbar is one row instead of two. Category, writing system, technology and sort moved into a Filters popover with a badge showing how many are active; search, layout, preview text and size stay on the surface.
+* The panel's content area now matches Etch's own managers: a bordered pane with cards, table headers and boxes raised on top of it, rather than the other way round.
+* Sidebar sections show a count badge, styled the way Etch styles its own, and the three figures at the bottom are now stat cards with icons.
+* Help text no longer runs the full width of the builder.
+* The primary button's hover is softer.
+* No change to behaviour, settings or stored data.
 
 = 1.21.0 =
 * The panel's colours, spacing, typography and motion now come from one declared set of Etch tokens instead of a mix of tokens and hardcoded values.

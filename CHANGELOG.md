@@ -2,6 +2,48 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.22.0
+
+Layout and hierarchy, measured against a live Asset Manager and Style Manager rather than guessed at. Nothing
+about behaviour, settings or stored data changed.
+
+### Changed
+
+- **The Google Fonts toolbar was two rows and ten controls.** Category, writing system, technology and sort now
+  sit behind a **Filters** button carrying a badge of how many are active. Search, the layout toggle, preview
+  text and preview size stay on the surface, because those are adjusted constantly while the others are set once
+  and left alone. The badge deliberately ignores the search box, which is already visible next to it.
+
+  Escape closes the popover before it closes the manager, a press anywhere outside dismisses it, and leaving the
+  view resets it. Closing it returns focus to the button.
+
+- **The content pane matches Etch's own.** `.asset-core__main` is a bordered pane on `--e-base` with a 6px
+  radius, not a raised fill, so cards, table headers, the preview box and the delivery box became the raised
+  `--e-base-light` elements sitting on it. Code blocks went sunken instead, a deliberate departure: Etch's
+  `--e-code-background-color` resolves to the same value a card now uses, so code inside one would have had no
+  contrast at all.
+
+- **Navigation items carry Etch's count badge**, including the way it inverts on the active item to a light fill
+  with dark text against a raised fill with muted text elsewhere. Library, Upload fonts and Trash are counted;
+  the tools are not, matching how Etch badges its collections but not its tools. "Trash (1)" loses its bracketed
+  number now that the badge carries it.
+
+- **The three figures at the foot of the sidebar became stat cards**: a bold value over a label on a raised fill
+  at a 4px radius, with a muted icon opposite. Etch fits two across a 300px column; three carrying icons will not
+  fit across 256px, so they stack one per row and keep the card's own arrangement.
+
+- **Prose is capped at 72ch.** Help text on Settings and Import & export had been running the full width of the
+  builder, which is unreadable.
+
+- **The primary button's hover settles on `--e-base-light`.** Etch's own default variant drops to near-black on
+  hover, which is measurably what the builder does, but it reads as a glitch rather than a state change.
+
+### Fixed
+
+- A claim in the stylesheet that Etch uses "a 256px inner navigation column". Measured, it is 300px. This panel
+  keeps 256px on purpose, because its labels are fixed and short and the Google Fonts grid wants the width, and
+  the comment now says that instead of asserting something untrue.
+
 ## 1.21.0
 
 The panel's styling now runs off a single declared set of Etch tokens instead of an ad-hoc mix of tokens and

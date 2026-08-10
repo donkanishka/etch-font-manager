@@ -167,7 +167,7 @@ msgid "Size of the whole family at Google. What you install depends on the subse
 msgstr ""
 
 #: includes/class-efm-builder.php:329
-#: includes/class-efm-builder.php:435
+#: includes/class-efm-builder.php:438
 msgid "Variable"
 msgstr ""
 
@@ -189,7 +189,7 @@ msgstr ""
 
 #: includes/class-efm-builder.php:335
 #: includes/class-efm-builder.php:336
-#: includes/class-efm-builder.php:486
+#: includes/class-efm-builder.php:489
 msgid "Installed"
 msgstr ""
 
@@ -452,7 +452,7 @@ msgid "Use this anywhere a font family is expected. It already includes the fall
 msgstr ""
 
 #: includes/class-efm-builder.php:403
-#: includes/class-efm-builder.php:480
+#: includes/class-efm-builder.php:483
 msgid "Google Fonts"
 msgstr ""
 
@@ -549,258 +549,270 @@ msgid "Filters"
 msgstr ""
 
 #: includes/class-efm-builder.php:428
-msgid "Category"
+msgid "Show all"
 msgstr ""
 
 #: includes/class-efm-builder.php:429
-msgid "All categories"
+msgid "Show fewer"
 msgstr ""
 
 #: includes/class-efm-builder.php:430
-msgid "Sort by"
+msgid "Disabled"
 msgstr ""
 
 #: includes/class-efm-builder.php:431
-msgid "Most popular"
+msgid "Category"
 msgstr ""
 
 #: includes/class-efm-builder.php:432
-msgid "A to Z"
+msgid "All categories"
 msgstr ""
 
 #: includes/class-efm-builder.php:433
-msgid "Load more"
+msgid "Sort by"
 msgstr ""
 
 #: includes/class-efm-builder.php:434
-msgid "Loading…"
+msgid "Most popular"
+msgstr ""
+
+#: includes/class-efm-builder.php:435
+msgid "A to Z"
 msgstr ""
 
 #: includes/class-efm-builder.php:436
-msgid "one file per subset instead of one per weight"
+msgid "Load more"
 msgstr ""
 
 #: includes/class-efm-builder.php:437
-msgid "Delivery"
-msgstr ""
-
-#: includes/class-efm-builder.php:438
-msgid "Loading behaviour"
+msgid "Loading…"
 msgstr ""
 
 #: includes/class-efm-builder.php:439
-msgid "swap shows a fallback until the font arrives. optional skips the font entirely on slow connections, which removes layout shift."
+msgid "one file per subset instead of one per weight"
 msgstr ""
 
 #: includes/class-efm-builder.php:440
-msgid "Preload this family"
+msgid "Delivery"
 msgstr ""
 
 #: includes/class-efm-builder.php:441
-msgid "Fetches the regular weight early. Use it only for fonts visible above the fold; preloading everything slows the page down."
+msgid "Loading behaviour"
 msgstr ""
 
 #: includes/class-efm-builder.php:442
-msgid "Fallback stack"
+msgid "swap shows a fallback until the font arrives. optional skips the font entirely on slow connections, which removes layout shift."
 msgstr ""
 
 #: includes/class-efm-builder.php:443
-msgid "Shown while the font loads, and if it fails. A close match reduces layout shift."
+msgid "Preload this family"
 msgstr ""
 
 #: includes/class-efm-builder.php:444
-msgid "Reinstall"
+msgid "Fetches the regular weight early. Use it only for fonts visible above the fold; preloading everything slows the page down."
 msgstr ""
 
 #: includes/class-efm-builder.php:445
-msgid "in use"
+msgid "Fallback stack"
 msgstr ""
 
 #: includes/class-efm-builder.php:446
-msgid "You have unsaved font changes. Close and discard them?"
+msgid "Shown while the font loads, and if it fails. A close match reduces layout shift."
 msgstr ""
 
 #: includes/class-efm-builder.php:447
-msgid "It is mapped by:"
+msgid "Reinstall"
 msgstr ""
 
 #: includes/class-efm-builder.php:448
-msgid "Those variants will be removed too."
+msgid "in use"
 msgstr ""
 
 #: includes/class-efm-builder.php:449
-msgid "No font families yet."
+msgid "You have unsaved font changes. Close and discard them?"
 msgstr ""
 
 #: includes/class-efm-builder.php:450
-msgid "Upload a font file or install one from Google Fonts."
+msgid "It is mapped by:"
 msgstr ""
 
 #: includes/class-efm-builder.php:451
-msgid "New family"
+msgid "Those variants will be removed too."
 msgstr ""
 
 #: includes/class-efm-builder.php:452
-msgid "Family name"
+msgid "No font families yet."
 msgstr ""
 
 #: includes/class-efm-builder.php:453
-msgid "Add variant"
+msgid "Upload a font file or install one from Google Fonts."
 msgstr ""
 
 #: includes/class-efm-builder.php:454
-msgid "Remove variant"
+msgid "New family"
 msgstr ""
 
 #: includes/class-efm-builder.php:455
-msgid "variants"
+msgid "Family name"
 msgstr ""
 
 #: includes/class-efm-builder.php:456
-msgid "variant"
+msgid "Add variant"
 msgstr ""
 
 #: includes/class-efm-builder.php:457
-msgid "Save changes"
+msgid "Remove variant"
 msgstr ""
 
 #: includes/class-efm-builder.php:458
-msgid "Saving…"
+msgid "variants"
 msgstr ""
 
 #: includes/class-efm-builder.php:459
-msgid "Fonts saved."
+msgid "variant"
 msgstr ""
 
 #: includes/class-efm-builder.php:460
-msgid "Discard"
+msgid "Save changes"
 msgstr ""
 
 #: includes/class-efm-builder.php:461
-msgid "Upload fonts"
+msgid "Saving…"
 msgstr ""
 
 #: includes/class-efm-builder.php:462
-msgid "Drop woff2, woff, ttf or otf files here, or click to browse."
+msgid "Fonts saved."
 msgstr ""
 
 #: includes/class-efm-builder.php:463
-msgid "Uploading…"
+msgid "Discard"
 msgstr ""
 
 #: includes/class-efm-builder.php:464
-msgid "Uploaded"
+msgid "Upload fonts"
 msgstr ""
 
 #: includes/class-efm-builder.php:465
-msgid "Convert TTF, OTF and WOFF to WOFF2"
+msgid "Drop woff2, woff, ttf or otf files here, or click to browse."
 msgstr ""
 
 #: includes/class-efm-builder.php:466
-msgid "Runs in your browser, so the font is never sent anywhere but your own site. WOFF2 is what every current browser prefers: normally 40 to 65% smaller than TTF or OTF, and around 20% smaller than WOFF. Only the container changes: glyphs, variable axes and OpenType features are untouched. It is not a subsetter, so a font that is large because of its character coverage stays large."
+msgid "Uploading…"
 msgstr ""
 
 #: includes/class-efm-builder.php:467
-msgid "Convert to WOFF2"
+msgid "Uploaded"
 msgstr ""
 
 #: includes/class-efm-builder.php:468
-msgid "Converting…"
+msgid "Convert TTF, OTF and WOFF to WOFF2"
 msgstr ""
 
 #: includes/class-efm-builder.php:469
-msgid "Converted"
+msgid "Runs in your browser, so the font is never sent anywhere but your own site. WOFF2 is what every current browser prefers: normally 40 to 65% smaller than TTF or OTF, and around 20% smaller than WOFF. Only the container changes: glyphs, variable axes and OpenType features are untouched. It is not a subsetter, so a font that is large because of its character coverage stays large."
 msgstr ""
 
 #: includes/class-efm-builder.php:470
-msgid "smaller"
+msgid "Convert to WOFF2"
 msgstr ""
 
 #: includes/class-efm-builder.php:471
-msgid "Could not convert this font."
+msgid "Converting…"
 msgstr ""
 
 #: includes/class-efm-builder.php:472
-msgid "Converting took too long and was stopped."
+msgid "Converted"
 msgstr ""
 
 #: includes/class-efm-builder.php:473
-msgid "The converter could not start in this browser."
+msgid "smaller"
 msgstr ""
 
 #: includes/class-efm-builder.php:474
-msgid "Could not read the file from the fonts folder."
+msgid "Could not convert this font."
 msgstr ""
 
 #: includes/class-efm-builder.php:475
-msgid "This WOFF file is damaged and could not be read."
+msgid "Converting took too long and was stopped."
 msgstr ""
 
 #: includes/class-efm-builder.php:476
-msgid "Converting saves the family mapping. Unsaved changes will be discarded. Continue?"
+msgid "The converter could not start in this browser."
 msgstr ""
 
 #: includes/class-efm-builder.php:477
-msgid "Uploaded files"
+msgid "Could not read the file from the fonts folder."
 msgstr ""
 
 #: includes/class-efm-builder.php:478
-msgid "No files uploaded yet."
+msgid "This WOFF file is damaged and could not be read."
 msgstr ""
 
 #: includes/class-efm-builder.php:479
-msgid "Delete file"
+msgid "Converting saves the family mapping. Unsaved changes will be discarded. Continue?"
+msgstr ""
+
+#: includes/class-efm-builder.php:480
+msgid "Uploaded files"
 msgstr ""
 
 #: includes/class-efm-builder.php:481
-msgid "Search Google Fonts"
+msgid "No files uploaded yet."
 msgstr ""
 
 #: includes/class-efm-builder.php:482
-msgid "Searching…"
-msgstr ""
-
-#: includes/class-efm-builder.php:483
-msgid "No fonts found."
+msgid "Delete file"
 msgstr ""
 
 #: includes/class-efm-builder.php:484
-msgid "Install"
+msgid "Search Google Fonts"
 msgstr ""
 
 #: includes/class-efm-builder.php:485
-msgid "Installing…"
+msgid "Searching…"
+msgstr ""
+
+#: includes/class-efm-builder.php:486
+msgid "No fonts found."
 msgstr ""
 
 #: includes/class-efm-builder.php:487
-msgid "Weight"
+msgid "Install"
 msgstr ""
 
 #: includes/class-efm-builder.php:488
-msgid "Style"
-msgstr ""
-
-#: includes/class-efm-builder.php:489
-msgid "File"
+msgid "Installing…"
 msgstr ""
 
 #: includes/class-efm-builder.php:490
-msgid "Normal"
+msgid "Weight"
 msgstr ""
 
 #: includes/class-efm-builder.php:491
-msgid "Italic"
+msgid "Style"
 msgstr ""
 
 #: includes/class-efm-builder.php:492
-msgid "Delete this file from the fonts folder?"
+msgid "File"
 msgstr ""
 
 #: includes/class-efm-builder.php:493
-msgid "Something went wrong."
+msgid "Normal"
 msgstr ""
 
 #: includes/class-efm-builder.php:494
+msgid "Italic"
+msgstr ""
+
+#: includes/class-efm-builder.php:495
+msgid "Delete this file from the fonts folder?"
+msgstr ""
+
+#: includes/class-efm-builder.php:496
+msgid "Something went wrong."
+msgstr ""
+
+#: includes/class-efm-builder.php:497
 msgid "The quick brown fox"
 msgstr ""
 

@@ -427,6 +427,27 @@
 	display: none;
 }
 
+/* ------------------------------- Section ------------------------------- */
+
+/*
+ * A titled box grouping related controls. Same raised treatment as a card,
+ * because it is the same idea: one concern, lifted off the pane.
+ */
+
+.efm-section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--e-space-m, 12px);
+	align-items: flex-start;
+	padding: var(--e-space-m, 12px);
+	border-radius: var(--efm-radius);
+	background: var(--efm-surface-raised);
+}
+
+.efm-section > .efm-muted {
+	margin-block-start: calc(var(--e-space-m, 12px) * -1 + 4px);
+}
+
 /* ------------------------------- Toolbar ------------------------------- */
 
 .efm-toolbar {
@@ -806,6 +827,11 @@
 }
 
 /* A disabled family stays legible but reads as inactive. */
+/* A grid of cards is a list of targets, so give them an edge on hover. */
+.efm-card:hover {
+	border-color: var(--efm-line);
+}
+
 .efm-card.is-disabled .efm-specimen,
 .efm-card.is-disabled .efm-card__title,
 .efm-card.is-disabled .efm-card__meta {
@@ -836,11 +862,18 @@
 	flex: 0 0 auto;
 }
 
+/*
+ * Pinned to the foot of the card. Cards in a grid row are stretched to the
+ * tallest one, so without this each footer floats at whatever height its own
+ * content happens to end at and the row reads as ragged.
+ */
 .efm-card__meta {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	gap: 8px;
+	margin-block-start: auto;
+	padding-block-start: 4px;
 	font-size: var(--e-font-size-s, 11px);
 	color: var(--efm-muted);
 }
@@ -868,6 +901,13 @@
 	color: var(--efm-muted);
 }
 
+/* Carries a state rather than a count, so it takes a fill of its own. */
+.efm-badge--muted {
+	padding: 2px 6px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--efm-text) 12%, transparent);
+}
+
 /* -------------------------------- Chips -------------------------------- */
 
 .efm-chips {
@@ -887,6 +927,21 @@
 	color: var(--efm-muted);
 	font: inherit;
 	font-size: var(--e-font-size-s, 11px);
+}
+
+/*
+ * The disclosure that ends a collapsed chip row. Quieter than a real chip: it
+ * is a control for the row rather than one of its values.
+ */
+.efm-chip--more {
+	border-style: dashed;
+	color: var(--efm-muted);
+	cursor: pointer;
+}
+
+.efm-chip--more:hover {
+	border-style: solid;
+	color: var(--efm-text);
 }
 
 .efm-chip--toggle {

@@ -35,6 +35,8 @@
 		editing: null,
 		// Transient: whether the Google Fonts filter popover is open. Not saved.
 		filtersOpen: false,
+		// Transient: which collapsed chip rows the user has expanded. Not saved.
+		chipsOpen: {},
 		filter: '',
 		query: '',
 		results: [],
@@ -90,6 +92,12 @@
 
 	var PREFS_KEY = 'efm.prefs.v1';
 	var LAYOUTS = ['row', 'grid', 'compact'];
+
+	/*
+	 * How many chips a collapsed row shows. Six fills roughly one line of a card
+	 * at the grid's 340px minimum, which is the width the layout is built around.
+	 */
+	var CHIP_LIMIT = 6;
 
 	/**
 	 * Read the saved browse preferences.
@@ -1119,6 +1127,110 @@
 	}
 
 	/**
+	 * A titled box grouping related controls.
+	 *
+	 * Settings and Import & export were flat runs of headings, checkboxes and
+	 * buttons on one surface, so nothing showed where one concern ended and the
+	 * next began. A raised box per concern is the same device Etch uses for its
+	 * own grouped controls.
+	 */
+	function section(title, children) {
+		return el('section', { class: 'efm-section' }, [
+			el('h3', { class: 'efm-section-title', text: title })
+		].concat(children.filter(Boolean)));
+	}
+
+	/**
+	 * Wrap each run of nodes following a section heading in a section box.
+	 *
+	 * Import & export builds its three tools by appending straight to the pane in
+	 * one long sequence. Rewriting that into nested nodes would be a large change
+	 * for a purely visual one, so the grouping is done in a single pass afterwards
+	 * using the headings as boundaries. Anything before the first heading is left
+	 * where it is.
+	 */
+	function groupSections(root) {
+		var nodes = Array.prototype.slice.call(root.childNodes);
+		var current = null;
+
+		nodes.forEach(function (node) {
+			if (1 === node.nodeType && node.classList.contains('efm-section-title')) {
+				current = el('section', { class: 'efm-section' });
+				root.insertBefore(current, node);
+			}
+
+			if (current) {
+				current.appendChild(node);
+			}
+		});
+	}
+
+	/**
+	 * A row of toggle chips that collapses past a limit.
+	 *
+	 * Some families carry twenty-five subsets or eighteen weights. Rendered in
+	 * full that turns a card into a wall of chips, and because the grid stretches
+	 * a row to its tallest card, one such family leaves every neighbour half
+	 * empty. Only the first few are shown by default.
+	 *
+	 * Any chip that is currently on stays visible regardless of where it falls in
+	 * the list, so a selection can never end up hidden behind the disclosure.
+	 *
+	 * @param {string}   key    Identity for the expanded flag, unique per card and row.
+	 * @param {string}   label  Row label.
+	 * @param {Array}    items  { label, on, onclick } for each chip.
+	 * @param {number}   limit  How many to show while collapsed.
+	 * @param {Array}    [tail] Extra chips always pinned after the list.
+	 */
+	function chipWall(key, label, items, limit, tail) {
+		var open = !!state.chipsOpen[key];
+		var shown = open ? items : items.filter(function (item, i) {
+			return i < limit || item.on;
+		});
+		var hidden = items.length - shown.length;
+
+		var chips = shown.map(function (item) {
+			return el('button', {
+				type: 'button',
+				class: 'efm-chip efm-chip--toggle' + (item.on ? ' is-on' : ''),
+				'aria-pressed': item.on ? 'true' : 'false',
+				text: item.label,
+				onclick: item.onclick
+			});
+		});
+
+		if (hidden > 0) {
+			chips.push(el('button', {
+				type: 'button',
+				class: 'efm-chip efm-chip--more',
+				'aria-expanded': 'false',
+				'aria-label': s('showAll', 'Show all') + ' (' + items.length + ')',
+				text: '+' + hidden,
+				onclick: function () {
+					state.chipsOpen[key] = true;
+					render();
+				}
+			}));
+		} else if (open && items.length > limit) {
+			chips.push(el('button', {
+				type: 'button',
+				class: 'efm-chip efm-chip--more',
+				'aria-expanded': 'true',
+				text: s('showFewer', 'Show fewer'),
+				onclick: function () {
+					state.chipsOpen[key] = false;
+					render();
+				}
+			}));
+		}
+
+		return el('div', { class: 'efm-subsets' }, [
+			el('span', { class: 'efm-subsets__label', text: label }),
+			el('div', { class: 'efm-chips' }, chips.concat(tail || []))
+		]);
+	}
+
+	/**
 	 * Filters popover for the Google Fonts browser.
 	 *
 	 * Category, writing system, technology and sort all narrow the same list and
@@ -1485,11 +1597,20 @@
 				el('article', { class: 'efm-card' + (enabled ? '' : ' is-disabled') }, [
 					el('div', { class: 'efm-card__head' }, [
 						el('h2', { class: 'efm-card__title', text: family.name }),
+						/*
+						 * A badge, not the full-width notice this used to be. That
+						 * notice sat between the title and the specimen, so in the
+						 * grid every disabled card pushed its specimen down and the
+						 * row stopped lining up. The wording moves to the button's
+						 * title, where it is still reachable.
+						 */
+						enabled ? null : el('span', { class: 'efm-badge efm-badge--muted', text: s('disabledLabel', 'Disabled') }),
 						el('div', { class: 'efm-card__actions' }, [
 							el('button', {
 								type: 'button',
 								class: 'efm-btn efm-btn--outline efm-btn--sm',
 								'aria-pressed': enabled ? 'true' : 'false',
+								title: enabled ? '' : s('disabledNotice', 'Disabled. Its files are kept, but it is not loaded on the site.'),
 								text: enabled ? s('disableFamily', 'Disable') : s('enableFamily', 'Enable'),
 								onclick: function () {
 									setFamilyEnabled(row.index, !enabled);
@@ -1514,11 +1635,12 @@
 							}, [icon('trash')])
 						])
 					]),
-					enabled ? null : el('p', { class: 'efm-notice', text: s('disabledNotice', 'Disabled. Its files are kept, but it is not loaded on the site.') }),
 					specimen(family.name, subsetList),
-					subsetList.length ? el('div', { class: 'efm-chips' }, subsetList.map(function (sub) {
+					subsetList.length ? el('div', { class: 'efm-chips' }, subsetList.slice(0, CHIP_LIMIT).map(function (sub) {
 						return el('span', { class: 'efm-chip', text: sub });
-					})) : null,
+					}).concat(subsetList.length > CHIP_LIMIT
+						? [el('span', { class: 'efm-chip efm-chip--more', text: '+' + (subsetList.length - CHIP_LIMIT) })]
+						: [])) : null,
 					el('div', { class: 'efm-card__meta' }, [
 						el('span', { text: variants.length + ' ' + plural(variants.length, s('variant', 'variant'), s('variants', 'variants')) }),
 						el('span', { class: 'efm-weights', text: weights.join(' · ') || '—' })
@@ -2726,9 +2848,15 @@
 						]),
 						el('div', { class: 'efm-card__actions' }, [
 							installed ? el('span', { class: 'efm-badge' }, [icon('check', 'sm'), el('span', { text: s('installed', 'Installed') })]) : null,
+							/*
+							 * Outline, not accent. A grid of twenty-four cards each
+							 * shouting in the accent colour is not a hierarchy, and
+							 * Etch keeps one accent action per screen. The bulk bar
+							 * above the grid carries the primary.
+							 */
 							el('button', {
 								type: 'button',
-								class: 'efm-btn efm-btn--sm ' + (installed ? 'efm-btn--outline' : 'efm-btn--primary'),
+								class: 'efm-btn efm-btn--sm efm-btn--outline',
 								text: busy
 									? s('installing', 'Installing…')
 									: (installed ? s('reinstall', 'Reinstall') : s('install', 'Install')),
@@ -2759,47 +2887,38 @@
 							})
 						])
 					]) : null,
-					pickCuts ? el('div', { class: 'efm-subsets' }, [
-						el('span', { class: 'efm-subsets__label', text: s('weights', 'Weights') }),
-						el('div', { class: 'efm-chips' }, allCuts.map(function (cut) {
-							var on = cuts.indexOf(cut) !== -1;
-
-							return el('button', {
-								type: 'button',
-								class: 'efm-chip efm-chip--toggle' + (on ? ' is-on' : ''),
-								'aria-pressed': on ? 'true' : 'false',
-								text: cutLabel(cut),
-								onclick: function () {
-									toggleCut(font, cut);
-								}
-							});
-						}).concat([
-							el('button', {
-								type: 'button',
-								class: 'efm-chip efm-chip--toggle',
-								text: cuts.length === allCuts.length ? s('cutsNone', 'None') : s('cutsAll', 'All'),
-								onclick: function () {
-									setCuts(font, cuts.length === allCuts.length ? [] : allCuts);
-								}
-							})
-						]))
-					]) : null,
-					available.length > 1 ? el('div', { class: 'efm-subsets' }, [
-						el('span', { class: 'efm-subsets__label', text: s('subsets', 'Subsets') }),
-						el('div', { class: 'efm-chips' }, available.map(function (sub) {
-							var on = chosen.indexOf(sub) !== -1;
-
-							return el('button', {
-								type: 'button',
-								class: 'efm-chip efm-chip--toggle' + (on ? ' is-on' : ''),
-								'aria-pressed': on ? 'true' : 'false',
-								text: sub,
-								onclick: function () {
-									toggleSubset(font, sub);
-								}
-							});
-						}))
-					]) : null,
+					pickCuts ? chipWall(
+						'cuts:' + font.family,
+						s('weights', 'Weights'),
+						allCuts.map(function (cut) {
+							return {
+								label: cutLabel(cut),
+								on: cuts.indexOf(cut) !== -1,
+								onclick: function () { toggleCut(font, cut); }
+							};
+						}),
+						CHIP_LIMIT,
+						[el('button', {
+							type: 'button',
+							class: 'efm-chip efm-chip--toggle',
+							text: cuts.length === allCuts.length ? s('cutsNone', 'None') : s('cutsAll', 'All'),
+							onclick: function () {
+								setCuts(font, cuts.length === allCuts.length ? [] : allCuts);
+							}
+						})]
+					) : null,
+					available.length > 1 ? chipWall(
+						'subsets:' + font.family,
+						s('subsets', 'Subsets'),
+						available.map(function (sub) {
+							return {
+								label: sub,
+								on: chosen.indexOf(sub) !== -1,
+								onclick: function () { toggleSubset(font, sub); }
+							};
+						}),
+						CHIP_LIMIT
+					) : null,
 					el('div', { class: 'efm-card__meta' }, [
 						el('span', { text: font.category || '' }),
 						el('span', { text: stylesLabel(font) }),
@@ -3188,15 +3307,14 @@
 	/* -------------------------------- Theme ------------------------------ */
 
 	function renderSettings() {
-		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('stylesheet', 'Stylesheet') }));
-		contentEl.appendChild(el('p', {
+		var stylesheetStatus = el('p', {
 			class: 'efm-muted',
 			text: state.cssBuilt
 				? s('cssBuilt', 'Last generated') + ': ' + new Date(state.cssBuilt * 1000).toLocaleString()
 				: s('cssNever', 'The stylesheet has not been generated yet.')
-		}));
+		});
 
-		contentEl.appendChild(
+		var inlineToggle =
 			el('label', { class: 'efm-toggle' }, [
 				el('input', {
 					type: 'checkbox',
@@ -3211,22 +3329,18 @@
 					el('span', { class: 'efm-toggle__label', text: s('inlineCss', 'Print the CSS inline') }),
 					el('span', { class: 'efm-field__hint', text: s('inlineCssHint', 'Saves one request but the CSS cannot be cached separately. Worth it for a small font set, not for a large one.') })
 				])
-			])
-		);
+			]);
 
-		contentEl.appendChild(
+		var regenerate =
 			el('button', {
 				type: 'button',
 				class: 'efm-btn efm-btn--outline',
 				disabled: state.busy === 'regenerate',
 				text: state.busy === 'regenerate' ? s('saving', 'Saving…') : s('regenerate', 'Regenerate stylesheet'),
 				onclick: regenerateCss
-			})
-		);
+			});
 
-		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('privacy', 'Privacy') }));
-
-		contentEl.appendChild(
+		var blockGoogle =
 			el('label', { class: 'efm-toggle' }, [
 				el('input', {
 					type: 'checkbox',
@@ -3241,9 +3355,13 @@
 					el('span', { class: 'efm-toggle__label', text: s('blockGoogle', 'Block Google Fonts loaded by other plugins') }),
 					el('span', { class: 'efm-field__hint', text: s('blockGoogleHint', 'Stops theme and plugin stylesheets that point at fonts.googleapis.com, and removes the matching preconnect hints. It cannot reach an @import inside a theme stylesheet or a link tag printed straight into the page. Your own local fonts are unaffected.') })
 				])
-			])
-		);
+			]);
 
+		contentEl.appendChild(section(s('stylesheet', 'Stylesheet'), [stylesheetStatus, inlineToggle, regenerate]));
+		contentEl.appendChild(section(s('privacy', 'Privacy'), [blockGoogle]));
+
+		// Saving covers both boxes, so it belongs to the screen rather than to
+		// either one of them.
 		contentEl.appendChild(
 			el('button', {
 				type: 'button',
@@ -3498,6 +3616,9 @@
 
 			contentEl.appendChild(el('div', { class: 'efm-report' }, lines));
 		}
+
+		// Three unrelated tools on one pane; the headings mark where each ends.
+		groupSections(contentEl);
 	}
 
 	/**

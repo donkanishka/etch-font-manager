@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.24.0
+Stable tag: 1.24.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,11 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.24.1 =
+* Fixed: in the grid layout the preview text was cut off mid-word. It now wraps to two lines, and cards still line up with each other.
+* Fixed: the "Variable" option had lost its styling and was rendering across two lines with its explanation repeated on every card. It is one line now, with the explanation on hover.
+* No change to behaviour, settings or stored data.
 
 = 1.24.0 =
 * Google Fonts now loads behind placeholder cards instead of collapsing to a line of text and jumping when results arrive.

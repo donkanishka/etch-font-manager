@@ -2,6 +2,28 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.24.1
+
+Two follow-ups from reviewing the finished interface, plus a modifier that never had a rule.
+
+### Fixed
+
+- **Grid specimens were cut mid-word.** Row already wrapped its sample and Compact is deliberately one line, so
+  only the grid layout truncated, with an ellipsis at anything above roughly 30px. Specimens now clamp to two
+  lines with the box held at exactly that height, so a one-line family and a two-line family still line up beside
+  each other. Measured on the live grid afterwards: every sampled card reports the same specimen height and the
+  footers stay put, so the row alignment added in 1.23.0 is unaffected.
+
+- **`.efm-toggle--inline` had no rule of its own.** The modifier was already in the markup and in the compact
+  layout's hide list, but nothing styled it, so it rendered as the default stacked toggle. This is the third
+  modifier found this way, after `.efm-btn--ghost` and `.efm-btn--block` in 1.21.0.
+
+### Changed
+
+- **The variable toggle is one line rather than two.** The axis range earns its place on a card, so
+  "Variable 100–900" stays visible; the explanation behind it does not need repeating down twenty-four cards and
+  moves to the label's tooltip. The detail view is one family on a full pane, so it keeps the whole sentence.
+
 ## 1.24.0
 
 Loading, empty and status states. No new strings and no new stored data.

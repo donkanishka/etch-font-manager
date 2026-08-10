@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.22.0
+Stable tag: 1.23.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,14 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.23.0 =
+* Font cards line up. Long lists of subsets or weights now collapse behind a "+18" you can open, so one family with twenty-five subsets no longer leaves every card beside it half empty. Anything you have selected stays visible.
+* Card footers sit at the bottom of each card, so a row of them reads evenly instead of ragged.
+* Install is a quieter outline button. The accent colour is kept for the one main action on a screen, which on Google Fonts is the bulk install bar once you pick families.
+* A disabled family is marked with a small badge beside its name instead of a full-width notice that pushed the preview out of line.
+* Settings and Import & export are grouped into boxes, one per concern, instead of one long run of controls.
+* No change to behaviour, settings or stored data.
 
 = 1.22.0 =
 * The Google Fonts toolbar is one row instead of two. Category, writing system, technology and sort moved into a Filters popover with a badge showing how many are active; search, layout, preview text and size stay on the surface.

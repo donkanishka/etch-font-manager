@@ -2,6 +2,45 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.23.0
+
+Screen-level composition. Behaviour, settings, stored data and the REST surface are unchanged; this is what the
+cards and the two settings screens look like.
+
+### Changed
+
+- **Chip rows collapse past six.** Google Sans carries twenty-five subsets and Poppins eighteen weights. Rendered
+  in full those turn a card into a wall of chips, and because a grid row is stretched to its tallest card, one
+  such family left every neighbour half empty. A dashed `+18` opens the rest.
+
+  A chip that is currently selected stays visible wherever it falls in the list, so a choice can never end up
+  hidden behind the disclosure. Checked against the live catalogue: Google Sans keeps `latin` on show with
+  eighteen collapsed behind it, and Poppins keeps both `400` and `700`.
+
+- **Card footers are pinned to the foot of the card**, so the footers in a grid row line up instead of floating
+  wherever each card's own content happened to end. Measured on the live grid: all eight sampled Google cards
+  report their footer 13px from the bottom, and the three Library cards start their specimen at 49px.
+
+- **Install is an outline button.** Twenty-four cards each shouting in the accent colour is not a hierarchy, and
+  Etch keeps one accent action per screen. The Google Fonts screen now carries no primary button at all until
+  families are picked, at which point the bulk bar takes it.
+
+- **A disabled family is marked with a badge beside its name** rather than a full-width notice. That notice sat
+  between the title and the specimen, so every disabled card pushed its specimen down and broke the row it was
+  in. The wording moved to the button's tooltip, where it is still reachable.
+
+- **Cards take a border on hover**, since a grid of them is a list of targets.
+
+- **Settings and Import & export are grouped into boxes.** Both were flat runs of headings, checkboxes and
+  buttons on a single surface, with nothing to show where one concern ended and the next began. Settings is two
+  boxes with Save changes outside them, because saving covers both; Import & export is three, one per tool.
+
+### Not changed, deliberately
+
+- The Upload screen was reviewed and left alone. Its dropzone already had an icon, a title and a hint from the
+  earlier work, and adding a button and format chips that repeat that hint would have been change for its own
+  sake.
+
 ## 1.22.0
 
 Layout and hierarchy, measured against a live Asset Manager and Style Manager rather than guessed at. Nothing

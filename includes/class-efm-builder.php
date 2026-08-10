@@ -424,6 +424,7 @@ class EFM_Builder {
 			'importInvalid'  => __( 'That file is not valid JSON.', 'etch-font-manager' ),
 			'importMissing'  => __( 'These files are referenced but not present in the fonts folder. Upload them, or reinstall the family from Google Fonts:', 'etch-font-manager' ),
 			'imported'       => __( 'imported', 'etch-font-manager' ),
+			'filters'        => __( 'Filters', 'etch-font-manager' ),
 			'category'       => __( 'Category', 'etch-font-manager' ),
 			'allCategories'  => __( 'All categories', 'etch-font-manager' ),
 			'sortBy'         => __( 'Sort by', 'etch-font-manager' ),

@@ -33,6 +33,8 @@
 		cssVersion: (cfg.state && cfg.state.cssVersion) || '',
 		view: 'library',
 		editing: null,
+		// Transient: whether the Google Fonts filter popover is open. Not saved.
+		filtersOpen: false,
 		filter: '',
 		query: '',
 		results: [],
@@ -306,6 +308,7 @@
 		check: '<path d="M5 13L9 17L19 7"/>',
 		close: '<path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426"/>',
 		search: '<path d="M17 17L21 21"/><path d="M3 11C3 15.4183 6.58172 19 11 19C13.213 19 15.2161 18.1015 16.6644 16.6493C18.1077 15.2022 19 13.2053 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11Z"/>',
+		filter: '<path d="M3.99961 3H19.9997C20.552 3 20.9997 3.44764 20.9997 3.99987L20.9999 5.58569C21 5.85097 20.8946 6.10538 20.707 6.29295L14.2925 12.7071C14.105 12.8946 13.9996 13.149 13.9996 13.4142L13.9996 19.7192C13.9996 20.3698 13.3882 20.8472 12.7571 20.6894L10.7571 20.1894C10.3119 20.0781 9.99961 19.6781 9.99961 19.2192L9.99961 13.4142C9.99961 13.149 9.89425 12.8946 9.70672 12.7071L3.2925 6.29289C3.10496 6.10536 2.99961 5.851 2.99961 5.58579V4C2.99961 3.44772 3.44732 3 3.99961 3Z"/>',
 		refresh: '<path d="M21.8883 13.5C21.1645 18.3113 17.013 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C16.1006 2 19.6248 4.46819 21.1679 8"/><path d="M17 8H21.4C21.7314 8 22 7.73137 22 7.4V3"/>',
 		undo: '<path d="M4.5 8C8.5 8 11 8 15 8C15 8 15 8 15 8C15 8 20 8 20 12.7059C20 18 15 18 15 18C11.5714 18 9.71429 18 6.28571 18"/><path d="M7.5 11.5C6.13317 10.1332 5.36683 9.36683 4 8C5.36683 6.63317 6.13317 5.86683 7.5 4.5"/>',
 		edit: '<path d="M14.3632 5.65156L15.8431 4.17157C16.6242 3.39052 17.8905 3.39052 18.6716 4.17157L20.0858 5.58579C20.8668 6.36683 20.8668 7.63316 20.0858 8.41421L18.6058 9.8942M14.3632 5.65156L4.74749 15.2672C4.41542 15.5993 4.21079 16.0376 4.16947 16.5054L3.92738 19.2459C3.87261 19.8659 4.39148 20.3848 5.0115 20.33L7.75191 20.0879C8.21972 20.0466 8.65806 19.8419 8.99013 19.5099L18.6058 9.8942M14.3632 5.65156L18.6058 9.8942"/>',
@@ -524,9 +527,14 @@
 	var lastFocus = null;
 	var barObserver = null;
 
+	/*
+	 * count is optional and only set where a number means something. Etch badges
+	 * its asset collections but not its tools, so Google Fonts, Settings and
+	 * Import & export carry no badge.
+	 */
 	var VIEWS = [
-		{ key: 'library', icon: 'library', label: function () { return s('library', 'Library'); } },
-		{ key: 'upload', icon: 'upload', label: function () { return s('upload', 'Upload fonts'); } },
+		{ key: 'library', icon: 'library', label: function () { return s('library', 'Library'); }, count: function () { return liveFamilies().length; } },
+		{ key: 'upload', icon: 'upload', label: function () { return s('upload', 'Upload fonts'); }, count: function () { return state.files.length; } },
 		{ key: 'google', icon: 'google', label: function () { return s('googleFonts', 'Google Fonts'); } },
 		{ key: 'settings', icon: 'settings', label: function () { return s('settings', 'Settings'); } },
 		{ key: 'tools', icon: 'transfer', label: function () { return s('tools', 'Import & export'); } }
@@ -594,6 +602,13 @@
 		manager.addEventListener('keydown', function (event) {
 			if (event.key === 'Escape') {
 				event.stopPropagation();
+
+				// A popover is the innermost layer, so it takes Escape first.
+				if (state.filtersOpen) {
+					closeFilters(true);
+					return;
+				}
+
 				close(true);
 				return;
 			}
@@ -624,6 +639,20 @@
 				event.preventDefault();
 				first.focus();
 			}
+		});
+
+		/*
+		 * Dismiss the filters popover on a press anywhere outside it. Bound to the
+		 * manager rather than the document because the manager already covers the
+		 * builder, and pointerdown rather than click so the popover is gone before
+		 * whatever was pressed reacts.
+		 */
+		manager.addEventListener('pointerdown', function (event) {
+			if (!state.filtersOpen || event.target.closest('.efm-filters')) {
+				return;
+			}
+
+			closeFilters(false);
 		});
 
 		window.addEventListener('resize', function () {
@@ -830,6 +859,8 @@
 	}
 
 	function go(view) {
+		state.filtersOpen = false;
+
 		state.view = view;
 		state.editing = null;
 		render();
@@ -890,12 +921,21 @@
 			views.push({
 				key: 'trash',
 				icon: 'trash',
-				label: function () { return s('trash', 'Trash') + ' (' + trashed.length + ')'; }
+				label: function () { return s('trash', 'Trash'); },
+				count: function () { return trashed.length; }
 			});
 		}
 
 		views.forEach(function (view) {
 			var active = state.view === view.key && state.editing === null;
+			var children = [icon(view.icon), el('span', { text: view.label() })];
+			var count = view.count ? view.count() : null;
+
+			// The badge is a plain span rather than aria-hidden decoration, so the
+			// count is part of the button's accessible name.
+			if (count !== null) {
+				children.push(el('span', { class: 'efm-nav__count', text: String(count) }));
+			}
 
 			navEl.appendChild(
 				el('button', {
@@ -905,7 +945,7 @@
 					onclick: function () {
 						go(view.key);
 					}
-				}, [icon(view.icon), el('span', { text: view.label() })])
+				}, children)
 			);
 		});
 
@@ -914,11 +954,24 @@
 			return total + (family.variants || []).length;
 		}, 0);
 
+		/*
+		 * Etch closes its Asset Manager sidebar with stat cards rather than a run
+		 * of text: a bold value over a quiet label on a raised fill. Three across
+		 * instead of Etch's two, because this column is narrower than its 300px
+		 * and the icons it pairs with each value would not fit.
+		 */
+		function stat(value, label) {
+			return el('div', { class: 'efm-stat' }, [
+				el('span', { class: 'efm-stat__value', text: String(value) }),
+				el('span', { class: 'efm-stat__label', text: label })
+			]);
+		}
+
 		navEl.appendChild(
 			el('div', { class: 'efm-nav__meta' }, [
-				el('span', { text: live.length + ' ' + plural(live.length, s('familyLabel', 'family'), s('familiesLabel', 'families')) }),
-				el('span', { text: variantCount + ' ' + plural(variantCount, s('variant', 'variant'), s('variants', 'variants')) }),
-				el('span', { text: state.files.length + ' ' + plural(state.files.length, s('fileLabel', 'file'), s('filesLabel', 'files')) })
+				stat(live.length, plural(live.length, s('familyLabel', 'family'), s('familiesLabel', 'families'))),
+				stat(variantCount, plural(variantCount, s('variant', 'variant'), s('variants', 'variants'))),
+				stat(state.files.length, plural(state.files.length, s('fileLabel', 'file'), s('filesLabel', 'files')))
 			])
 		);
 	}
@@ -1053,6 +1106,102 @@
 		return el('div', { class: 'efm-toolbar' }, [
 			lead || null,
 			el('div', { class: 'efm-toolbar__preview' }, [textInput, chips, size, sizeLabel])
+		]);
+	}
+
+	/**
+	 * Filters popover for the Google Fonts browser.
+	 *
+	 * Category, writing system, technology and sort all narrow the same list and
+	 * are typically set once and then left alone, so they sit behind a button
+	 * rather than occupying a second toolbar row. Search, layout, preview text
+	 * and preview size stay on the surface because they are adjusted constantly.
+	 *
+	 * The open flag lives in state because changing any filter re-renders the
+	 * whole view, which would otherwise snap the popover shut on first use.
+	 */
+	/**
+	 * Close the filters popover.
+	 *
+	 * refocus matters more than it looks: render() destroys whatever was focused
+	 * inside the popover, and if focus lands on document.body then the manager's
+	 * own keydown listener stops receiving anything, so a second Escape would no
+	 * longer close the manager. Pointer dismissals pass false, because focus
+	 * belongs wherever the user just pressed.
+	 */
+	function closeFilters(refocus) {
+		if (!state.filtersOpen) {
+			return;
+		}
+
+		state.filtersOpen = false;
+		render();
+
+		if (refocus) {
+			var trigger = manager.querySelector('.efm-filters button');
+
+			if (trigger) {
+				trigger.focus();
+			}
+		}
+	}
+
+	function filterPopover(fields) {
+		var count = hiddenFilterCount();
+		var open = state.filtersOpen;
+
+		var trigger = el('button', {
+			type: 'button',
+			class: 'efm-btn efm-btn--outline efm-btn--sm',
+			'aria-expanded': open ? 'true' : 'false',
+			'aria-controls': 'efm-filters',
+			onclick: function () {
+				if (state.filtersOpen) {
+					closeFilters(true);
+					return;
+				}
+
+				state.filtersOpen = true;
+				render();
+
+				var next = manager.querySelector('.efm-filters button');
+
+				if (next) {
+					next.focus();
+				}
+			}
+		}, [
+			icon('filter', 'sm'),
+			el('span', { text: s('filters', 'Filters') }),
+			count ? el('span', { class: 'efm-filters__count', text: String(count) }) : null
+		]);
+
+		var panel = el('div', {
+			class: 'efm-popover',
+			id: 'efm-filters',
+			role: 'group',
+			'aria-label': s('filters', 'Filters'),
+			hidden: !open
+		}, fields.concat([
+			el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--ghost efm-btn--sm efm-btn--block',
+				disabled: !googleFiltered(),
+				onclick: resetGoogleFilters
+			}, [icon('refresh', 'sm'), el('span', { text: s('resetAll', 'Reset all') })])
+		]));
+
+		return el('div', { class: 'efm-filters' }, [trigger, panel]);
+	}
+
+	/**
+	 * A labelled control for the filters popover. The selects carry aria-labels
+	 * of their own for when they appear outside this context.
+	 */
+	function filterField(labelText, control) {
+		return el('label', { class: 'efm-field' }, [
+			el('span', { class: 'efm-field__label', text: labelText }),
+			control
 		]);
 	}
 
@@ -2471,16 +2620,12 @@
 		contentEl.appendChild(previewToolbar(
 			el('div', { class: 'efm-toolbar__lead' }, [
 				el('div', { class: 'efm-search' }, [icon('search', 'sm'), search]),
-				categorySelect,
-				subsetSelect,
-				variableSelect,
-				sortSelect,
-				el('button', {
-					type: 'button',
-					class: 'efm-btn efm-btn--ghost efm-btn--sm',
-					disabled: !googleFiltered(),
-					onclick: resetGoogleFilters
-				}, [icon('refresh', 'sm'), el('span', { text: s('resetAll', 'Reset all') })]),
+				filterPopover([
+					filterField(s('category', 'Category'), categorySelect),
+					filterField(s('writingSystem', 'Writing system'), subsetSelect),
+					filterField(s('technology', 'Technology'), variableSelect),
+					filterField(s('sortBy', 'Sort by'), sortSelect)
+				]),
 				layoutToggle()
 			])
 		));
@@ -4175,6 +4320,24 @@
 			'&variable=' + encodeURIComponent(state.variableOnly) +
 			'&sort=' + encodeURIComponent(state.sort) +
 			'&limit=24&offset=' + offset;
+	}
+
+	/**
+	 * How many of the collapsed filters are active.
+	 *
+	 * The search box stays on the surface, so it is deliberately excluded: the
+	 * badge reports what is hidden behind the button, not something already
+	 * visible next to it.
+	 */
+	function hiddenFilterCount() {
+		var n = 0;
+
+		if (state.category) { n += 1; }
+		if (state.subset) { n += 1; }
+		if (state.variableOnly) { n += 1; }
+		if ('popularity' !== state.sort) { n += 1; }
+
+		return n;
 	}
 
 	/**

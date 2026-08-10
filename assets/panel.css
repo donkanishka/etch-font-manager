@@ -5,7 +5,13 @@
  * literals, so the manager follows the builder's colour scheme and matches the
  * geometry of Etch's native managers (Content Hub, Style Manager, Asset
  * Manager): a takeover surface beside the settings bar, a 40px header and a
- * 256px inner navigation column.
+ * navigation column beside a bordered content pane.
+ *
+ * Measured on a live Asset Manager: Etch's sidebar column is 300px wide with
+ * 8px padding and a 1px --e-border-color divider, and its content pane sits on
+ * --e-base with a 1px border and a 6px radius rather than on a raised fill.
+ * This panel keeps a narrower 256px column on purpose, because its labels are
+ * fixed and short and the Google Fonts grid benefits from the width.
  */
 
 .efm-manager {
@@ -186,7 +192,7 @@
 	inline-size: 256px;
 	flex: 0 0 256px;
 	padding-inline-end: var(--e-panel-padding, 8px);
-	border-inline-end: 1px solid var(--efm-line);
+	border-inline-end: 1px solid var(--e-border-color, #36363a);
 }
 
 .efm-nav__label {
@@ -230,14 +236,61 @@
 	color: var(--efm-text-strong);
 }
 
+/*
+ * Etch's sidebar badge, measured: a pill carrying the count, pushed to the end
+ * of the row. On the active item it inverts to a light fill with dark text; on
+ * the rest it is a raised fill with muted text.
+ */
+.efm-nav__count {
+	margin-inline-start: auto;
+	padding: 4px 6px;
+	border-radius: 999px;
+	background: var(--efm-surface-raised);
+	color: var(--efm-muted);
+	font-size: var(--e-font-size-s, 11px);
+	font-weight: 500;
+	line-height: 1;
+}
+
+.efm-nav__item.is-active .efm-nav__count {
+	background: var(--efm-text);
+	color: var(--efm-surface-raised);
+}
+
+/* Etch's stat cards: value over label on a raised fill, at a 4px radius. */
 .efm-nav__meta {
 	display: flex;
-	flex-direction: column;
-	gap: 2px;
+	gap: 4px;
 	margin-block-start: auto;
-	padding: 12px;
+	padding-block-start: var(--e-space-m, 12px);
+}
+
+.efm-stat {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	flex: 1 1 0;
+	min-inline-size: 0;
+	padding: var(--e-space-xs, 6px);
+	border-radius: 4px;
+	background: var(--efm-surface-raised);
+}
+
+.efm-stat__value {
+	font-size: var(--e-font-size-l, 13px);
+	font-weight: 700;
+	line-height: 1;
+	color: var(--efm-text-strong);
+}
+
+.efm-stat__label {
 	font-size: var(--e-font-size-s, 11px);
+	font-weight: 400;
+	line-height: 1;
 	color: var(--efm-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 /* ------------------------------- Content ------------------------------- */
@@ -250,8 +303,14 @@
 	flex-direction: column;
 	gap: var(--e-space-m, 12px);
 	padding: var(--e-space-m, 12px);
+	/*
+	 * Etch's .asset-core__main is a bordered pane on --e-base, not a raised
+	 * fill. Raised elements sit on top of it: cards, table headers, the active
+	 * nav item, the select trigger.
+	 */
+	border: 1px solid var(--e-border-color, #36363a);
 	border-radius: var(--efm-radius);
-	background: var(--efm-surface-raised);
+	background: var(--efm-surface);
 	scrollbar-width: thin;
 	scrollbar-color: var(--etch-scrollbar-thumb-color, #4b4b4e) transparent;
 }
@@ -282,17 +341,72 @@
 	color: var(--efm-text-strong);
 }
 
+/*
+ * The content pane is as wide as the builder, so prose needs a measure or it
+ * runs to 1,600px and stops being readable. 72ch is roughly 90 characters at
+ * this size, which is the upper end of a comfortable line.
+ */
 .efm-muted {
 	margin: 0;
+	max-inline-size: 72ch;
 	color: var(--efm-muted);
 }
 
 .efm-notice {
 	margin: 0;
+	max-inline-size: 72ch;
 	padding: 8px 10px;
 	border: 1px solid var(--efm-line);
 	border-radius: var(--efm-radius);
 	color: var(--efm-muted);
+}
+
+/* ------------------------------- Popover ------------------------------- */
+
+/*
+ * Filters popover. Geometry follows Etch's .etch-select-content: the panel
+ * background, a --e-border hairline and --e-border-radius.
+ *
+ * One addition. Etch declares no shadow on that dropdown, because its items are
+ * plain text on the panel colour. This popover holds select triggers filled with
+ * --e-base-light and sits on a pane that is already the panel colour, so without
+ * elevation it would read as part of the page. The shadow is the smallest thing
+ * that makes it float.
+ */
+
+.efm-filters {
+	position: relative;
+	flex: 0 0 auto;
+}
+
+.efm-filters__count {
+	padding: 1px 5px;
+	border-radius: 999px;
+	background: var(--efm-text);
+	color: var(--efm-surface);
+	font-size: var(--e-font-size-s, 11px);
+	font-weight: 500;
+	line-height: 1.4;
+}
+
+.efm-popover {
+	position: absolute;
+	inset-block-start: calc(100% + 4px);
+	inset-inline-start: 0;
+	z-index: 20;
+	inline-size: 240px;
+	display: flex;
+	flex-direction: column;
+	gap: var(--e-space-m, 12px);
+	padding: var(--e-space-m, 12px);
+	border: 1px solid var(--e-border-color, #36363a);
+	border-radius: var(--efm-radius);
+	background: var(--e-panel-background-color, var(--efm-surface));
+	box-shadow: 0 6px 20px rgb(0 0 0 / .35);
+}
+
+.efm-popover[hidden] {
+	display: none;
 }
 
 /* ------------------------------- Toolbar ------------------------------- */
@@ -446,7 +560,7 @@
 	padding: 2px;
 	border: 1px solid var(--efm-line);
 	border-radius: var(--efm-radius);
-	background: var(--efm-surface);
+	background: transparent;
 }
 
 .efm-segmented__item {
@@ -576,12 +690,13 @@
  * The tester wraps, unlike the grid specimens. Judging an axis needs more than
  * one clipped line, and this is the one place with room for it.
  */
+/* Raised, like every other boxed element on the pane. */
 .efm-tester {
 	margin: 0;
 	padding: var(--e-space-m, 12px);
 	border: 1px solid var(--efm-line);
 	border-radius: var(--efm-radius);
-	background: var(--efm-surface);
+	background: var(--efm-surface-raised);
 	color: var(--efm-text);
 	line-height: 1.3;
 	word-break: break-word;
@@ -633,17 +748,27 @@
 	font-size: 11px;
 }
 
+/*
+ * A card is a raised element on the pane, the way Etch raises its stat cards
+ * and active nav item. The transparent border is kept so .is-picked has an edge
+ * to colour without shifting the layout.
+ */
 .efm-card {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
 	padding: var(--e-space-m, 12px);
-	border: 1px solid var(--efm-line);
+	border: 1px solid transparent;
 	border-radius: var(--efm-radius);
-	background: var(--efm-surface);
+	background: var(--efm-surface-raised);
 }
 
 /* Read-only view of the CSS a family contributes. */
+/*
+ * Etch's --e-code-background-color resolves to --e-base-light, which is also
+ * what a card uses, so code inside a card would have no contrast. A sunken
+ * --e-base-dark well reads on the pane and on a card alike.
+ */
 .efm-code {
 	/* The content column is a flex column, so without this the block is
 	   squashed to a couple of lines instead of taking its natural height. */
@@ -653,7 +778,7 @@
 	padding: var(--e-space-m, 12px);
 	border: 1px solid var(--efm-line);
 	border-radius: var(--efm-radius);
-	background: var(--efm-surface);
+	background: var(--e-base-dark, #1d1d20);
 	color: var(--efm-muted);
 	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 	font-size: 11px;
@@ -815,7 +940,7 @@
 }
 
 .efm-table__head {
-	background: var(--efm-surface);
+	background: var(--efm-surface-raised);
 	font-size: var(--e-font-size-s, 11px);
 	color: var(--efm-muted);
 }
@@ -858,6 +983,7 @@
 }
 
 .efm-field__hint {
+	max-inline-size: 72ch;
 	font-size: var(--e-font-size-s, 11px);
 	line-height: 1.4;
 	color: color-mix(in srgb, currentColor 45%, transparent);
@@ -872,7 +998,7 @@
 	padding: var(--e-space-m, 12px);
 	border: 1px solid var(--efm-line);
 	border-radius: var(--efm-radius);
-	background: var(--efm-surface);
+	background: var(--efm-surface-raised);
 }
 
 .efm-toggle {
@@ -913,7 +1039,7 @@
 	padding-inline: var(--efm-pad-inline);
 	border: 1px solid var(--efm-line);
 	border-radius: var(--efm-radius);
-	background: var(--efm-surface);
+	background: transparent;
 	color: var(--efm-text);
 	font: inherit;
 	font-size: var(--e-font-size-m, 12px);
@@ -982,6 +1108,7 @@
 
 .efm-dropzone__hint {
 	margin: 0;
+	max-inline-size: 64ch;
 	font-size: var(--e-font-size-s, 11px);
 }
 
@@ -1155,9 +1282,12 @@
 }
 
 /*
- * Etch's default variant: the accent fill, at most one per screen. Its hover
- * genuinely drops to near-black with light text — copied off Etch rather than
- * invented, because a lighter accent on hover is not what the builder does.
+ * Etch's default variant: the accent fill, at most one per screen.
+ *
+ * Etch's own hover drops this to near-black. That is measurably what the
+ * builder does, but it reads as a glitch rather than a state change, so the
+ * hover settles on --e-base-light instead: still an Etch surface, still a clear
+ * change, without the flicker to almost-black.
  */
 .efm-btn--primary {
 	background: var(--efm-accent);
@@ -1166,8 +1296,8 @@
 }
 
 .efm-btn--primary:hover:not(:disabled) {
-	background: var(--etch-neutral-ultra-dark, #18181b);
-	border-color: var(--etch-neutral-ultra-dark, #18181b);
+	background: var(--efm-surface-raised);
+	border-color: var(--efm-surface-raised);
 	color: var(--efm-text);
 }
 

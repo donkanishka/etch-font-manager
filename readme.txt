@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.23.0
+Stable tag: 1.24.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,13 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.24.0 =
+* Google Fonts now loads behind placeholder cards instead of collapsing to a line of text and jumping when results arrive.
+* Messages like "Inter installed" appear as a small toast at the bottom of the panel rather than as small print in the header, where they were easy to miss.
+* Searching for something with no matches now offers a Reset all button instead of leaving you at a dead end.
+* Fixed: the reduced-motion setting only stopped transitions, not animations, so the new loading pulse would have kept moving for anyone who had asked for less motion.
+* No change to behaviour, settings or stored data.
 
 = 1.23.0 =
 * Font cards line up. Long lists of subsets or weights now collapse behind a "+18" you can open, so one family with twenty-five subsets no longer leaves every card beside it half empty. Anything you have selected stays visible.

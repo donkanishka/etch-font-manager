@@ -2,6 +2,47 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.24.0
+
+Loading, empty and status states. No new strings and no new stored data.
+
+### Changed
+
+- **The Google Fonts catalogue loads behind placeholder cards.** "Searching…" was a single line of text, so the
+  pane collapsed while a search ran and reflowed when results landed. Six blocks of the same shape as a real card
+  hold the grid still and show roughly how much is coming.
+
+  The placeholder grid is hidden from assistive technology and a visually hidden live region carries the
+  announcement, so a screen reader hears "Searching" once rather than a description of six empty boxes.
+
+- **Status is a toast at the foot of the panel** rather than small print in the header, which is the furthest
+  point from where most actions are taken. The element, its role and its `aria-live` are unchanged, so
+  announcements behave exactly as they did before; only its position and appearance moved.
+
+- **Google Fonts has a real empty state.** "No fonts found." was a bare paragraph and a dead end. It now offers
+  **Reset all** whenever a filter is responsible, which is the usual cause. That button is the only accent
+  action on an otherwise empty screen.
+
+### Fixed
+
+- **The reduced-motion guard only covered transitions.** It now covers animations too, which is what the
+  placeholder pulse and the toast entrance use; without that they would have kept moving for anyone who had
+  asked for less motion.
+
+### Left alone on purpose
+
+- Upload's "No files uploaded yet." stays a plain line rather than becoming an empty-state block, because the
+  dropzone directly above it is already the call to action.
+- Import & export's "Every font file on the server is in use." is a status line and reads correctly as one.
+
+### Checked
+
+Keyboard behaviour was audited on a live panel rather than assumed. Of 261 focusable elements none lacks an
+accessible name, there are no positive `tabindex` values, no invalid `aria-pressed` or `aria-expanded`
+values, and nothing focusable sits inside an `aria-hidden` subtree. Tab from the last control wraps to the
+first and Shift+Tab from the first wraps to the last, both staying inside the dialog, and the focus ring
+resolves to Etch's own focus shadow.
+
 ## 1.23.0
 
 Screen-level composition. Behaviour, settings, stored data and the REST surface are unchanged; this is what the

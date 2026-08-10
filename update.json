@@ -1,10 +1,10 @@
 {
-  "version": "1.20.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.20.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.20.0",
+  "version": "1.21.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.21.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.21.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
   "date": "2026-08-10",
-  "notes": "Redraws every icon in the manager on Etch's own 24px grid, and fixes the Import & export icon never rendering."
+  "notes": "Rebuilds the panel's styling on Etch's own design tokens, and fixes three button and input rules that never existed."
 }

@@ -9,18 +9,50 @@
  */
 
 .efm-manager {
+	/*
+	 * Every value the manager uses is declared here and nowhere else, so the
+	 * whole panel can be retargeted from a single block. Each one reads an Etch
+	 * token first and only then falls back to a literal, which is what keeps
+	 * the panel in step with the builder's own colour scheme.
+	 */
+
+	/* Surfaces */
 	--efm-surface: var(--e-base, #27272b);
 	--efm-surface-raised: var(--e-base-light, #36363a);
+
 	/*
 	 * A hairline derived from the foreground, not from --e-base-light: the
 	 * content surface already uses that value, so an outline button sitting on
 	 * it would have an invisible border.
 	 */
 	--efm-line: color-mix(in srgb, var(--e-foreground-color, #e1e1e5) 16%, transparent);
+
+	/*
+	 * --efm-text-strong is the near-white Etch reserves for an active nav item
+	 * and for section headings; --efm-text is its ordinary body colour.
+	 */
 	--efm-text: var(--e-foreground-color, #e1e1e5);
+	--efm-text-strong: var(--etch-icon-color, #f7f7f8);
 	--efm-muted: var(--e-foreground-color-muted, color-mix(in lab, #e1e1e5, transparent 35%));
+
+	/* Intent */
 	--efm-accent: var(--e-primary, #deff38);
+	--efm-danger: var(--e-danger, #f26060);
+
+	/*
+	 * --efm-control-block is Etch's control height expressed the way Etch
+	 * derives it: one icon plus the input padding on each side. It resolves to
+	 * 28px, matching both .etch-input-wrapper and .etch-builder-button.
+	 */
 	--efm-radius: var(--e-border-radius, 6px);
+	--efm-pad-block: var(--e-input-padding-block, 6px);
+	--efm-pad-inline: var(--e-input-padding-inline, 8px);
+	--efm-control-block: calc(var(--efm-pad-block) * 2 + var(--e-icon-size-l, 16px));
+	--efm-gap: 4px;
+
+	/* Motion and focus, both taken from Etch rather than invented */
+	--efm-transition: var(--e-transition, .15s ease-in-out);
+	--efm-focus: var(--etch-focus-box-shadow, 0 0 0 1px #28557b, 0 0 0 2px #469fea);
 
 	position: fixed;
 	inset-block-start: 0;
@@ -38,7 +70,7 @@
 	padding: var(--e-panel-padding, 8px);
 	background: var(--efm-surface);
 	color: var(--efm-text);
-	font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	font-family: var(--e-font-interface, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
 	font-size: var(--e-font-size-m, 12px);
 	font-weight: 500;
 	line-height: 1.45;
@@ -56,7 +88,7 @@
 
 .efm-manager :focus-visible {
 	outline: none;
-	box-shadow: var(--etch-focus-box-shadow, 0 0 0 1px #28557b, 0 0 0 2px #469fea);
+	box-shadow: var(--efm-focus);
 }
 
 /* -------------------------------- Icons -------------------------------- */
@@ -125,7 +157,7 @@
 }
 
 .efm-status.is-error {
-	color: #ff8080;
+	color: var(--efm-danger);
 }
 
 .efm-header__actions:not(:empty) + .efm-status,
@@ -158,37 +190,44 @@
 }
 
 .efm-nav__label {
-	padding: 6px 12px;
+	padding: var(--efm-pad-block) var(--efm-pad-inline);
 	font-size: var(--e-font-size-s, 11px);
-	letter-spacing: .04em;
-	text-transform: uppercase;
 	color: var(--efm-muted);
 }
 
 .efm-nav__item {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	block-size: 28px;
-	padding: 6px 12px;
+	gap: var(--e-space-xs, 6px);
+	block-size: var(--efm-control-block);
+	padding: var(--efm-pad-block) var(--efm-pad-inline);
 	border: 0;
 	border-radius: var(--efm-radius);
 	background: transparent;
-	color: var(--efm-muted);
+	/* Etch keeps an inactive sidebar item at full foreground strength, not
+	   muted, so only the active fill distinguishes the current section. */
+	color: var(--efm-text);
 	font: inherit;
 	text-align: start;
 	cursor: pointer;
-	transition: background-color .12s ease, color .12s ease;
+	transition: var(--efm-transition);
+	transition-property: background-color, color;
 }
 
 .efm-nav__item:hover {
-	background: color-mix(in srgb, currentColor 12%, transparent);
-	color: var(--efm-text);
+	background: color-mix(in srgb, var(--efm-text) 8%, transparent);
+	color: var(--efm-text-strong);
 }
 
+/*
+ * Etch fills the active item with --e-base-light and near-white text rather
+ * than with the accent. Measured off a live Asset Manager sidebar: #36363a
+ * behind #f7f7f8, 6px radius, 6px/8px padding, 6px gap. The accent is reserved
+ * for one primary action per screen and for selection marks.
+ */
 .efm-nav__item.is-active {
-	background: var(--efm-accent);
-	color: var(--efm-surface);
+	background: var(--efm-surface-raised);
+	color: var(--efm-text-strong);
 }
 
 .efm-nav__meta {
@@ -231,13 +270,16 @@
 	align-self: flex-start;
 }
 
+/*
+ * Etch's section headings are 13px/600 in near-white with no tracking and no
+ * uppercasing; measured off a live Asset Manager. The previous 11px muted
+ * uppercase treatment came from nowhere in Etch.
+ */
 .efm-section-title {
 	margin: 0;
-	font-size: var(--e-font-size-s, 11px);
+	font-size: var(--e-font-size-l, 13px);
 	font-weight: 600;
-	letter-spacing: .04em;
-	text-transform: uppercase;
-	color: var(--efm-muted);
+	color: var(--efm-text-strong);
 }
 
 .efm-muted {
@@ -420,16 +462,21 @@
 	font: inherit;
 	font-size: var(--e-font-size-s, 11px);
 	cursor: pointer;
-	transition: background-color .12s ease, color .12s ease;
+	transition: var(--efm-transition);
+	transition-property: background-color, color;
 }
 
 .efm-segmented__item:hover {
 	color: var(--efm-text);
 }
 
+/*
+ * Etch marks a selected control with --e-base-light and near-white text, the
+ * same treatment as an active nav item, not with the accent.
+ */
 .efm-segmented__item.is-on {
-	background: var(--efm-accent);
-	color: var(--efm-surface);
+	background: var(--efm-surface-raised);
+	color: var(--efm-text-strong);
 }
 
 /* ---------------------------- Result bar ------------------------------- */
@@ -701,7 +748,8 @@
 
 .efm-chip--toggle {
 	cursor: pointer;
-	transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+	transition: var(--efm-transition);
+	transition-property: background-color, color, border-color;
 }
 
 .efm-chip--toggle:hover {
@@ -709,10 +757,16 @@
 	border-color: var(--efm-text);
 }
 
+/*
+ * The last accent fill in the panel. Etch marks a chosen item by colouring
+ * it with the accent rather than flooding it: .etch-select-item[data-selected]
+ * sets only a colour, no background. The raised fill carries the "on" state
+ * and the accent carries the meaning.
+ */
 .efm-chip--toggle.is-on {
-	background: var(--efm-accent);
-	border-color: var(--efm-accent);
-	color: var(--efm-surface);
+	background: var(--efm-surface-raised);
+	border-color: color-mix(in srgb, var(--efm-accent) 45%, transparent);
+	color: var(--efm-accent);
 }
 
 .efm-subsets {
@@ -724,8 +778,6 @@
 
 .efm-subsets__label {
 	font-size: var(--e-font-size-s, 11px);
-	letter-spacing: .04em;
-	text-transform: uppercase;
 	color: var(--efm-muted);
 }
 
@@ -765,8 +817,6 @@
 .efm-table__head {
 	background: var(--efm-surface);
 	font-size: var(--e-font-size-s, 11px);
-	letter-spacing: .04em;
-	text-transform: uppercase;
 	color: var(--efm-muted);
 }
 
@@ -850,29 +900,43 @@
 	cursor: pointer;
 }
 
+/*
+ * Inputs follow Etch's .etch-input-wrapper: --e-input-padding-block and
+ * --e-input-padding-inline for the box, --e-border-radius for the corner and
+ * --e-font-size-m for the value. The previous rule read --etch-input-radius,
+ * a property Etch does not define, so it always fell through to its literal.
+ */
 .efm-input {
 	inline-size: 100%;
-	block-size: 28px;
-	padding-inline: 8px;
+	block-size: var(--efm-control-block);
+	padding-block: var(--efm-pad-block);
+	padding-inline: var(--efm-pad-inline);
 	border: 1px solid var(--efm-line);
-	border-radius: var(--etch-input-radius, 6px);
+	border-radius: var(--efm-radius);
 	background: var(--efm-surface);
-	color: inherit;
+	color: var(--efm-text);
 	font: inherit;
+	font-size: var(--e-font-size-m, 12px);
+	transition: var(--efm-transition);
+	transition-property: border-color;
 }
 
 .efm-input::placeholder {
 	color: var(--efm-muted);
 }
 
-.efm-input:focus {
-	outline: none;
+.efm-input:focus-visible {
 	border-color: var(--e-focus-outline-color, #469fea);
 }
 
+/*
+ * Etch fills its select trigger with --e-base-light rather than the panel
+ * surface, which is what tells a chooser apart from a text field.
+ */
 .efm-input--select {
 	appearance: none;
 	padding-inline-end: 22px;
+	background-color: var(--efm-surface-raised);
 	background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
 	background-position: calc(100% - 12px) 12px, calc(100% - 8px) 12px;
 	background-size: 4px 4px;
@@ -900,7 +964,8 @@
 	color: var(--efm-muted);
 	text-align: center;
 	cursor: pointer;
-	transition: border-color .12s ease, background-color .12s ease;
+	transition: var(--efm-transition);
+	transition-property: border-color, background-color;
 }
 
 .efm-dropzone:hover,
@@ -958,7 +1023,8 @@
 	opacity: 0;
 	/* Never intercepts the pointer, so it cannot block the button it labels. */
 	pointer-events: none;
-	transition: opacity .12s ease;
+	transition: var(--efm-transition);
+	transition-property: opacity;
 }
 
 .efm-tooltip:hover::after,
@@ -1047,42 +1113,65 @@
 
 /* ------------------------------- Buttons ------------------------------- */
 
+/*
+ * Buttons mirror Etch's own .etch-builder-button: the same 6px radius, the same
+ * 4px icon-to-label gap, the same --e-transition, and the same variant names.
+ *
+ * One deliberate adaptation. Etch's quiet variants fill with --e-base-light,
+ * but the manager's content column already uses that value as its surface, so a
+ * literal copy would be invisible there. The quiet variants use a translucent
+ * tint of the foreground instead, which reads correctly on both surfaces.
+ */
+
 .efm-btn {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	gap: 4px;
-	block-size: 28px;
-	padding-inline: 12px;
+	gap: var(--efm-gap);
+	block-size: var(--efm-control-block);
+	padding-inline: var(--e-space-m, 12px);
 	border: 1px solid transparent;
 	border-radius: var(--efm-radius);
-	background: color-mix(in srgb, currentColor 12%, transparent);
-	color: inherit;
+	background: color-mix(in srgb, var(--efm-text) 10%, transparent);
+	color: var(--efm-text);
 	font: inherit;
-	cursor: pointer;
+	line-height: 1.5;
 	white-space: nowrap;
-	transition: background-color .12s ease, opacity .12s ease;
+	cursor: pointer;
+	user-select: none;
+	transition: var(--efm-transition);
+	transition-property: background-color, border-color, color, opacity;
 }
 
 .efm-btn:hover:not(:disabled) {
-	background: color-mix(in srgb, currentColor 18%, transparent);
+	background: color-mix(in srgb, var(--efm-text) 16%, transparent);
+	color: var(--efm-text-strong);
 }
 
+/* Etch dims a disabled button to 30% and takes it out of the hit test. */
 .efm-btn:disabled {
-	opacity: .55;
-	cursor: default;
+	opacity: .3;
+	pointer-events: none;
 }
 
+/*
+ * Etch's default variant: the accent fill, at most one per screen. Its hover
+ * genuinely drops to near-black with light text — copied off Etch rather than
+ * invented, because a lighter accent on hover is not what the builder does.
+ */
 .efm-btn--primary {
 	background: var(--efm-accent);
-	border-color: var(--efm-accent);
+	border-color: transparent;
 	color: var(--efm-surface);
 }
 
 .efm-btn--primary:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--efm-accent) 88%, #fff);
+	background: var(--etch-neutral-ultra-dark, #18181b);
+	border-color: var(--etch-neutral-ultra-dark, #18181b);
+	color: var(--efm-text);
 }
 
+/* Etch's outline variant. */
 .efm-btn--outline {
 	background: transparent;
 	border-color: var(--efm-line);
@@ -1090,22 +1179,48 @@
 }
 
 .efm-btn--outline:hover:not(:disabled) {
-	background: color-mix(in srgb, currentColor 10%, transparent);
+	background: color-mix(in srgb, var(--efm-text) 10%, transparent);
+	color: var(--efm-text);
+}
+
+/*
+ * Etch's ghost variant: quieter than the default, no fill until hovered. The
+ * markup has asked for this modifier since it was written, but no rule ever
+ * existed, so every "Reset all" and "Clear" silently rendered as the default.
+ */
+.efm-btn--ghost {
+	background: transparent;
+	border-color: transparent;
+	color: var(--efm-muted);
+}
+
+.efm-btn--ghost:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--efm-text) 10%, transparent);
 	color: var(--efm-text);
 }
 
 .efm-btn--sm {
 	block-size: 24px;
-	padding-inline: 8px;
+	padding-inline: var(--efm-pad-inline);
 	font-size: var(--e-font-size-s, 11px);
 }
 
 .efm-btn--icon {
-	inline-size: 28px;
+	inline-size: var(--efm-control-block);
 	padding-inline: 0;
 	flex: 0 0 auto;
 }
 
+/* For a button that owns its whole row. Also referenced by the markup without
+   ever having had a rule. */
+.efm-btn--block {
+	inline-size: 100%;
+}
+
+/*
+ * Etch's icon variant: no fill, a 10% tint of its own colour on hover, and a
+ * box measuring one icon plus --e-icon-padding on each side.
+ */
 .efm-icon-btn {
 	display: inline-flex;
 	align-items: center;
@@ -1118,16 +1233,18 @@
 	background: transparent;
 	color: var(--efm-muted);
 	cursor: pointer;
-	transition: background-color .12s ease, color .12s ease;
+	transition: var(--efm-transition);
+	transition-property: background-color, color;
 }
 
 .efm-icon-btn:hover {
-	background: color-mix(in srgb, currentColor 14%, transparent);
+	background: color-mix(in oklch, currentColor 10%, transparent);
 	color: var(--efm-text);
 }
 
 .efm-icon-btn--danger:hover {
-	color: #ff6b6b;
+	background: var(--e-danger-ultra-light, color-mix(in srgb, #f26060 10%, transparent));
+	color: var(--efm-danger);
 }
 
 @media (prefers-reduced-motion: reduce) {

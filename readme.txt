@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.24.1
+Stable tag: 1.25.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,16 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 1.25.0 =
+* Fixed: typing in the Library filter or the Google Fonts search lost the cursor after a moment, so you had to click back into the field to keep typing.
+* Back buttons now look and behave like the ones in Etch's own managers, and the ones inside the panel say where they take you: "Back to Library", "Back to Google Fonts".
+* Searching for something with no matches now shows what you searched for, in the middle of the panel, the way the Asset Manager does.
+* Tooltips on every icon button and on the options that needed an explanation.
+* Clicking into a text field no longer draws a blue focus ring around it. Tabbing to it still does.
+* The Compact layout is gone; Row and Grid remain. If you had Compact selected, you will see Grid.
+* Tidier sidebar and cards: no "Manage" heading, a little more room between menu items, and a roomier "Disabled" badge.
+* No change to your fonts, settings or stored data.
 
 = 1.24.1 =
 * Fixed: in the grid layout the preview text was cut off mid-word. It now wraps to two lines, and cards still line up with each other.

@@ -91,7 +91,12 @@
 	/* --------------------------------------------------------------------- */
 
 	var PREFS_KEY = 'efm.prefs.v1';
-	var LAYOUTS = ['row', 'grid', 'compact'];
+	/*
+	 * Also the allowlist a stored preference is checked against, so an install
+	 * that saved the retired 'compact' layout falls back to the default rather
+	 * than restoring a mode that no longer has a button.
+	 */
+	var LAYOUTS = ['row', 'grid'];
 
 	/*
 	 * How many chips a collapsed row shows. Six fills roughly one line of a card
@@ -311,7 +316,9 @@
 	 * and the plugin has no build step.
 	 */
 	var PATHS = {
-		back: '<path d="M15 6L9 12L15 18"/>',
+		// Etch's own manager back arrow, copied off the Loop Manager header: an
+		// arrow, not a bare chevron.
+		back: '<path d="M9 17L4 12L9 7"/><path d="M4 12H20"/>',
 		plus: '<path d="M6 12H12M18 12H12M12 12V6M12 12V18"/>',
 		check: '<path d="M5 13L9 17L19 7"/>',
 		close: '<path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426"/>',
@@ -329,7 +336,6 @@
 		transfer: '<path d="M17 20V4M17 4L20 7M17 4L14 7"/><path d="M7 4V20M7 20L10 17M7 20L4 17"/>',
 		layoutRow: '<path d="M3 5H21"/><path d="M3 12H21"/><path d="M3 19H21"/>',
 		layoutGrid: '<path d="M14 20.4V14.6C14 14.2686 14.2686 14 14.6 14H20.4C20.7314 14 21 14.2686 21 14.6V20.4C21 20.7314 20.7314 21 20.4 21H14.6C14.2686 21 14 20.7314 14 20.4Z"/><path d="M3 20.4V14.6C3 14.2686 3.26863 14 3.6 14H9.4C9.73137 14 10 14.2686 10 14.6V20.4C10 20.7314 9.73137 21 9.4 21H3.6C3.26863 21 3 20.7314 3 20.4Z"/><path d="M14 9.4V3.6C14 3.26863 14.2686 3 14.6 3H20.4C20.7314 3 21 3.26863 21 3.6V9.4C21 9.73137 20.7314 10 20.4 10H14.6C14.2686 10 14 9.73137 14 9.4Z"/><path d="M3 9.4V3.6C3 3.26863 3.26863 3 3.6 3H9.4C9.73137 3 10 3.26863 10 3.6V9.4C10 9.73137 9.73137 10 9.4 10H3.6C3.26863 10 3 9.73137 3 9.4Z"/>',
-		layoutCompact: '<path d="M8 6L20 6"/><path d="M4 6.01L4.01 5.99889"/><path d="M4 12.01L4.01 11.9989"/><path d="M4 18.01L4.01 17.9989"/><path d="M8 12L20 12"/><path d="M8 18L20 18"/>',
 		textSize: '<path d="M3 7L3 5L17 5V7"/><path d="M10 5L10 19M10 19H12M10 19H8"/><path d="M13 14L13 12H21V14"/><path d="M17 12V19M17 19H15.5M17 19H18.5"/>',
 		page: '<path d="M4 21.4V2.6C4 2.26863 4.26863 2 4.6 2H16.2515C16.4106 2 16.5632 2.06321 16.6757 2.17574L19.8243 5.32426C19.9368 5.43679 20 5.5894 20 5.74853V21.4C20 21.7314 19.7314 22 19.4 22H4.6C4.26863 22 4 21.7314 4 21.4Z"/><path d="M8 10L16 10"/><path d="M8 18L16 18"/><path d="M8 14L12 14"/><path d="M16 2V5.4C16 5.73137 16.2686 6 16.6 6H20"/>',
 		compress: '<path d="M18 12L6 12"/><path d="M12 22V16M12 16L15 19M12 16L9 19"/><path d="M12 2V8M12 8L15 5M12 8L9 5"/>'
@@ -585,12 +591,19 @@
 			id: 'efm-manager',
 			role: 'dialog',
 			'aria-label': s('fontManager', 'Font Manager'),
+			// Which input device last drove the panel, read by the focus rules in
+			// panel.css. Starts as keyboard so a panel opened from the keyboard
+			// shows its rings before any pointer press has been seen.
+			'data-efm-modality': 'keyboard',
 			hidden: true
 		}, [
 			el('header', { class: 'efm-header' }, [
 				el('button', {
 					type: 'button',
-					class: 'efm-btn efm-btn--outline efm-btn--icon efm-tooltip',
+					// Not the square icon variant: Etch's managers use the plain
+					// outline button, which its 12px inline padding takes to 40x28
+					// around a 14px arrow.
+					class: 'efm-btn efm-btn--outline efm-tooltip',
 					'aria-label': s('backToBuilder', 'Back to Builder'),
 					// Not `title`: that yields the slow OS tooltip, and alongside the
 					// styled one below it would show twice. Etch labels its own back
@@ -601,7 +614,7 @@
 						// is focus sent back to the control; see close().
 						close(!event.detail);
 					}
-				}, [icon('back')]),
+				}, [icon('back', 'sm')]),
 				el('h1', { class: 'efm-header__title', text: s('fontManager', 'Font Manager') }),
 				statusEl,
 				headerActionsEl
@@ -610,6 +623,15 @@
 		]);
 
 		manager.addEventListener('keydown', function (event) {
+			/*
+			 * Only Tab counts as keyboard navigation for the focus ring. Any other
+			 * key would light the ring up mid-typing in a field the pointer had
+			 * just opened, which is the thing the modality flag exists to avoid.
+			 */
+			if (event.key === 'Tab') {
+				manager.setAttribute('data-efm-modality', 'keyboard');
+			}
+
 			if (event.key === 'Escape') {
 				event.stopPropagation();
 
@@ -652,12 +674,15 @@
 		});
 
 		/*
-		 * Dismiss the filters popover on a press anywhere outside it. Bound to the
-		 * manager rather than the document because the manager already covers the
-		 * builder, and pointerdown rather than click so the popover is gone before
-		 * whatever was pressed reacts.
+		 * Records the pointer as the current input device, then dismisses the
+		 * filters popover on a press anywhere outside it. Bound to the manager
+		 * rather than the document because the manager already covers the builder,
+		 * and pointerdown rather than click so the popover is gone before whatever
+		 * was pressed reacts — and so the flag is set before focus lands.
 		 */
 		manager.addEventListener('pointerdown', function (event) {
+			manager.setAttribute('data-efm-modality', 'pointer');
+
 			if (!state.filtersOpen || event.target.closest('.efm-filters')) {
 				return;
 			}
@@ -886,10 +911,37 @@
 	/* Render                                                                 */
 	/* --------------------------------------------------------------------- */
 
+	/**
+	 * Read a field's selection, when it has one.
+	 *
+	 * @param {Element} node Focused element.
+	 * @return {Array<number>|null} Selection start and end, or null.
+	 */
+	function caretOf(node) {
+		try {
+			return typeof node.selectionStart === 'number' ? [node.selectionStart, node.selectionEnd] : null;
+		} catch (error) {
+			// Types such as number and email have no selection to read.
+			return null;
+		}
+	}
+
 	function render() {
 		if (!manager) {
 			return;
 		}
+
+		/*
+		 * render() rebuilds the content pane wholesale, which destroys whatever
+		 * was focused inside it. A field that re-renders as you type — the library
+		 * filter, the Google Fonts search — otherwise loses the caret mid-word,
+		 * one debounce after the keystroke. Anything carrying data-efm-focus is
+		 * found again by that key once the new tree is in place, selection and
+		 * all.
+		 */
+		var active = document.activeElement;
+		var focusKey = active && contentEl.contains(active) ? active.getAttribute('data-efm-focus') : null;
+		var caret = focusKey ? caretOf(active) : null;
 
 		renderNav();
 		renderHeaderActions();
@@ -917,11 +969,28 @@
 		} else {
 			renderSettings();
 		}
+
+		if (!focusKey) {
+			return;
+		}
+
+		var restored = contentEl.querySelector('[data-efm-focus="' + focusKey + '"]');
+
+		if (!restored) {
+			return;
+		}
+
+		// preventScroll: the pane is scrollable, and focusing a field the user is
+		// already typing in must not jump it.
+		restored.focus({ preventScroll: true });
+
+		if (caret && caretOf(restored)) {
+			restored.setSelectionRange(caret[0], caret[1]);
+		}
 	}
 
 	function renderNav() {
 		navEl.innerHTML = '';
-		navEl.appendChild(el('span', { class: 'efm-nav__label', text: s('manage', 'Manage') }));
 
 		var trashed = trashedFamilies();
 		var views = VIEWS.slice();
@@ -1228,9 +1297,11 @@
 		if (hidden > 0) {
 			chips.push(el('button', {
 				type: 'button',
-				class: 'efm-chip efm-chip--more',
+				class: 'efm-chip efm-chip--more efm-tooltip',
 				'aria-expanded': 'false',
 				'aria-label': s('showAll', 'Show all') + ' (' + items.length + ')',
+				// "+3" says how many are hidden, not what pressing it does.
+				'data-efm-tooltip': s('showAll', 'Show all') + ' (' + items.length + ')',
 				text: '+' + hidden,
 				onclick: function () {
 					state.chipsOpen[key] = true;
@@ -1353,29 +1424,27 @@
 	}
 
 	/**
-	 * Row / Grid / Compact switch.
+	 * Row / Grid switch.
 	 *
 	 * Row is for judging a face at reading length, grid for scanning the
-	 * catalogue, compact for finding a known name in a long list. The choice only
-	 * caps density: the grid itself is container-driven, so a narrow panel still
-	 * collapses to one column whatever is selected here.
+	 * catalogue. The choice only caps density: the grid itself is
+	 * container-driven, so a narrow panel still collapses to one column whatever
+	 * is selected here.
 	 */
 	function layoutToggle() {
 		var labels = {
 			row: s('layoutRow', 'Row'),
-			grid: s('layoutGrid', 'Grid'),
-			compact: s('layoutCompact', 'Compact')
+			grid: s('layoutGrid', 'Grid')
 		};
 
 		/*
-		 * Icon and label together, not icon alone: the three layouts are not
+		 * Icon and label together, not icon alone: the layouts are not
 		 * self-evident from a glyph, and dropping the labels would trade
 		 * discoverability for a few pixels of toolbar width.
 		 */
 		var glyphs = {
 			row: 'layoutRow',
-			grid: 'layoutGrid',
-			compact: 'layoutCompact'
+			grid: 'layoutGrid'
 		};
 
 		return el('div', {
@@ -1429,6 +1498,29 @@
 			el('p', { class: 'efm-empty__title', text: title }),
 			hint ? el('p', { class: 'efm-empty__hint', text: hint }) : null,
 			cta ? el('button', { type: 'button', class: 'efm-btn efm-btn--primary', text: cta, onclick: onCta }) : null
+		]);
+	}
+
+	/**
+	 * The state a search with no matches ends in.
+	 *
+	 * Etch's Asset Manager answers a fruitless search by repeating the term back
+	 * in the middle of the empty pane rather than with a line of small print, so
+	 * this does the same: same wording, same 24px title, same bold italic term,
+	 * same muted hint under it.
+	 *
+	 * @param {string}  query    What was searched for.
+	 * @param {Element} [action] Optional control below the hint.
+	 * @return {Element} The empty state.
+	 */
+	function searchEmpty(query, action) {
+		return el('div', { class: 'efm-search-empty' }, [
+			el('p', { class: 'efm-search-empty__title' }, [
+				s('noResultsFor', 'No results for') + ' ',
+				el('strong', { class: 'efm-search-empty__query', text: query })
+			]),
+			el('p', { class: 'efm-search-empty__hint', text: s('checkSpelling', 'Please check your spelling.') }),
+			action || null
 		]);
 	}
 
@@ -1532,9 +1624,9 @@
 						}, [icon('undo', 'sm'), el('span', { text: s('restoreFamily', 'Restore') })]),
 						el('button', {
 							type: 'button',
-							class: 'efm-icon-btn efm-icon-btn--danger',
+							class: 'efm-icon-btn efm-icon-btn--danger efm-tooltip efm-tooltip--end',
 							'aria-label': s('deleteFamily', 'Delete permanently'),
-							title: s('deleteFamily', 'Delete permanently'),
+							'data-efm-tooltip': s('deleteFamily', 'Delete permanently'),
 							onclick: function () {
 								if (!window.confirm(s('confirmDeleteFamily', 'Delete this family for good? Its font files stay on the server and can be removed from Import & export.'))) {
 									return;
@@ -1561,6 +1653,7 @@
 		var search = el('input', {
 			type: 'search',
 			class: 'efm-input',
+			'data-efm-focus': 'library-filter',
 			placeholder: s('filterFamilies', 'Filter families'),
 			value: state.filter,
 			oninput: debounce(function (event) {
@@ -1602,8 +1695,10 @@
 				return !needle || (row.family.name || '').toLowerCase().indexOf(needle) !== -1;
 			});
 
+		// Only reachable with a filter typed in: an unfiltered library with no
+		// families at all was answered by the empty state above.
 		if (!list.length) {
-			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('noMatches', 'No families match that filter.') }));
+			contentEl.appendChild(searchEmpty(state.filter.trim()));
 			return;
 		}
 
@@ -1634,9 +1729,10 @@
 						el('div', { class: 'efm-card__actions' }, [
 							el('button', {
 								type: 'button',
-								class: 'efm-btn efm-btn--outline efm-btn--sm',
+								// The explanation is only worth a tooltip while it applies.
+								class: 'efm-btn efm-btn--outline efm-btn--sm' + (enabled ? '' : ' efm-tooltip efm-tooltip--wrap'),
 								'aria-pressed': enabled ? 'true' : 'false',
-								title: enabled ? '' : s('disabledNotice', 'Disabled. Its files are kept, but it is not loaded on the site.'),
+								'data-efm-tooltip': enabled ? null : s('disabledNotice', 'Disabled. Its files are kept, but it is not loaded on the site.'),
 								text: enabled ? s('disableFamily', 'Disable') : s('enableFamily', 'Enable'),
 								onclick: function () {
 									setFamilyEnabled(row.index, !enabled);
@@ -1652,9 +1748,9 @@
 							}, [icon('edit', 'sm'), el('span', { text: s('manageFamily', 'Manage') })]),
 							el('button', {
 								type: 'button',
-								class: 'efm-icon-btn efm-icon-btn--danger',
+								class: 'efm-icon-btn efm-icon-btn--danger efm-tooltip efm-tooltip--end',
 								'aria-label': s('trashFamily', 'Move to trash'),
-								title: s('trashFamily', 'Move to trash'),
+								'data-efm-tooltip': s('trashFamily', 'Move to trash'),
 								onclick: function () {
 									trashFamily(row.index);
 								}
@@ -1686,14 +1782,18 @@
 			el('div', { class: 'efm-breadcrumb' }, [
 				el('button', {
 					type: 'button',
-					class: 'efm-btn efm-btn--outline efm-btn--icon',
-					'aria-label': s('back', 'Back'),
-					title: s('back', 'Back'),
+					// Same geometry as the panel header's back button, above. Start
+					// anchored because this one sits at the content pane's edge, which
+					// would clip a centred tooltip of this length.
+					class: 'efm-btn efm-btn--outline efm-tooltip efm-tooltip--start',
+					// Named for where it lands, not for the direction it points.
+					'aria-label': s('backToLibrary', 'Back to Library'),
+					'data-efm-tooltip': s('backToLibrary', 'Back to Library'),
 					onclick: function () {
 						state.editing = null;
 						render();
 					}
-				}, [icon('back')]),
+				}, [icon('back', 'sm')]),
 				el('h2', { class: 'efm-breadcrumb__title', text: family.name })
 			])
 		);
@@ -2177,9 +2277,9 @@
 			styleSelect,
 			el('button', {
 				type: 'button',
-				class: 'efm-icon-btn efm-icon-btn--danger',
+				class: 'efm-icon-btn efm-icon-btn--danger efm-tooltip efm-tooltip--end',
 				'aria-label': s('removeVariant', 'Remove variant'),
-				title: s('removeVariant', 'Remove variant'),
+				'data-efm-tooltip': s('removeVariant', 'Remove variant'),
 				onclick: function () {
 					state.families[familyIndex].variants.splice(variantIndex, 1);
 					state.dirty = true;
@@ -2285,10 +2385,10 @@
 					convertible(file.name) && converterAvailable()
 						? el('button', {
 							type: 'button',
-							class: 'efm-icon-btn',
+							class: 'efm-icon-btn efm-tooltip efm-tooltip--end',
 							disabled: !!state.converting,
 							'aria-label': s('convertFile', 'Convert to WOFF2'),
-							title: s('convertFile', 'Convert to WOFF2'),
+							'data-efm-tooltip': s('convertFile', 'Convert to WOFF2'),
 							onclick: function () {
 								convertExisting(file);
 							}
@@ -2298,9 +2398,9 @@
 						: el('span', {}),
 					el('button', {
 						type: 'button',
-						class: 'efm-icon-btn efm-icon-btn--danger',
+						class: 'efm-icon-btn efm-icon-btn--danger efm-tooltip efm-tooltip--end',
 						'aria-label': s('deleteFile', 'Delete file'),
-						title: s('deleteFile', 'Delete file'),
+						'data-efm-tooltip': s('deleteFile', 'Delete file'),
 						onclick: function () {
 							var users = fileUsedBy(file.name);
 							var message = s('confirmDelete', 'Delete this file from the fonts folder?');
@@ -2467,12 +2567,16 @@
 			el('div', { class: 'efm-toolbar__lead' }, [
 				el('button', {
 					type: 'button',
-					class: 'efm-btn efm-btn--outline efm-btn--sm',
+					// Same geometry as the panel header's back button: every back in
+					// the panel is the same 40x28 arrow, named by its tooltip.
+					class: 'efm-btn efm-btn--outline efm-tooltip efm-tooltip--start',
+					'aria-label': s('backToGoogle', 'Back to Google Fonts'),
+					'data-efm-tooltip': s('backToGoogle', 'Back to Google Fonts'),
 					onclick: function () {
 						state.detail = null;
 						render();
 					}
-				}, [icon('back', 'sm'), el('span', { text: s('backToBrowse', 'Back') })])
+				}, [icon('back', 'sm')])
 			])
 		));
 
@@ -2705,6 +2809,7 @@
 		var search = el('input', {
 			type: 'search',
 			class: 'efm-input',
+			'data-efm-focus': 'google-search',
 			placeholder: s('searchGoogle', 'Search Google Fonts'),
 			value: state.query,
 			oninput: debounce(function (event) {
@@ -2715,6 +2820,7 @@
 
 		var categorySelect = el('select', {
 			class: 'efm-input efm-input--select',
+			'data-efm-focus': 'google-category',
 			'aria-label': s('category', 'Category'),
 			onchange: function (event) {
 				state.category = event.target.value;
@@ -2728,6 +2834,7 @@
 
 		var sortSelect = el('select', {
 			class: 'efm-input efm-input--select',
+			'data-efm-focus': 'google-sort',
 			'aria-label': s('sortBy', 'Sort by'),
 			onchange: function (event) {
 				state.sort = event.target.value;
@@ -2747,6 +2854,7 @@
 		 */
 		var subsetSelect = el('select', {
 			class: 'efm-input efm-input--select',
+			'data-efm-focus': 'google-subset',
 			'aria-label': s('writingSystem', 'Writing system'),
 			onchange: function (event) {
 				state.subset = event.target.value;
@@ -2765,6 +2873,7 @@
 
 		var variableSelect = el('select', {
 			class: 'efm-input efm-input--select',
+			'data-efm-focus': 'google-technology',
 			'aria-label': s('technology', 'Technology'),
 			onchange: function (event) {
 				state.variableOnly = event.target.value;
@@ -2798,12 +2907,28 @@
 		if (!state.results.length) {
 			// An empty catalogue is almost always a filter, so offer the way out
 			// rather than leaving a dead end.
-			contentEl.appendChild(emptyState(
-				s('noResults', 'No fonts found.'),
-				null,
-				googleFiltered() ? s('resetAll', 'Reset all') : null,
-				resetGoogleFilters
-			));
+			var reset = googleFiltered()
+				? el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--primary',
+					text: s('resetAll', 'Reset all'),
+					onclick: resetGoogleFilters
+				})
+				: null;
+
+			/*
+			 * A term can be quoted back; a filter with no term cannot, so that case
+			 * keeps the plain empty state rather than saying "No results for" with
+			 * nothing after it.
+			 */
+			contentEl.appendChild(state.query.trim()
+				? searchEmpty(state.query.trim(), reset)
+				: emptyState(
+					s('noResults', 'No fonts found.'),
+					null,
+					googleFiltered() ? s('resetAll', 'Reset all') : null,
+					resetGoogleFilters
+				));
 			return;
 		}
 
@@ -2911,8 +3036,8 @@
 					 * times down a grid, so it moves to the label's tooltip.
 					 */
 					hasVariable ? el('label', {
-						class: 'efm-toggle efm-toggle--inline',
-						title: s('variableHint', 'one file per subset instead of one per weight')
+						class: 'efm-toggle efm-toggle--inline efm-tooltip efm-tooltip--wrap',
+						'data-efm-tooltip': s('variableHint', 'one file per subset instead of one per weight')
 					}, [
 						el('input', {
 							type: 'checkbox',
@@ -2964,9 +3089,9 @@
 						el('span', { text: font.category || '' }),
 						el('span', { text: stylesLabel(font) }),
 						font.size ? el('span', {
-							class: 'efm-muted',
+							class: 'efm-muted efm-tooltip efm-tooltip--wrap efm-tooltip--end',
 							text: formatSize(font.size),
-							title: s('familySizeHint', 'Size of the whole family at Google. What you install depends on the subsets and weights chosen below.')
+							'data-efm-tooltip': s('familySizeHint', 'Size of the whole family at Google. What you install depends on the subsets and weights chosen below.')
 						}) : null
 					])
 				])

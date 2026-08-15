@@ -2,6 +2,61 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.25.0
+
+A pass over the interface against Etch's own managers, measured on a live builder rather than eyeballed. One
+real bug turned up while testing it.
+
+### Fixed
+
+- **Typing in a search field lost the caret.** `render()` rebuilds the content pane wholesale, so the field you
+  were typing in was destroyed and replaced one debounce after each keystroke, and focus fell to the document
+  body. Measured: focus was still on the input immediately after the key, and on `<body>` 400ms later. Focus and
+  selection are now carried across a re-render by a `data-efm-focus` key, which the Library filter, the Google
+  Fonts search and the four filter selects opt into. The pane is not scrolled to the restored field, so a long
+  page does not jump.
+
+### Changed
+
+- **Back buttons match Etch's.** Measured on the Loop Manager: Etch uses its plain outline button at 40x28 with a
+  14px arrow, not a square icon button, and the glyph is an arrow rather than a bare chevron. Ours was a 28x28
+  square with a 16px chevron. All three back buttons in the panel are now that same control, and the two inside
+  the panel say where they land — "Back to Library" and "Back to Google Fonts" — instead of just "Back".
+
+- **A search with no matches answers like Etch's Asset Manager.** The library filter used to reply with one line
+  of small print under the toolbar. Both it and the Google Fonts search now centre Etch's own state in the pane:
+  the term repeated back at 24px in bold italic, with "Please check your spelling." under it. Measured off
+  `.asset-core__search-empty`. Google Fonts keeps its "Reset all" button under the message when filters are
+  also active, and a filter with no search term keeps the old wording, since there is no term to quote back.
+
+- **Tooltips on the controls that needed them.** Ten of them, where before only the header back button had one:
+  every icon-only button, the "+3" chip disclosure, the Enable button of a disabled family, and the two
+  explanatory hints that were sitting on native `title` attributes. Long copy wraps at 240px and controls at the
+  pane's edges anchor their tooltip to that edge, because the pane scrolls and a centred one is clipped rather
+  than drawn over. Three native `title`s are deliberately kept: the two file names and the Google family link
+  live inside `overflow: hidden` containers, which clip a CSS tooltip entirely. Verified by trying it.
+
+- **Clicking a text field no longer rings it.** A text field matches `:focus-visible` even when clicked, because
+  the browser expects typing to follow, so a plain click lit the full focus ring. The panel now records whether
+  the pointer or the keyboard is driving it and suppresses the ring on text entry for the pointer. Only Tab
+  switches it back, so the ring never appears mid-word in a field you had just clicked into. Etch itself does
+  ring on click; this is deliberately quieter.
+
+- **Smaller things in the sidebar and on cards.** The "Manage" heading above the sidebar is gone and the items
+  start at the top of the pane; the gap between them goes from 2px to 4px; the stat card labels are capitalised
+  (in CSS, because the same translated words are reused mid-sentence elsewhere); and the "Disabled" pill is
+  padded to 24px so it sits under the 28px buttons beside it rather than looking cramped against them.
+
+### Removed
+
+- **The Compact layout.** Row and Grid remain. `LAYOUTS` doubles as the allowlist a stored preference is checked
+  against, so an install that saved Compact falls back to Grid rather than restoring a mode with no button.
+
+### Translators
+
+`manage` and `layoutCompact` are gone. `back` and `backToBrowse` are replaced by `backToLibrary` and
+`backToGoogle`, and `noMatches` by `noResultsFor` and `checkSpelling`. Every other string is unchanged.
+
 ## 1.24.1
 
 Two follow-ups from reviewing the finished interface, plus a modifier that never had a rule.

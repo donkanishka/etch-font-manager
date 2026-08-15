@@ -97,6 +97,21 @@
 	box-shadow: var(--efm-focus);
 }
 
+/*
+ * A text field matches :focus-visible even when it was clicked, because the
+ * browser assumes typing follows, so a plain click lit the whole ring up. The
+ * flag panel.js keeps on the panel gates that: a pointer press suppresses the
+ * ring on text entry, the next Tab restores it.
+ *
+ * Only text entry is gated. Buttons and the rest never match :focus-visible on
+ * a click to begin with, so their keyboard ring is untouched by this.
+ */
+.efm-manager[data-efm-modality="pointer"] input:focus-visible,
+.efm-manager[data-efm-modality="pointer"] textarea:focus-visible,
+.efm-manager[data-efm-modality="pointer"] select:focus-visible {
+	box-shadow: none;
+}
+
 /* -------------------------------- Icons -------------------------------- */
 
 /*
@@ -207,17 +222,11 @@
 .efm-nav {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
+	gap: 4px;
 	inline-size: 256px;
 	flex: 0 0 256px;
 	padding-inline-end: var(--e-panel-padding, 8px);
 	border-inline-end: 1px solid var(--e-border-color, #36363a);
-}
-
-.efm-nav__label {
-	padding: var(--efm-pad-block) var(--efm-pad-inline);
-	font-size: var(--e-font-size-s, 11px);
-	color: var(--efm-muted);
 }
 
 .efm-nav__item {
@@ -321,10 +330,16 @@
 	line-height: 1;
 }
 
+/*
+ * The label is capitalised in CSS rather than in the string, because the same
+ * translated words are reused mid-sentence elsewhere ("6 of 240 families",
+ * "3 families imported") where a capital would be wrong.
+ */
 .efm-stat__label {
 	font-size: var(--e-font-size-s, 11px);
 	font-weight: 400;
 	line-height: 1;
+	text-transform: capitalize;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -585,7 +600,7 @@
 /* ---------------------------- Layout modes ----------------------------- */
 
 /*
- * Row, Grid and Compact. The track sizing is intrinsic rather than
+ * Row and Grid. The track sizing is intrinsic rather than
  * breakpoint-driven, so every mode still collapses to a single column when the
  * manager is narrow. The mode caps density; it never forces a column count the
  * panel is too narrow to hold.
@@ -616,11 +631,6 @@
 	grid-template-columns: 1fr;
 }
 
-.efm-grid--compact {
-	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-	gap: 2px;
-}
-
 /* Row exists to judge a face at reading length, so the specimen may wrap. */
 .efm-grid--row .efm-specimen {
 	white-space: normal;
@@ -631,57 +641,6 @@
 
 .efm-grid--row .efm-card {
 	padding-block: var(--e-space-m, 12px);
-}
-
-/* Compact is for locating a known name, so everything else steps back. */
-.efm-grid--compact .efm-card {
-	flex-direction: row;
-	align-items: center;
-	gap: var(--e-space-m, 12px);
-	padding-block: 6px;
-	border-inline: 0;
-	border-block-start: 0;
-	border-radius: 0;
-	background: transparent;
-}
-
-.efm-grid--compact .efm-card__by,
-.efm-grid--compact .efm-subsets,
-.efm-grid--compact .efm-toggle--inline,
-.efm-grid--compact .efm-notice,
-.efm-grid--compact .efm-card__meta {
-	display: none;
-}
-
-/*
- * The head is dissolved so its three children become flex items of the row.
- * Without this the Install button sits between the name and the specimen and
- * squeezes the preview down to a couple of glyphs.
- */
-.efm-grid--compact .efm-card__head {
-	display: contents;
-}
-
-/*
- * Compact exists to find a family by name, so the name gets a floor and the
- * specimen yields. The other way round truncates every name to "Noto S...",
- * which defeats the mode.
- */
-.efm-grid--compact .efm-card__title {
-	flex: 1 1 auto;
-	min-inline-size: 12ch;
-}
-
-.efm-grid--compact .efm-card__actions {
-	order: 3;
-	margin-inline-start: auto;
-}
-
-.efm-grid--compact .efm-specimen {
-	flex: 1 1 40%;
-	min-inline-size: 0;
-	text-align: end;
-	font-size: var(--e-font-size-l, 13px) !important;
 }
 
 /* ------------------------- Segmented control --------------------------- */
@@ -993,9 +952,13 @@
 	color: var(--efm-muted);
 }
 
-/* Carries a state rather than a count, so it takes a fill of its own. */
+/*
+ * Carries a state rather than a count, so it takes a fill of its own. Padded
+ * to 24px, which sits under the 28px buttons beside it without reading as a
+ * cramped afterthought against them.
+ */
 .efm-badge--muted {
-	padding: 2px 6px;
+	padding: 4px 10px;
 	border-radius: 999px;
 	background: color-mix(in srgb, var(--efm-text) 12%, transparent);
 }
@@ -1180,10 +1143,9 @@
 }
 
 /*
- * A one-line toggle. This modifier was already in the markup and in the compact
- * layout's hide list, but it never had a rule of its own, so it rendered as the
- * default stacked toggle: label on one line, explanation on the next, repeated
- * down every card in the grid.
+ * A one-line toggle. This modifier was already in the markup, but it never had
+ * a rule of its own, so it rendered as the default stacked toggle: label on one
+ * line, explanation on the next, repeated down every card in the grid.
  */
 .efm-toggle--inline {
 	align-items: center;
@@ -1234,6 +1196,11 @@
 
 .efm-input:focus-visible {
 	border-color: var(--e-focus-outline-color, #469fea);
+}
+
+/* Clicked rather than tabbed to: no ring, so no focus border either. */
+.efm-manager[data-efm-modality="pointer"] .efm-input:focus-visible {
+	border-color: var(--efm-line);
 }
 
 /*
@@ -1341,6 +1308,40 @@
 }
 
 /*
+ * Explanatory copy rather than a name. One nowrap line of it runs past the
+ * panel and is clipped by the scrolling content pane, so it wraps inside a
+ * fixed measure instead.
+ */
+.efm-tooltip--wrap::after {
+	inline-size: max-content;
+	max-inline-size: 240px;
+	white-space: normal;
+	text-align: center;
+}
+
+/*
+ * Anchored to the control's end edge instead of centred on it, for the icon
+ * buttons that sit at the end of a card row or a table row. The content pane
+ * scrolls, so a centred tooltip there overhangs the pane and is clipped rather
+ * than drawn over it.
+ */
+.efm-tooltip--end::after {
+	inset-inline-start: auto;
+	inset-inline-end: 0;
+	translate: 0 0;
+}
+
+/*
+ * The same, mirrored, for the controls at the pane's start edge: the back
+ * button of a subview is 40px wide against a tooltip three times that, so
+ * centring it put most of the name past the edge and out of sight.
+ */
+.efm-tooltip--start::after {
+	inset-inline-start: 0;
+	translate: 0 0;
+}
+
+/*
  * Nothing clips the tooltip, but the Settings Bar paints over it: the bar is a
  * flex item with z-index 102, which applies to flex items even though the bar
  * is position: static, and this panel sits at 60. A centred tooltip on the
@@ -1416,6 +1417,45 @@
 .efm-empty__hint {
 	margin: 0 0 6px;
 	max-inline-size: 46ch;
+	color: var(--efm-muted);
+}
+
+/*
+ * A search that found nothing, measured off Etch's Asset Manager: the pane's
+ * whole remaining height, centred on both axes, 24px between the two lines,
+ * the term repeated back at 24px in bold italic and a 13/500 muted line under
+ * it. It fills rather than pads, so the message sits in the middle of the pane
+ * the way Etch's does instead of clinging under the toolbar.
+ */
+.efm-search-empty {
+	flex: 1 1 auto;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 24px;
+	text-align: center;
+}
+
+.efm-search-empty__title {
+	margin: 0;
+	max-inline-size: 46ch;
+	font-size: 24px;
+	font-weight: 400;
+	color: var(--efm-text-strong);
+	/* A pasted term can be one long unbroken string. */
+	overflow-wrap: anywhere;
+}
+
+.efm-search-empty__query {
+	font-weight: 700;
+	font-style: italic;
+}
+
+.efm-search-empty__hint {
+	margin: 0;
+	font-size: var(--e-font-size-l, 13px);
+	font-weight: 500;
 	color: var(--efm-muted);
 }
 

@@ -1,10 +1,10 @@
 {
-  "version": "1.25.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.25.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.25.0",
+  "version": "0.25.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.25.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.25.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
   "date": "2026-08-15",
-  "notes": "Back buttons, tooltips and the no-results screen now match Etch’s own managers, and typing in a search field no longer loses the cursor."
+  "notes": "Back buttons, tooltips and the no-results screen now match Etch’s own managers, and typing in a search field no longer loses the cursor. Version numbers move to a 0.x pre-release series."
 }

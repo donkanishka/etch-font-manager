@@ -972,7 +972,7 @@ class EFM_Fonts {
 	 * version only accepted a weight of exactly "400" or the full "100 900"
 	 * range, so a family installed without a regular weight preloaded nothing at
 	 * all — and once narrow variable ranges stopped being rewritten to 400 in
-	 * 1.8.0, neither did any variable family with an axis such as "400 900".
+	 * 0.8.0, neither did any variable family with an axis such as "400 900".
 	 *
 	 * @param array $variant Variant record.
 	 * @return array Sort key: upright first, then distance from regular, then latin.

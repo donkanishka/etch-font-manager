@@ -2,7 +2,7 @@
 
 All notable changes to Etch Font Manager are documented here.
 
-## 1.25.0
+## 0.25.0
 
 A pass over the interface against Etch's own managers, measured on a live builder rather than eyeballed. One
 real bug turned up while testing it.
@@ -52,12 +52,20 @@ real bug turned up while testing it.
 - **The Compact layout.** Row and Grid remain. `LAYOUTS` doubles as the allowlist a stored preference is checked
   against, so an install that saved Compact falls back to Grid rather than restoring a mode with no button.
 
+### Versioning
+
+Every version in this file has been renumbered from `1.x` to `0.x`. The plugin has only ever been installed
+by its author, and the `1.x` series was never a public release; the numbering now says so. `1.0.0` is reserved
+for the first public release. Nothing about the code changed with the renumber, and the earlier GitHub releases
+and tags were removed, since their zips carried the old numbers. The history itself is unchanged and complete,
+both here and in the repository's commits.
+
 ### Translators
 
 `manage` and `layoutCompact` are gone. `back` and `backToBrowse` are replaced by `backToLibrary` and
 `backToGoogle`, and `noMatches` by `noResultsFor` and `checkSpelling`. Every other string is unchanged.
 
-## 1.24.1
+## 0.24.1
 
 Two follow-ups from reviewing the finished interface, plus a modifier that never had a rule.
 
@@ -67,11 +75,11 @@ Two follow-ups from reviewing the finished interface, plus a modifier that never
   only the grid layout truncated, with an ellipsis at anything above roughly 30px. Specimens now clamp to two
   lines with the box held at exactly that height, so a one-line family and a two-line family still line up beside
   each other. Measured on the live grid afterwards: every sampled card reports the same specimen height and the
-  footers stay put, so the row alignment added in 1.23.0 is unaffected.
+  footers stay put, so the row alignment added in 0.23.0 is unaffected.
 
 - **`.efm-toggle--inline` had no rule of its own.** The modifier was already in the markup and in the compact
   layout's hide list, but nothing styled it, so it rendered as the default stacked toggle. This is the third
-  modifier found this way, after `.efm-btn--ghost` and `.efm-btn--block` in 1.21.0.
+  modifier found this way, after `.efm-btn--ghost` and `.efm-btn--block` in 0.21.0.
 
 ### Changed
 
@@ -79,7 +87,7 @@ Two follow-ups from reviewing the finished interface, plus a modifier that never
   "Variable 100–900" stays visible; the explanation behind it does not need repeating down twenty-four cards and
   moves to the label's tooltip. The detail view is one family on a full pane, so it keeps the whole sentence.
 
-## 1.24.0
+## 0.24.0
 
 Loading, empty and status states. No new strings and no new stored data.
 
@@ -120,7 +128,7 @@ values, and nothing focusable sits inside an `aria-hidden` subtree. Tab from the
 first and Shift+Tab from the first wraps to the last, both staying inside the dialog, and the focus ring
 resolves to Etch's own focus shadow.
 
-## 1.23.0
+## 0.23.0
 
 Screen-level composition. Behaviour, settings, stored data and the REST surface are unchanged; this is what the
 cards and the two settings screens look like.
@@ -159,7 +167,7 @@ cards and the two settings screens look like.
   earlier work, and adding a button and format chips that repeat that hint would have been change for its own
   sake.
 
-## 1.22.0
+## 0.22.0
 
 Layout and hierarchy, measured against a live Asset Manager and Style Manager rather than guessed at. Nothing
 about behaviour, settings or stored data changed.
@@ -201,7 +209,7 @@ about behaviour, settings or stored data changed.
   keeps 256px on purpose, because its labels are fixed and short and the Google Fonts grid wants the width, and
   the comment now says that instead of asserting something untrue.
 
-## 1.21.0
+## 0.21.0
 
 The panel's styling now runs off a single declared set of Etch tokens instead of an ad-hoc mix of tokens and
 literals. Appearance only: no behaviour, markup or stored data changed.
@@ -248,7 +256,7 @@ literals. Appearance only: no behaviour, markup or stored data changed.
 - **The input corner radius read `--etch-input-radius`**, a property Etch does not define, so it never tracked
   `--e-border-radius` as intended.
 
-## 1.20.0
+## 0.20.0
 
 The manager's icons were redrawn on Etch's own grid. Nothing about how the plugin behaves has changed.
 
@@ -287,7 +295,7 @@ The manager's icons were redrawn on Etch's own grid. Nothing about how the plugi
   ever defined, so an empty `<svg>` shipped in its place. It has a proper icon now, and an unknown icon name
   logs a warning instead of silently producing nothing.
 
-## 1.19.4
+## 0.19.4
 
 ### Fixed
 
@@ -300,7 +308,7 @@ The manager's icons were redrawn on Etch's own grid. Nothing about how the plugi
   button is hovered or focused**. Raising it permanently was measured first and rejected: it hides Etch's own
   Settings Bar tooltips behind the panel.
 
-## 1.19.3
+## 0.19.3
 
 ### Changed
 
@@ -308,9 +316,9 @@ The manager's icons were redrawn on Etch's own grid. Nothing about how the plugi
   from Etch's own back button on a live builder: 5px below, horizontally centred to the pixel. Like Etch's, it
   overhangs the button on both sides and can reach over the Settings Bar.
 
-## 1.19.2
+## 0.19.2
 
-Three follow-ups to 1.19.1, reported from a live builder. Two of them turned out to be the same root cause.
+Three follow-ups to 0.19.1, reported from a live builder. Two of them turned out to be the same root cause.
 
 ### Fixed
 
@@ -331,7 +339,7 @@ Three follow-ups to 1.19.1, reported from a live builder. Two of them turned out
   `title` was dropped so the two cannot show at once. Etch labels its own back button "Back to Builder", which
   is what this one says.
 
-## 1.19.1
+## 0.19.1
 
 ### Changed
 
@@ -351,11 +359,11 @@ Three follow-ups to 1.19.1, reported from a live builder. Two of them turned out
 Unsaved edits are still protected: switching away asks before discarding, the same as the back button does.
 If you cancel, the panel stays where it is.
 
-## 1.19.0
+## 0.19.0
 
 ### Added
 
-- **WOFF converts to WOFF2 too.** 1.18.0 handled TTF and OTF and left `.woff` alone, so dropping three files
+- **WOFF converts to WOFF2 too.** 0.18.0 handled TTF and OTF and left `.woff` alone, so dropping three files
   could convert two and silently skip the third. All four accepted formats now behave the same way.
 
 ### How it works
@@ -388,7 +396,7 @@ difference between zlib and Brotli plus the glyf transform. Unwrapping adds abou
 - The metadata and private data blocks a WOFF may carry are dropped. They hold no glyph data and WOFF2 stores
   such things differently.
 
-## 1.18.0
+## 0.18.0
 
 ### Added
 
@@ -411,7 +419,7 @@ difference between zlib and Brotli plus the glyf transform. Unwrapping adds abou
 - The result is verified before it is uploaded. It has to carry the `wOF2` signature and it has to be smaller
   than the original, otherwise the original file is uploaded instead.
 - If the browser cannot run the converter — no `WebAssembly`, no workers, or a Content-Security-Policy without
-  `wasm-unsafe-eval` — the toggle disappears and uploads behave exactly as they did in 1.17.0. The feature can
+  `wasm-unsafe-eval` — the toggle disappears and uploads behave exactly as they did in 0.17.0. The feature can
   never block an upload.
 
 ### Build
@@ -421,7 +429,7 @@ difference between zlib and Brotli plus the glyf transform. Unwrapping adds abou
   `assets/wasm/`. Provenance, sizes and SHA-256 sums are recorded in `assets/wasm/BUILD.txt`. Both upstreams are
   MIT; their licences ship alongside the binary.
 
-## 1.17.0
+## 0.17.0
 
 > ### BREAKING CHANGE
 >
@@ -430,7 +438,7 @@ difference between zlib and Brotli plus the glyf transform. Unwrapping adds abou
 > the stylesheet regenerates, and headings or body copy will fall back to whatever Automatic.css is otherwise
 > set to.
 >
-> **What to do instead.** Every family is already published as `--efm-family-{slug}` (added in 1.9.0), carrying
+> **What to do instead.** Every family is already published as `--efm-family-{slug}` (added in 0.9.0), carrying
 > its full fallback stack. Set the ACSS variable from it, in Automatic.css itself:
 >
 > ```css
@@ -468,12 +476,12 @@ difference between zlib and Brotli plus the glyf transform. Unwrapping adds abou
   `removeFamily`, `none`, `unsaved`, `confirmRemoveAssigned`, `confirmRemoveAssignedHint`.
 - Removed a **stray duplicated docblock** in `class-efm-fonts.php` that had no function beneath it.
 - **Rebuilt the translation template from source**, 208 strings with accurate line references. The previous file
-  had drifted because entries were appended by hand in 1.15.0 and 1.16.0.
+  had drifted because entries were appended by hand in 0.15.0 and 0.16.0.
 - Translation keys are now exactly **192 used and 192 defined**, with none missing and none unused.
 
-## 1.16.0
+## 0.16.0
 
-Finishes the last item from the fonts.google.com review: the specimen detail view, held back from 1.15.0 rather
+Finishes the last item from the fonts.google.com review: the specimen detail view, held back from 0.15.0 rather
 than shipped untested.
 
 ### Added
@@ -505,7 +513,7 @@ than shipped untested.
   injecting the variable face under the real family name leaves the browser free to keep matching the static
   preview face already loaded for the grid. Both were measured against the live API, not assumed.
 
-## 1.15.0
+## 0.15.0
 
 A rebuild of the Google Fonts browser, modelled on fonts.google.com. Almost all of it is presentation over
 metadata the plugin already downloaded and cached and then discarded before storing: the index request is
@@ -550,17 +558,17 @@ unchanged, and there is still no API key.
   and are not present in the metadata; only `category`, `stroke` and `classifications` are, and
   `classifications` covers just 1,088 of the 1,942 families.
 
-## 1.14.0
+## 0.14.0
 
 ### Fixed
 
 - **Preload did nothing for many families.** It only accepted a weight of exactly `400` or the full `100 900`
-  range. A family installed without a regular weight preloaded nothing at all, and from 1.8.0 — when narrow
+  range. A family installed without a regular weight preloaded nothing at all, and from 0.8.0 — when narrow
   variable ranges stopped being rewritten to `400` — neither did any variable family with an axis such as
-  Alegreya's `400 900` or Akshar's `300 700`. **This was a regression introduced by 1.8.0** for the variable
+  Alegreya's `400 900` or Akshar's `300 700`. **This was a regression introduced by 0.8.0** for the variable
   case. Preload now picks the upright weight nearest regular, preferring latin, so it always chooses something
   sensible.
-- **Inline CSS was rebuilt on every page load.** The option added in 1.12.0 regenerated the stylesheet from
+- **Inline CSS was rebuilt on every page load.** The option added in 0.12.0 regenerated the stylesheet from
   scratch on each request. It is now cached and keyed to the generated file's timestamp, so it is rebuilt only
   when the fonts actually change. The file itself still cannot be inlined directly: it is written with relative
   `src` URLs, which would resolve against the page rather than the stylesheet.
@@ -583,7 +591,7 @@ unchanged, and there is still no API key.
   is honest about what it cannot reach: an `@import` inside a theme stylesheet, or a link printed straight into
   the page. Covering those would need output buffering, which is not worth the risk it brings.
 
-## 1.13.0
+## 0.13.0
 
 ### Added
 
@@ -605,7 +613,7 @@ unchanged, and there is still no API key.
   limit, and the bytes must start with that format's own signature. A PHP payload renamed to `.woff2` is
   rejected, as is anything trying to climb out of the fonts folder. Existing files are never overwritten.
 
-## 1.12.0
+## 0.12.0
 
 ### Added
 
@@ -626,7 +634,7 @@ unchanged, and there is still no API key.
   any selector rule it contributes, updating live as fields change, and says so plainly when a family is
   disabled or has no variants mapped.
 
-## 1.11.0
+## 0.11.0
 
 ### Added
 
@@ -641,10 +649,10 @@ unchanged, and there is still no API key.
 ### Notes
 
 - Nothing about the export format changed, and none was needed. `enabled`, `trashed` and the Google block added
-  in 1.8.0 and 1.10.0 already survive a round trip, because the export writes the stored records and the import
+  in 0.8.0 and 0.10.0 already survive a round trip, because the export writes the stored records and the import
   runs them back through the same sanitiser. Verified rather than assumed.
 
-## 1.10.0
+## 0.10.0
 
 ### Added
 
@@ -665,7 +673,7 @@ unchanged, and there is still no API key.
 - Existing families are unaffected. A record saved before this release carries neither flag, and a missing flag
   is read as enabled and not trashed, so nothing changes on upgrade.
 
-## 1.9.0
+## 0.9.0
 
 ### Added
 
@@ -682,7 +690,7 @@ unchanged, and there is still no API key.
 - Families with no variants are skipped, and if two names reduce to the same slug the first one wins rather than
   the second silently overwriting it.
 
-## 1.8.0
+## 0.8.0
 
 ### Added
 
@@ -711,20 +719,20 @@ unchanged, and there is still no API key.
   the same file whatever range is requested. Measured on Inter, Alegreya, Roboto Flex and Open Sans, the
   downloaded file is byte-identical, so the option would have saved nothing.
 
-## 1.7.3
+## 0.7.3
 
 - Use `WP_Filesystem::move()` rather than `rename()` when a font file that is not a real upload is moved into place, so hosts with restricted filesystem access are respected.
 - Continuous integration now fails on coding standard **errors** and reports warnings without blocking. Almost all remaining warnings are whitespace alignment, which `phpcbf` applies automatically.
 
-## 1.7.2
+## 0.7.2
 
 - Cleared the last two coding standards violations, so continuous integration is green. No functional change.
 
-## 1.7.1
+## 0.7.1
 
 - Fixed the coding standards violations the new CI run reported: block comment formatting, a missing doc comment on `sanitize_family_name()`, an undocumented `$variable` parameter, and `count()` evaluated inside a loop condition. No functional change.
 
-## 1.7.0
+## 0.7.0
 
 ### Added
 
@@ -740,7 +748,7 @@ unchanged, and there is still no API key.
 
 - The manager is a takeover, so keyboard focus is now trapped inside it while open and wraps at both ends.
 
-## 1.6.0
+## 0.6.0
 
 Google Fonts is now a browser rather than a search box.
 
@@ -755,7 +763,7 @@ Google Fonts is now a browser rather than a search box.
 
 - **Specimen webfonts load lazily.** Previously every result pulled a Google stylesheet whether or not it was ever seen; now they load per card as it scrolls into view, batched.
 
-## 1.5.0
+## 0.5.0
 
 Typography and delivery controls, per family, in a new **Delivery** section of the family editor.
 
@@ -769,7 +777,7 @@ Typography and delivery controls, per family, in a new **Delivery** section of t
 
 - Fallback stacks are stripped of every character a font stack does not need, so the value cannot terminate the declaration it is written into.
 
-## 1.4.0
+## 0.4.0
 
 Hardening for public distribution, where many sites can sit behind one outbound IP.
 
@@ -788,7 +796,7 @@ Hardening for public distribution, where many sites can sit behind one outbound 
 
 Conditional requests do **not** help here. Testing against the live API showed 304 responses still decrement the rate limit.
 
-## 1.3.5
+## 0.3.5
 
 ### Fixed
 
@@ -801,23 +809,23 @@ Conditional requests do **not** help here. Testing against the live API showed 3
 - Release lookups are cached for ten minutes instead of six hours, and a failed lookup backs off for fifteen minutes instead of thirty, so a new release surfaces on its own instead of waiting for a long cache to expire.
 - New `efm_release_cache_ttl` filter to tune that window. Raise it when many sites share an outbound IP, since GitHub allows 60 unauthenticated requests an hour per IP.
 
-## 1.3.4
+## 0.3.4
 
-- Restored the **Check for updates** plugin row link, which 1.3.3 removed. Testing showed a forced check from the WordPress Updates screen did not reliably reach the plugin with a fresh lookup, while this action clears both the release cache and the WordPress update transient before re-checking. 1.3.3 is superseded, do not run it.
+- Restored the **Check for updates** plugin row link, which 0.3.3 removed. Testing showed a forced check from the WordPress Updates screen did not reliably reach the plugin with a fresh lookup, while this action clears both the release cache and the WordPress update transient before re-checking. 0.3.3 is superseded, do not run it.
 
-## 1.3.3
+## 0.3.3
 
-- Removed the **Check for updates** plugin row link. It existed to work around the cache bug fixed in 1.3.2; now that a forced check bypasses the release cache, WordPress's own **Check again** on the Updates screen does the same job. This also removes an `admin-post` endpoint, a nonce flow and an admin notice.
+- Removed the **Check for updates** plugin row link. It existed to work around the cache bug fixed in 0.3.2; now that a forced check bypasses the release cache, WordPress's own **Check again** on the Updates screen does the same job. This also removes an `admin-post` endpoint, a nonce flow and an admin notice.
 
-## 1.3.2
+## 0.3.2
 
 - A forced update check now bypasses the plugin's own release cache. Clicking **Check again** on the Updates screen, or running WP-CLI, previously kept returning the cached lookup for up to six hours, so a release published in that window stayed invisible.
 
-## 1.3.1
+## 0.3.1
 
 - Added a **Check for updates** link to the plugin row, so a release can be picked up immediately instead of waiting for the six hour cache to expire. It reports whether a newer version is available.
 
-## 1.3.0
+## 0.3.0
 
 ### Added
 
@@ -829,7 +837,7 @@ Conditional requests do **not** help here. Testing against the live API showed 3
 
 Release lookups are cached for six hours, with a thirty minute back-off after a failed request, so the GitHub API rate limit is never a concern.
 
-## 1.2.0
+## 0.2.0
 
 ### Fixed
 
@@ -847,7 +855,7 @@ Release lookups are cached for six hours, with a thirty minute back-off after a 
 - Warning when deleting a file that variants still map, listing the affected families.
 - Library cards show assignment and subset chips; file rows show detected weight and an in-use marker.
 
-## 1.1.0
+## 0.1.0
 
 - Rebuilt the interface as a **full-screen font manager** matching Etch's own manager pattern: takeover surface beside the settings bar, 40px header and a 256px inner navigation column.
 - Navigation split into Library, Upload fonts, Google Fonts and Theme.
@@ -858,34 +866,34 @@ Release lookups are cached for six hours, with a thirty minute back-off after a 
 - Moved the Settings Bar control to the end of Etch's manager group (top-end) via the official Controls API.
 - Removed the DOM pinning logic entirely; the plugin no longer moves or inserts anything inside Etch's own DOM.
 
-## 1.0.4
+## 0.0.4
 
 - **Fix builder-breaking bug:** register the canvas stylesheet only through `etch/canvas/additional_stylesheets`.
   Registering through `etch/canvas/enqueue_assets` as well produced two entries with the id `efm-fonts` in Etch's
   keyed canvas stylesheet list, throwing `each_key_duplicate` and leaving the builder canvas collapsed and unclickable.
 - Skip the filter when an entry for the stylesheet already exists.
 - Never rename or replace the canvas link element Etch owns; only its `href` is updated when fonts change.
-- Remove the 1.0.3 DOM fallback control. The official Controls API works; the fallback inserted a foreign node
+- Remove the 0.0.3 DOM fallback control. The official Controls API works; the fallback inserted a foreign node
   into Etch's Svelte-managed Settings Bar.
 
-## 1.0.3
+## 0.0.3
 
 - Detect the Etch 1.6.4 state where external controls enter the public store but its Svelte Settings Bar renderer does not consume them.
 - In that specific state, render a native-shaped Fonts button directly after dark mode without mutating Etch's control store.
 - Continue using the official Controls API on healthy Etch installations.
 
-## 1.0.2
+## 0.0.2
 
 - Version builder panel assets by file modification time to prevent stale JavaScript after hotfixes.
 - Add a URL-scoped diagnostic bypass for isolating third-party Settings Bar integrations.
 
-## 1.0.1
+## 0.0.1
 
 - Wait for the exact Etch Settings Bar section to mount before registering the Fonts control.
 - Add a page-level boot guard and guarantee a single Controls API registration, preventing Etch's Svelte `each_key_duplicate` crash.
 - Store and serve fonts from the shared `wp-content/fonts/` directory so legacy Etch Custom Fonts files work immediately.
 
-## 1.0.0
+## 0.0.0
 
 Initial release.
 

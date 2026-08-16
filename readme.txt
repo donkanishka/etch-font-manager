@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 0.25.0
+Stable tag: 0.26.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,16 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 0.26.0 =
+* Uploading a font now creates its family in the library for you, with the weights and styles already mapped, instead of leaving you to build it by hand.
+* Fixed: in the family editor the font preview and the variants table could render with no height at all, so they looked missing. They were being squashed by the panel's own layout.
+* Opening a font from Google Fonts and pressing back now returns you to where you were in the list, and "Load more" no longer jumps you to the top.
+* Messages now appear at the top of the screen the way Etch's own do, coloured by what they are: green for done, red for a problem, amber for a partial result. They can be dismissed, and hovering pauses the timer.
+* Every dropdown is now drawn by the panel instead of by your operating system, so they match the builder and can be used from the keyboard.
+* Section headings have a separator under them, so sections no longer run together.
+* The CSS variable is shown as a value to copy, with a copy button, rather than as a text box you cannot type in.
+* No change to your fonts, settings or stored data.
 
 = 0.25.0 =
 * Fixed: typing in the Library filter or the Google Fonts search lost the cursor after a moment, so you had to click back into the field to keep typing.

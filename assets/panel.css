@@ -172,36 +172,141 @@
  * The element, its role and its aria-live are unchanged; only where it sits
  * and what it looks like moved, so announcements behave exactly as before.
  */
+/*
+ * Etch's own toast, taken from its component in the builder bundle rather than
+ * approximated: fixed to the top of the viewport and centred on it, 12px down,
+ * 400px wide at minimum, 12px block and 16px inline padding, and a level shown
+ * as a dark fill behind a bright border of the same hue, with the text left at
+ * the normal foreground colour in every case.
+ *
+ * The bottom-right corner and one neutral fill for everything were this
+ * panel's own invention. A message from the font manager now reads like a
+ * message from the builder around it.
+ */
 .efm-status {
-	position: absolute;
-	inset-block-end: var(--e-space-m, 12px);
-	inset-inline-end: var(--e-space-m, 12px);
-	z-index: 30;
-	max-inline-size: 44ch;
-	padding: var(--efm-pad-block) var(--e-space-m, 12px);
-	border: 1px solid var(--e-border-color, #36363a);
-	border-radius: var(--efm-radius);
-	background: var(--efm-surface-raised);
-	box-shadow: 0 6px 20px rgb(0 0 0 / .35);
-	color: var(--efm-text);
+	--efm-toast-surface: var(--e-base, #27272b);
+	--efm-toast-border: var(--e-border-color, #36363a);
+
+	position: fixed;
+	inset-block-start: var(--e-space-m, 12px);
+	inset-inline-start: 50%;
+	translate: -50% 0;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--e-content-gap, 12px);
+	min-inline-size: 400px;
+	max-inline-size: min(60svw, 800px);
+	min-block-size: 40px;
+	padding-block: var(--e-space-m, 12px);
+	padding-inline: var(--e-space-l, 16px);
+	border: var(--e-border-width, 1px) var(--e-border-style, solid) var(--efm-toast-border);
+	border-radius: var(--e-border-radius, 6px);
+	background: var(--efm-toast-surface);
+	color: var(--e-text-color, #e1e1e5);
 	font-size: var(--e-font-size-m, 12px);
+	text-align: center;
 	animation: efm-toast-in var(--efm-transition);
 }
 
 /* Nothing to report, nothing on screen. */
-.efm-status:empty {
+.efm-status[hidden] {
 	display: none;
 }
 
-.efm-status.is-error {
-	border-color: color-mix(in srgb, var(--efm-danger) 45%, transparent);
-	color: var(--efm-danger);
+.efm-status__message {
+	flex-grow: 0;
 }
 
+/*
+ * Etch's close affordance, measured: a 24px box pushed to the end of the row
+ * with a 30px countdown ring centred behind it, so the ring reads as a halo
+ * around the button rather than as a second control.
+ */
+.efm-status__close-wrap {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	inline-size: 24px;
+	block-size: 24px;
+	margin-inline-start: auto;
+}
+
+.efm-status__ring {
+	position: absolute;
+	inset-block-start: 50%;
+	inset-inline-start: 50%;
+	translate: -50% -50%;
+	z-index: 1;
+	inline-size: 30px;
+	block-size: 30px;
+	/* Never intercepts the pointer, so the button underneath stays clickable. */
+	pointer-events: none;
+	color: var(--efm-toast-border);
+}
+
+.efm-status__ring[hidden] {
+	display: none;
+}
+
+/* Repainted every 100ms, so the same transition smooths one step into the next. */
+.efm-status__ring-stroke {
+	transition: stroke-dashoffset .1s ease-out;
+}
+
+.efm-status__close {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 24px;
+	block-size: 24px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--efm-radius);
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	transition: var(--efm-transition);
+	transition-property: background-color;
+}
+
+.efm-status__close:hover {
+	background: color-mix(in srgb, var(--e-text-color, #e1e1e5) 14%, transparent);
+}
+
+/* One per level, mirroring Etch's toast--success / --error / --warning / --info. */
+.efm-status.is-success {
+	--efm-toast-surface: var(--e-success-dark, #32433a);
+	--efm-toast-border: var(--e-success, #67d992);
+}
+
+.efm-status.is-error {
+	--efm-toast-surface: var(--e-danger-dark, #633636);
+	--efm-toast-border: var(--e-danger, #f26060);
+}
+
+.efm-status.is-warning {
+	--efm-toast-surface: var(--e-warning-dark, #4c4233);
+	--efm-toast-border: var(--e-warning, #f2c960);
+}
+
+/* Work in progress takes Etch's info level, which is its neutral blue. */
+.efm-status.is-progress {
+	--efm-toast-surface: var(--etch-info-dark, oklch(0.26 .14 240));
+	--efm-toast-border: var(--etch-info, oklch(67% .14 240));
+}
+
+/*
+ * translate holds the centring, so the entrance can use transform without the
+ * two fighting: individual transform properties are applied before transform.
+ */
 @keyframes efm-toast-in {
 	from {
 		opacity: 0;
-		transform: translateY(4px);
+		transform: translateY(-4px);
 	}
 }
 
@@ -367,6 +472,21 @@
 	scrollbar-color: var(--etch-scrollbar-thumb-color, #4b4b4e) transparent;
 }
 
+/*
+ * The pane is a scrolling column, so its children keep their own height and it
+ * scrolls past them. Without this they are flex items that shrink as soon as
+ * the content is taller than the pane, and anything whose own overflow is
+ * hidden has no minimum size to stop it: measured in the family editor with one
+ * variant mapped, the specimen collapsed to 0px and the variants table to 2px,
+ * leaving their headings above an empty gap.
+ *
+ * Anything that genuinely fills the pane, such as the no-results state, sets
+ * its own flex further down and overrides this.
+ */
+.efm-content > * {
+	flex-shrink: 0;
+}
+
 .efm-content::-webkit-scrollbar {
 	inline-size: 8px;
 }
@@ -386,11 +506,51 @@
  * uppercasing; measured off a live Asset Manager. The previous 11px muted
  * uppercase treatment came from nowhere in Etch.
  */
+/*
+ * Etch starts a section with a banded heading rather than a bare line of text:
+ * measured on the Loop Manager, a 40px band with a 1px --e-border-color rule
+ * along its bottom and a gap after it. Without the rule, a heading is just
+ * another line in the stack and the sections read as one squashed run.
+ *
+ * The rule spans the pane, so the extra space belongs above the heading, where
+ * it separates a section from the one before it. The pane's own 12px gap sits
+ * on top of that, and the first heading in a view has nothing to separate from.
+ */
 .efm-section-title {
+	display: flex;
+	align-items: center;
+	min-block-size: var(--e-panel-header-height, 40px);
 	margin: 0;
+	margin-block-start: var(--e-space-s, 8px);
+	border-block-end: 1px solid var(--e-border-color, #36363a);
 	font-size: var(--e-font-size-l, 13px);
 	font-weight: 600;
 	color: var(--efm-text-strong);
+}
+
+.efm-section-title:first-child {
+	margin-block-start: 0;
+}
+
+/*
+ * Inside a section box the heading is that box's own header, so the rule runs
+ * to the box's edges rather than stopping inside its padding.
+ *
+ * It also changes colour there. A box is filled with --e-base-light, which is
+ * the same value --e-border-color resolves to, so the pane's rule is invisible
+ * on it. Etch's divider colour is the one that reads on a raised surface.
+ */
+.efm-section > .efm-section-title {
+	inline-size: calc(100% + var(--e-space-m, 12px) * 2);
+	/*
+	 * Pulled out of the box's padding on all three sides, not just the two.
+	 * Left in the padding, the box's 12px top edge stacks on the band and the
+	 * title sits low in it rather than centred.
+	 */
+	margin-block-start: calc(var(--e-space-m, 12px) * -1);
+	margin-inline: calc(var(--e-space-m, 12px) * -1);
+	padding-inline: var(--e-space-m, 12px);
+	border-color: var(--etch-divider-color, #4b4b4e);
 }
 
 /*
@@ -1117,6 +1277,24 @@
 	color: color-mix(in srgb, currentColor 45%, transparent);
 }
 
+/*
+ * Two fields sharing a row. The basis rather than a breakpoint decides when
+ * they split: below roughly 260px each they wrap to one per line, which tracks
+ * the panel's own width. The manager is sized by the builder, not the viewport,
+ * so a media query would be measuring the wrong thing.
+ */
+.efm-field-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: start;
+	gap: var(--e-space-m, 12px);
+}
+
+.efm-field-row > .efm-field {
+	flex: 1 1 260px;
+	min-inline-size: 0;
+}
+
 /* ------------------------------- Delivery ------------------------------ */
 
 .efm-delivery {
@@ -1204,23 +1382,155 @@
 }
 
 /*
- * Etch fills its select trigger with --e-base-light rather than the panel
- * surface, which is what tells a chooser apart from a text field.
+ * The published custom property. Etch shows code on a sunken --e-base-dark
+ * well, so the token takes that surface and the same monospace as the
+ * generated CSS below it, which is what tells a value you copy apart from a
+ * value you type.
  */
-.efm-input--select {
-	appearance: none;
-	padding-inline-end: 22px;
-	background-color: var(--efm-surface-raised);
-	background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
-	background-position: calc(100% - 12px) 12px, calc(100% - 8px) 12px;
-	background-size: 4px 4px;
-	background-repeat: no-repeat;
-	cursor: pointer;
+.efm-token {
+	display: flex;
+	align-items: center;
+	gap: var(--e-space-s, 8px);
+	min-block-size: var(--efm-control-block);
+	padding-block: 2px;
+	padding-inline: 2px 2px;
+	padding-inline-start: var(--efm-pad-inline);
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+	background: var(--e-base-dark, #1d1d20);
 }
 
-.efm-input--select option {
-	background: var(--efm-surface);
+.efm-token__value {
+	flex: 1 1 auto;
+	min-inline-size: 0;
+	overflow-x: auto;
 	color: var(--efm-text);
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 11px;
+	white-space: nowrap;
+	/* One click takes the whole token, so copying by hand stays as easy as it
+	   was when this was an input that selected itself. */
+	user-select: all;
+}
+
+/* ------------------------------ Dropdown ------------------------------- */
+
+/*
+ * A select rendered as a popover rather than as a native one.
+ *
+ * A native select's list is drawn by the operating system, so it ignores the
+ * panel's colours, type and corner radius, and arrives as a white system menu
+ * over a dark builder. The trigger keeps the geometry of Etch's own chooser,
+ * filled with --e-base-light because that fill is what tells a chooser apart
+ * from a text field, and the list reuses the Filters popover surface so every
+ * menu in the panel is the same object.
+ */
+.efm-select {
+	position: relative;
+	display: flex;
+	min-inline-size: 0;
+}
+
+.efm-select__trigger {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--e-space-xs, 6px);
+	inline-size: 100%;
+	block-size: var(--efm-control-block);
+	padding-block: var(--efm-pad-block);
+	padding-inline: var(--efm-pad-inline);
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+	background: var(--efm-surface-raised);
+	color: var(--efm-text);
+	font: inherit;
+	font-size: var(--e-font-size-m, 12px);
+	text-align: start;
+	cursor: pointer;
+	transition: var(--efm-transition);
+	transition-property: border-color, color;
+}
+
+.efm-select__trigger:hover,
+.efm-select__trigger.is-open {
+	border-color: color-mix(in srgb, var(--efm-text) 30%, transparent);
+	color: var(--efm-text-strong);
+}
+
+/* The value takes the squeeze, so a long file name never pushes the chevron out. */
+.efm-select__value {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.efm-select__trigger .efm-icon {
+	flex: 0 0 auto;
+	color: var(--efm-muted);
+}
+
+/*
+ * The menu is the Filters popover with its own measure: never narrower than the
+ * trigger it belongs to, and otherwise sized to its content up to 320px, since
+ * a minimum outranks a maximum in CSS and the trigger's width is the floor.
+ * Height is capped so a list of sixty writing systems scrolls inside the menu
+ * rather than running off the pane.
+ */
+.efm-select__menu {
+	inline-size: max-content;
+	min-inline-size: 100%;
+	max-inline-size: 320px;
+	max-block-size: 280px;
+	gap: 2px;
+	padding: 4px;
+	overflow-y: auto;
+}
+
+/* Flipped by panel.js when the menu would open past the foot of the pane. */
+.efm-select__menu.is-above {
+	inset-block-start: auto;
+	inset-block-end: calc(100% + 4px);
+}
+
+.efm-select__option {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--e-space-m, 12px);
+	inline-size: 100%;
+	padding-block: var(--efm-pad-block);
+	padding-inline: var(--efm-pad-inline);
+	border: 0;
+	border-radius: var(--efm-radius);
+	background: transparent;
+	color: var(--efm-text);
+	font: inherit;
+	font-size: var(--e-font-size-m, 12px);
+	text-align: start;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: var(--efm-transition);
+	transition-property: background-color, color;
+}
+
+.efm-select__option:hover {
+	background: color-mix(in srgb, var(--efm-text) 8%, transparent);
+	color: var(--efm-text-strong);
+}
+
+/*
+ * The selected row takes the same raised fill the sidebar's active item does.
+ * The accent stays a signal here too, carried by the check rather than a fill.
+ */
+.efm-select__option.is-on {
+	background: var(--efm-surface-raised);
+	color: var(--efm-text-strong);
+}
+
+.efm-select__option .efm-icon {
+	flex: 0 0 auto;
+	color: var(--efm-accent);
 }
 
 /* -------------------------------- Sample ------------------------------- */
@@ -1554,6 +1864,18 @@
 	block-size: 24px;
 	padding-inline: var(--efm-pad-inline);
 	font-size: var(--e-font-size-s, 11px);
+}
+
+/*
+ * One step up from the control height, for an action that belongs to a whole
+ * section rather than to a row. Etch has no size variants of its own, only
+ * style ones, so this stays deliberately modest: the same shape, 4px taller,
+ * with the inline padding and the type each moving one step with it.
+ */
+.efm-btn--lg {
+	block-size: 32px;
+	padding-inline: var(--e-space-l, 16px);
+	font-size: var(--e-font-size-l, 13px);
 }
 
 .efm-btn--icon {

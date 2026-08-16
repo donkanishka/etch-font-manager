@@ -2,6 +2,76 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.26.0
+
+Another pass over the interface, again measured against Etch rather than guessed at, and two bugs that the
+measuring turned up. Uploading a font now leaves a family behind instead of a file.
+
+### Added
+
+- **A font upload creates its family.** Uploading used to leave the files in the table with the library still
+  empty: a family had to be made by hand and each file picked from a dropdown. The family name is now read off
+  the file name, which the server already parses for weight and style, and the variants are mapped for you.
+  `Inter-SemiBoldItalic.woff2` resolves to Inter, `SourceCodePro-ExtraLightItalic.otf` to Source Code Pro,
+  `Blackout-Bold.otf` to Blackout rather than Black. Files whose family is already in the library join it as
+  further variants, and a file some family already maps is left alone.
+
+  Saved immediately when nothing else was pending, so the upload really does finish the job. If edits were
+  already waiting, the new family joins them in the buffer and says so, rather than flushing work you had not
+  finished.
+
+- **The panel remembers where each view was scrolled to.** Opening a family from the Google Fonts catalogue and
+  pressing back returned you to the top of the list. Each place now keeps its own position — the catalogue, a
+  type tester, a family editor — so leaving one and coming back lands where you left off. The same memory stops
+  "Load more" and a filter keystroke throwing you to the top of the pane.
+
+### Fixed
+
+- **The content pane crushed its own children.** The pane is a flex column, so anything inside it shrank as soon
+  as the content was taller than the pane, and anything with hidden overflow had no minimum size to stop it.
+  Measured in the family editor with one variant mapped: the specimen preview rendered at **0px** and the
+  variants table at **2px**, both invisible under headings that stayed put. This is why the font preview looked
+  missing and why the variants table appeared to be an empty section. The pane now scrolls past its children
+  rather than compressing them.
+
+  `.efm-code` had carried a hand-written `flex: 0 0 auto` against this since 0.20.0, so the fault had been met
+  before and patched in one place.
+
+### Changed
+
+- **Toasts are Etch's toast.** Taken from its component in the builder bundle rather than approximated: fixed to
+  the top of the viewport and centred, 400px minimum, and a level shown as a dark fill behind a bright border of
+  the same hue. Success is green, errors red, a partial result amber, work in progress blue. The bottom-right
+  corner and one neutral fill for everything were this panel's own invention.
+
+  They also carry Etch's dismiss button, with its countdown ring, and hovering pauses the countdown so a message
+  cannot expire while it is being read.
+
+- **Every dropdown is drawn by the panel.** A native select's list is drawn by the operating system, so it
+  ignored the panel's colours, type and corner radius. All nine are now the same popover the Filters button
+  uses: arrow keys walk the list, Escape closes it and returns focus to the trigger, a long list scrolls inside
+  the menu, and one opening near the foot of the pane flips above its trigger.
+
+- **Section headings are banded.** Etch starts a section with a 40px heading carrying a rule along its bottom;
+  ours were bare lines of text, so sections ran together. Inside a raised box the rule takes Etch's divider
+  colour, because `--e-border-color` resolves to the same value the box is filled with and was invisible there.
+
+- **The CSS variable reads as a value, not a field.** It was a readonly input, which looks exactly like the
+  editable ones beside it. It now sits on the sunken well Etch shows code on, with a copy button rather than a
+  hidden click, and the async clipboard API falling back to a hidden textarea when the builder refuses it.
+
+- **Family name and CSS variable share a row**, which returns 60px of vertical space, and they fall back to one
+  per line when the panel is too narrow to hold both.
+
+- **Smaller things.** "Add variant" takes a new larger button size, since it is a section's action rather than a
+  row's. The variants heading is capitalised, through its own string: the plural label it used to borrow is
+  reused mid-sentence in "6 variants", where a capital would be wrong.
+
+### Translators
+
+Six new strings: `copy`, `copied`, `copyFailed`, `dismiss`, `variantsTitle`, `addedToLibrary`,
+`mappedToFamily` and `reviewAndSave`. Nothing was removed or renamed.
+
 ## 0.25.0
 
 A pass over the interface against Etch's own managers, measured on a live builder rather than eyeballed. One

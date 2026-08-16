@@ -35,6 +35,8 @@
 		editing: null,
 		// Transient: whether the Google Fonts filter popover is open. Not saved.
 		filtersOpen: false,
+		// Transient: the key of the open dropdown, at most one at a time. Not saved.
+		openMenu: '',
 		// Transient: which collapsed chip rows the user has expanded. Not saved.
 		chipsOpen: {},
 		filter: '',
@@ -319,6 +321,8 @@
 		// Etch's own manager back arrow, copied off the Loop Manager header: an
 		// arrow, not a bare chevron.
 		back: '<path d="M9 17L4 12L9 7"/><path d="M4 12H20"/>',
+		chevronDown: '<path d="M6 9L12 15L18 9"/>',
+		copy: '<path d="M19.4 20H9.6C9.26863 20 9 19.7314 9 19.4V9.6C9 9.26863 9.26863 9 9.6 9H19.4C19.7314 9 20 9.26863 20 9.6V19.4C20 19.7314 19.7314 20 19.4 20Z"/><path d="M15 9V4.6C15 4.26863 14.7314 4 14.4 4H4.6C4.26863 4 4 4.26863 4 4.6V14.4C4 14.7314 4.26863 15 4.6 15H9"/>',
 		plus: '<path d="M6 12H12M18 12H12M12 12V6M12 12V18"/>',
 		check: '<path d="M5 13L9 17L19 7"/>',
 		close: '<path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426"/>',
@@ -410,6 +414,90 @@
 	 * @param {string} filename File name.
 	 * @return {string[]} Family names.
 	 */
+	/*
+	 * Everything in a font file name that is not part of the family's name: the
+	 * weight and style the server already reads off it, the markers a variable
+	 * font carries, and the subset suffix this plugin's own Google installs add.
+	 */
+	var FAMILY_NOISE = [
+		'thin', 'extralight', 'ultralight', 'light', 'regular', 'normal', 'book', 'medium',
+		'semibold', 'demibold', 'demi', 'bold', 'extrabold', 'ultrabold', 'black', 'heavy',
+		'italic', 'oblique',
+		'variablefont', 'variable', 'vf', 'wght', 'wdth', 'slnt', 'opsz', 'ital',
+		'latin', 'latinext', 'cyrillic', 'cyrillicext', 'greek', 'greekext', 'vietnamese',
+		'sinhala', 'tamil', 'devanagari', 'bengali', 'arabic', 'hebrew', 'thai', 'khmer',
+		'korean', 'japanese', 'chinese', 'symbols', 'math', 'emoji', 'menu'
+	];
+
+	/**
+	 * Read a family name off a font file name.
+	 *
+	 * "Sekuya-400-latin.woff2" and "OpenSans-SemiBoldItalic.woff2" both name their
+	 * family first and then describe the cut, so the cut is what gets stripped:
+	 * numeric weights, weight and style words including run-together ones, axis
+	 * lists in brackets, and subset suffixes. Whatever is left is the name, with
+	 * runs of camel case split back into words.
+	 *
+	 * @param {string} filename Font file name.
+	 * @return {string} Family name, or the bare file name if nothing survives.
+	 */
+	function guessFamilyName(filename) {
+		var base = String(filename || '').replace(/\.[a-z0-9]+$/i, '').replace(/\[[^\]]*\]/g, ' ');
+		var kept = [];
+
+		base.split(/[-_.\s]+/).forEach(function (token) {
+			var flat = token.toLowerCase().replace(/[^a-z0-9]/g, '');
+			var trimmed = token;
+			var cutting = true;
+
+			if (!flat || /^[1-9]00i?$/.test(flat) || FAMILY_NOISE.indexOf(flat) !== -1) {
+				return;
+			}
+
+			// Run-together cuts such as "SemiBoldItalic", peeled off the end so a
+			// name that merely contains a keyword, like "Blackout", survives.
+			while (cutting) {
+				cutting = false;
+
+				FAMILY_NOISE.forEach(function (word) {
+					var tail = trimmed.slice(-word.length).toLowerCase();
+
+					/*
+					 * Equal length counts, so "SemiBoldItalic" loses "Italic" and then
+					 * the whole of "SemiBold" rather than stopping at "Semi". A token
+					 * that is nothing but a cut description is dropped entirely.
+					 */
+					if (trimmed.length >= word.length && tail === word) {
+						trimmed = trimmed.slice(0, -word.length);
+						cutting = true;
+					}
+				});
+			}
+
+			trimmed = trimmed.replace(/[0-9]+$/, '');
+
+			if (trimmed) {
+				kept.push(trimmed);
+			}
+		});
+
+		var name = kept.join(' ')
+			// "IBMPlexMono" splits at the acronym boundary as well as the plain one.
+			.replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+			.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+			.replace(/\s+/g, ' ')
+			.trim();
+
+		if (!name) {
+			return String(filename || '').replace(/\.[a-z0-9]+$/i, '');
+		}
+
+		// Only the first letter, so an acronym keeps its own casing.
+		return name.split(' ').map(function (word) {
+			return word.charAt(0).toUpperCase() + word.slice(1);
+		}).join(' ');
+	}
+
 	function fileUsedBy(filename) {
 		return state.families.filter(function (family) {
 			return (family.variants || []).some(function (variant) {
@@ -538,6 +626,19 @@
 	var navEl = null;
 	var headerActionsEl = null;
 	var statusEl = null;
+	var statusMessageEl = null;
+	var statusRingEl = null;
+
+	/*
+	 * Etch's toast countdown, measured from its component: a 30x30 ring drawn at
+	 * r=14, its dash offset walked from 0 to the full circumference as the time
+	 * runs out, repainted every 100ms and smoothed by a CSS transition of the
+	 * same length.
+	 */
+	var TOAST_DURATION = 4000;
+	var TOAST_RADIUS = 14;
+	var TOAST_CIRCUMFERENCE = 2 * Math.PI * TOAST_RADIUS;
+	var toastTimer = { deadline: 0, remaining: 0, interval: 0 };
 	var controlButton = null;
 	var isOpen = false;
 	var lastFocus = null;
@@ -584,7 +685,33 @@
 		navEl = el('nav', { class: 'efm-nav', 'aria-label': s('fontManager', 'Font Manager') });
 		contentEl = el('div', { class: 'efm-content' });
 		headerActionsEl = el('div', { class: 'efm-header__actions' });
-		statusEl = el('span', { class: 'efm-status', role: 'status', 'aria-live': 'polite' });
+		/*
+		 * The live region is the message itself rather than the whole toast, so a
+		 * screen reader announces what happened without also reading out the
+		 * dismiss button every time.
+		 */
+		statusMessageEl = el('span', { class: 'efm-status__message', role: 'status', 'aria-live': 'polite' });
+		statusRingEl = toastRing();
+
+		statusEl = el('div', { class: 'efm-status', hidden: true }, [
+			statusMessageEl,
+			el('span', { class: 'efm-status__close-wrap' }, [
+				statusRingEl,
+				el('button', {
+					type: 'button',
+					class: 'efm-status__close',
+					'aria-label': s('dismiss', 'Dismiss'),
+					onclick: function () {
+						setStatus('');
+					}
+				}, [icon('close', 'sm')])
+			])
+		]);
+
+		// Etch pauses every toast's countdown while the pointer is over it, so a
+		// message cannot expire while it is being read.
+		statusEl.addEventListener('mouseenter', pauseToastTimer);
+		statusEl.addEventListener('mouseleave', resumeToastTimer);
 
 		manager = el('section', {
 			class: 'efm-manager',
@@ -635,7 +762,16 @@
 			if (event.key === 'Escape') {
 				event.stopPropagation();
 
-				// A popover is the innermost layer, so it takes Escape first.
+				/*
+				 * Innermost layer first. A dropdown can be open inside the filters
+				 * popover, so it takes Escape before the popover does, and the
+				 * popover before the manager.
+				 */
+				if (state.openMenu) {
+					closeMenu(true);
+					return;
+				}
+
 				if (state.filtersOpen) {
 					closeFilters(true);
 					return;
@@ -682,6 +818,12 @@
 		 */
 		manager.addEventListener('pointerdown', function (event) {
 			manager.setAttribute('data-efm-modality', 'pointer');
+
+			// A press anywhere outside the open dropdown closes it, including on
+			// another dropdown's trigger, which then opens its own.
+			if (state.openMenu && !event.target.closest('.efm-select')) {
+				closeMenu(false);
+			}
 
 			if (!state.filtersOpen || event.target.closest('.efm-filters')) {
 				return;
@@ -862,22 +1004,145 @@
 		});
 	}
 
+	/**
+	 * Show a toast.
+	 *
+	 * The default level is success, because every call that does not name one
+	 * reports something that finished: saved, installed, uploaded, exported.
+	 * Work still in progress passes 'progress' so it is not announced green and
+	 * is not cleared while it is still running.
+	 *
+	 * @param {string} message Text to show.
+	 * @param {string} [type]  success, error, warning or progress.
+	 */
 	function setStatus(message, type) {
-		state.status = message ? { message: message, type: type || 'info' } : null;
+		state.status = message ? { message: message, type: type || 'success' } : null;
 		renderStatus();
 
 		// Always cancel a pending clear. A timer left over from an earlier
 		// transient message used to fire on top of whatever replaced it, wiping
 		// an error or a progress line that should have stayed.
-		window.clearTimeout(setStatus._timer);
+		clearToastTimer();
 
-		// 'progress' stays put: a long conversion would otherwise clear the only
-		// sign that anything is still happening.
-		if (message && type !== 'error' && type !== 'progress') {
-			setStatus._timer = window.setTimeout(function () {
-				state.status = null;
-				renderStatus();
-			}, 4000);
+		if (message && !toastPersists(state.status.type)) {
+			runToastTimer(TOAST_DURATION);
+		}
+	}
+
+	/**
+	 * Whether a level stays until it is dismissed.
+	 *
+	 * 'progress' stays put: a long conversion would otherwise clear the only
+	 * sign that anything is still happening. So do 'error' and 'warning', which
+	 * name what failed and are worth reading at your own pace.
+	 *
+	 * @param {string} type Toast level.
+	 * @return {boolean} True when the toast has no countdown.
+	 */
+	function toastPersists(type) {
+		return type === 'error' || type === 'progress' || type === 'warning';
+	}
+
+	/**
+	 * The countdown ring behind the dismiss button.
+	 *
+	 * @return {SVGElement} Ring, hidden from assistive technology.
+	 */
+	function toastRing() {
+		var ns = 'http://www.w3.org/2000/svg';
+		var svg = document.createElementNS(ns, 'svg');
+		var circle = document.createElementNS(ns, 'circle');
+
+		svg.setAttribute('class', 'efm-status__ring');
+		svg.setAttribute('viewBox', '0 0 30 30');
+		svg.setAttribute('aria-hidden', 'true');
+
+		circle.setAttribute('class', 'efm-status__ring-stroke');
+		circle.setAttribute('cx', '15');
+		circle.setAttribute('cy', '15');
+		circle.setAttribute('r', String(TOAST_RADIUS));
+		circle.setAttribute('fill', 'none');
+		circle.setAttribute('stroke', 'currentColor');
+		circle.setAttribute('stroke-width', '1.5');
+		circle.setAttribute('stroke-dasharray', String(TOAST_CIRCUMFERENCE));
+		circle.setAttribute('stroke-dashoffset', '0');
+		svg.appendChild(circle);
+
+		return svg;
+	}
+
+	/**
+	 * Draw the ring for a share of time remaining.
+	 *
+	 * @param {number} share 1 for a full ring, 0 for none.
+	 */
+	function paintToastRing(share) {
+		if (!statusRingEl) {
+			return;
+		}
+
+		statusRingEl.firstChild.setAttribute(
+			'stroke-dashoffset',
+			String(TOAST_CIRCUMFERENCE * (1 - Math.max(0, Math.min(1, share))))
+		);
+	}
+
+	function clearToastTimer() {
+		if (toastTimer.interval) {
+			window.clearInterval(toastTimer.interval);
+		}
+
+		toastTimer.interval = 0;
+		toastTimer.deadline = 0;
+		toastTimer.remaining = 0;
+		paintToastRing(1);
+	}
+
+	/**
+	 * Start or restart the countdown.
+	 *
+	 * @param {number} ms Milliseconds left to run.
+	 */
+	function runToastTimer(ms) {
+		if (toastTimer.interval) {
+			window.clearInterval(toastTimer.interval);
+		}
+
+		toastTimer.deadline = Date.now() + ms;
+		toastTimer.remaining = 0;
+		toastTimer.interval = window.setInterval(tickToastTimer, 100);
+		tickToastTimer();
+	}
+
+	function tickToastTimer() {
+		var left = Math.max(0, toastTimer.deadline - Date.now());
+
+		// Always a share of the full duration, so a resumed toast picks the ring
+		// up where it was paused rather than refilling it.
+		paintToastRing(left / TOAST_DURATION);
+
+		if (left > 0) {
+			return;
+		}
+
+		clearToastTimer();
+		state.status = null;
+		renderStatus();
+	}
+
+	function pauseToastTimer() {
+		if (!toastTimer.deadline) {
+			return;
+		}
+
+		toastTimer.remaining = Math.max(0, toastTimer.deadline - Date.now());
+		window.clearInterval(toastTimer.interval);
+		toastTimer.interval = 0;
+	}
+
+	function resumeToastTimer() {
+		if (toastTimer.remaining) {
+			runToastTimer(toastTimer.remaining);
 		}
 	}
 
@@ -885,8 +1150,22 @@
 		if (!statusEl) {
 			return;
 		}
-		statusEl.textContent = state.status ? state.status.message : '';
-		statusEl.classList.toggle('is-error', !!state.status && state.status.type === 'error');
+		var status = state.status;
+
+		statusMessageEl.textContent = status ? status.message : '';
+
+		// One class per level, matching Etch's own toast--{level} variants.
+		statusEl.className = 'efm-status' + (status ? ' is-' + status.type : '');
+
+		if (status) {
+			statusEl.removeAttribute('hidden');
+		} else {
+			statusEl.setAttribute('hidden', '');
+		}
+
+		// A message that never expires has no countdown to draw, but is still
+		// dismissible, which is exactly how Etch treats one.
+		statusRingEl.hidden = !status || toastPersists(status.type);
 	}
 
 	function fail(error) {
@@ -895,6 +1174,7 @@
 
 	function go(view) {
 		state.filtersOpen = false;
+		state.openMenu = '';
 
 		state.view = view;
 		state.editing = null;
@@ -917,6 +1197,32 @@
 	 * @param {Element} node Focused element.
 	 * @return {Array<number>|null} Selection start and end, or null.
 	 */
+	/*
+	 * Where each view was scrolled to, so leaving one and coming back lands where
+	 * you left off. Keyed by what is on screen rather than by the nav section: a
+	 * family editor and the type tester are their own places, and each starts at
+	 * the top the first time it is opened.
+	 */
+	var scrollMemory = {};
+	var renderedView = '';
+
+	/**
+	 * Identify what the pane is showing.
+	 *
+	 * @return {string} Key for the scroll memory.
+	 */
+	function viewKey() {
+		if (state.editing !== null) {
+			return 'family:' + state.editing;
+		}
+
+		if ('google' === state.view && state.detail) {
+			return 'google-detail:' + state.detail;
+		}
+
+		return state.view;
+	}
+
 	function caretOf(node) {
 		try {
 			return typeof node.selectionStart === 'number' ? [node.selectionStart, node.selectionEnd] : null;
@@ -943,6 +1249,11 @@
 		var focusKey = active && contentEl.contains(active) ? active.getAttribute('data-efm-focus') : null;
 		var caret = focusKey ? caretOf(active) : null;
 
+		// Captured before the pane is emptied, which resets scrollTop to 0.
+		if (renderedView) {
+			scrollMemory[renderedView] = contentEl.scrollTop;
+		}
+
 		renderNav();
 		renderHeaderActions();
 		renderStatus();
@@ -953,6 +1264,9 @@
 		if (state.view === 'trash' && !trashedFamilies().length) {
 			state.view = 'library';
 		}
+
+		// After the fallback above, so the key names the view actually drawn.
+		var nextView = viewKey();
 
 		if (state.editing !== null && state.families[state.editing]) {
 			renderFamilyEditor(state.editing);
@@ -969,6 +1283,14 @@
 		} else {
 			renderSettings();
 		}
+
+		/*
+		 * Put the scroll back. The same view redrawing keeps its place, which is
+		 * what stops "Load more" and a filter keystroke throwing you to the top,
+		 * and returning to a view it remembers lands where it was left.
+		 */
+		renderedView = nextView;
+		contentEl.scrollTop = scrollMemory[nextView] || 0;
 
 		if (!focusKey) {
 			return;
@@ -1416,11 +1738,178 @@
 	 * A labelled control for the filters popover. The selects carry aria-labels
 	 * of their own for when they appear outside this context.
 	 */
+	/*
+	 * A div rather than a label: every control this wraps is now a dropdown,
+	 * which is a button, and a label wrapping a button associates with nothing
+	 * and does not forward a click to it.
+	 */
 	function filterField(labelText, control) {
-		return el('label', { class: 'efm-field' }, [
+		return el('div', { class: 'efm-field' }, [
 			el('span', { class: 'efm-field__label', text: labelText }),
 			control
 		]);
+	}
+
+	/**
+	 * A select rendered as a popover instead of the operating system's list.
+	 *
+	 * A native select's list is drawn by the OS, so it ignores the panel's
+	 * colours, type and corner radius entirely. This is the same surface as the
+	 * Filters popover, which is what makes every chooser in the panel match.
+	 *
+	 * @param {object} config
+	 *   key      Stable id. Identifies the open menu across a re-render.
+	 *   value    Currently selected value.
+	 *   options  Array of { value, label }.
+	 *   onselect Called with the chosen value.
+	 *   label    Accessible name, when no visible label sits beside it.
+	 * @return {HTMLElement} Trigger and menu in a positioned wrapper.
+	 */
+	function dropdown(config) {
+		var open = state.openMenu === config.key;
+		var focusKey = 'select-' + config.key;
+		var current = null;
+
+		config.options.forEach(function (option) {
+			if (String(option.value) === String(config.value)) {
+				current = option;
+			}
+		});
+
+		var trigger = el('button', {
+			type: 'button',
+			class: 'efm-select__trigger' + (open ? ' is-open' : ''),
+			'aria-haspopup': 'listbox',
+			'aria-expanded': open ? 'true' : 'false',
+			'aria-label': config.label || null,
+			// Shared with the options below, so picking one returns focus here
+			// rather than dropping it on the document.
+			'data-efm-focus': focusKey,
+			onclick: function () {
+				if (open) {
+					closeMenu(true);
+					return;
+				}
+
+				state.openMenu = config.key;
+				render();
+				revealMenu(config.key);
+			}
+		}, [
+			el('span', { class: 'efm-select__value', text: current ? current.label : (config.placeholder || '') }),
+			icon('chevronDown', 'sm')
+		]);
+
+		var menu = el('div', {
+			class: 'efm-popover efm-select__menu',
+			role: 'listbox',
+			'aria-label': config.label || null,
+			'data-efm-menu': config.key,
+			hidden: !open,
+			onkeydown: function (event) {
+				if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+					return;
+				}
+
+				// The list is the focus ring here, so the arrows walk it and wrap
+				// at both ends rather than leaving the menu.
+				event.preventDefault();
+
+				var items = Array.prototype.slice.call(menu.querySelectorAll('.efm-select__option'));
+				var at = items.indexOf(document.activeElement);
+				var next = event.key === 'ArrowDown' ? at + 1 : at - 1;
+
+				if (next < 0) {
+					next = items.length - 1;
+				} else if (next >= items.length) {
+					next = 0;
+				}
+
+				if (items[next]) {
+					items[next].focus();
+				}
+			}
+		}, config.options.map(function (option) {
+			var on = String(option.value) === String(config.value);
+
+			return el('button', {
+				type: 'button',
+				role: 'option',
+				class: 'efm-select__option' + (on ? ' is-on' : ''),
+				'aria-selected': on ? 'true' : 'false',
+				'data-efm-focus': focusKey,
+				onclick: function () {
+					state.openMenu = '';
+					config.onselect(option.value);
+
+					// Some callers only refresh the header, so the pane is redrawn
+					// here to close the menu and show the new value either way.
+					render();
+				}
+			}, [
+				el('span', { class: 'efm-select__option-label', text: option.label }),
+				on ? icon('check', 'sm') : null
+			]);
+		}));
+
+		return el('div', { class: 'efm-select' }, [trigger, menu]);
+	}
+
+	/**
+	 * Close the open dropdown.
+	 *
+	 * @param {boolean} refocus Send focus back to the trigger.
+	 */
+	function closeMenu(refocus) {
+		if (!state.openMenu) {
+			return;
+		}
+
+		var key = state.openMenu;
+
+		state.openMenu = '';
+		render();
+
+		if (!refocus) {
+			return;
+		}
+
+		var trigger = manager.querySelector('[data-efm-focus="select-' + key + '"]');
+
+		if (trigger) {
+			trigger.focus();
+		}
+	}
+
+	/**
+	 * Place the newly opened menu and put focus in it.
+	 *
+	 * @param {string} key Dropdown key.
+	 */
+	function revealMenu(key) {
+		var menu = manager.querySelector('[data-efm-menu="' + key + '"]');
+
+		if (!menu) {
+			return;
+		}
+
+		/*
+		 * The pane scrolls, so a menu opening near its foot would be cut off.
+		 * Flipped above the trigger when it does not fit below and the pane is
+		 * tall enough to hold it there.
+		 */
+		var box = menu.getBoundingClientRect();
+		var pane = contentEl.getBoundingClientRect();
+
+		if (box.bottom > pane.bottom && box.height < pane.height) {
+			menu.classList.add('is-above');
+		}
+
+		var target = menu.querySelector('.efm-select__option.is-on') || menu.querySelector('.efm-select__option');
+
+		if (target) {
+			target.focus();
+		}
 	}
 
 	/**
@@ -1801,25 +2290,29 @@
 		contentEl.appendChild(previewToolbar(null));
 		contentEl.appendChild(specimen(family.name));
 
+		/*
+		 * Paired on one row. Both hold a short value, so a full-width input each
+		 * spent the whole pane on two words and pushed everything below it down.
+		 * They fall back to one per line when the panel is too narrow to hold both.
+		 */
 		contentEl.appendChild(
-			el('label', { class: 'efm-field' }, [
-				el('span', { class: 'efm-field__label', text: s('familyName', 'Family name') }),
-				el('input', {
-					type: 'text',
-					class: 'efm-input',
-					value: family.name,
-					oninput: function (event) {
-						state.families[index].name = event.target.value;
-						state.dirty = true;
-						renderHeaderActions();
-					}
-				})
+			el('div', { class: 'efm-field-row' }, [
+				el('label', { class: 'efm-field' }, [
+					el('span', { class: 'efm-field__label', text: s('familyName', 'Family name') }),
+					el('input', {
+						type: 'text',
+						class: 'efm-input',
+						value: family.name,
+						oninput: function (event) {
+							state.families[index].name = event.target.value;
+							state.dirty = true;
+							renderHeaderActions();
+						}
+					})
+				]),
+				family.slug ? cssTokenField(family) : null
 			])
 		);
-
-		if (family.slug) {
-			contentEl.appendChild(cssTokenField(family));
-		}
 
 		contentEl.appendChild(
 			el('label', { class: 'efm-toggle' }, [
@@ -1849,7 +2342,9 @@
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('cssPreview', 'Generated CSS') }));
 		contentEl.appendChild(el('pre', { class: 'efm-code', text: previewCss(family) }));
 
-		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('variants', 'variants') }));
+		// Its own string, not the plural label: that one is reused mid-sentence in
+		// "6 variants", where a capital would be wrong.
+		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('variantsTitle', 'Variants') }));
 
 		if (!variants.length) {
 			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('noVariants', 'No variants mapped yet.') }));
@@ -1873,7 +2368,8 @@
 		contentEl.appendChild(
 			el('button', {
 				type: 'button',
-				class: 'efm-btn efm-btn--outline',
+				// The section's own action, so it takes the larger size.
+				class: 'efm-btn efm-btn--outline efm-btn--lg',
 				onclick: function () {
 					state.families[index].variants = state.families[index].variants || [];
 					var used = (state.families[index].variants || []).map(function (v) { return v.file; });
@@ -1952,24 +2448,78 @@
 	function cssTokenField(family) {
 		var token = 'var(--efm-family-' + family.slug + ')';
 
-		var input = el('input', {
-			type: 'text',
-			class: 'efm-input',
-			readonly: true,
-			value: token,
-			onclick: function (event) {
-				event.target.select();
-			}
-		});
-
-		return el('label', { class: 'efm-field' }, [
+		/*
+		 * A published value rather than a field. It used to be a readonly input,
+		 * which looks exactly like the editable ones beside it and invites a
+		 * cursor that then does nothing. It now reads as code, on the sunken well
+		 * Etch shows code on, with copying as a button rather than a hidden click.
+		 */
+		return el('div', { class: 'efm-field' }, [
 			el('span', { class: 'efm-field__label', text: s('cssToken', 'CSS variable') }),
-			input,
+			el('div', { class: 'efm-token' }, [
+				el('code', { class: 'efm-token__value', text: token }),
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--ghost efm-btn--sm efm-btn--icon efm-tooltip efm-tooltip--end',
+					'aria-label': s('copy', 'Copy'),
+					'data-efm-tooltip': s('copy', 'Copy'),
+					onclick: function () {
+						copyText(token);
+					}
+				}, [icon('copy', 'sm')])
+			]),
 			el('span', {
 				class: 'efm-field__hint',
 				text: s('cssTokenHint', 'Use this anywhere a font family is expected. It already includes the fallback stack.')
 			})
 		]);
+	}
+
+	/**
+	 * Put a value on the clipboard.
+	 *
+	 * The async clipboard API is unavailable on an insecure origin and can be
+	 * refused by permissions policy inside the builder, so a hidden textarea and
+	 * execCommand stand behind it rather than the copy quietly doing nothing.
+	 *
+	 * @param {string} text Value to copy.
+	 */
+	function copyText(text) {
+		function done() {
+			setStatus(s('copied', 'Copied.'));
+		}
+
+		function legacy() {
+			var field = el('textarea', { class: 'efm-sr-only', readonly: true });
+			var copied = false;
+
+			field.value = text;
+			manager.appendChild(field);
+			field.select();
+
+			try {
+				copied = document.execCommand('copy');
+			} catch (error) {
+				copied = false;
+			}
+
+			manager.removeChild(field);
+
+			if (copied) {
+				done();
+				return;
+			}
+
+			// Never silently: the value is selectable, so say so.
+			setStatus(s('copyFailed', 'Could not copy. Select the value and copy it.'), 'error');
+		}
+
+		if (window.navigator.clipboard && window.navigator.clipboard.writeText) {
+			window.navigator.clipboard.writeText(text).then(done, legacy);
+			return;
+		}
+
+		legacy();
 	}
 
 	/**
@@ -2087,21 +2637,17 @@
 	function deliverySection(index) {
 		var family = state.families[index];
 
-		var displaySelect = el('select', {
-			class: 'efm-input efm-input--select',
-			onchange: function (event) {
-				state.families[index].display = event.target.value;
+		var displaySelect = dropdown({
+			key: 'display-' + index,
+			value: family.display || 'swap',
+			options: ['swap', 'optional', 'fallback', 'block', 'auto'].map(function (value) {
+				return { value: value, label: value };
+			}),
+			onselect: function (value) {
+				state.families[index].display = value;
 				state.dirty = true;
 				renderHeaderActions();
 			}
-		});
-
-		['swap', 'optional', 'fallback', 'block', 'auto'].forEach(function (value) {
-			displaySelect.appendChild(el('option', {
-				value: value,
-				text: value,
-				selected: value === (family.display || 'swap')
-			}));
 		});
 
 		var stackInput = el('input', {
@@ -2141,7 +2687,8 @@
 		return el('div', { class: 'efm-delivery' }, [
 			stacks,
 			el('div', { class: 'efm-fields' }, [
-				el('label', { class: 'efm-field' }, [
+				// A div, not a label: the control inside is a dropdown button now.
+				el('div', { class: 'efm-field' }, [
 					el('span', { class: 'efm-field__label', text: s('fontDisplay', 'Loading behaviour') }),
 					displaySelect,
 					el('span', { class: 'efm-field__hint', text: s('fontDisplayHint', 'swap shows a fallback until the font arrives. optional skips the font entirely on slow connections, which removes layout shift.') })
@@ -2194,14 +2741,24 @@
 	}
 
 	function variantRow(familyIndex, variantIndex, variant) {
-		var fileSelect = el('select', {
-			class: 'efm-input efm-input--select',
-			'aria-label': s('file', 'File'),
-			onchange: function (event) {
-				var target = state.families[familyIndex].variants[variantIndex];
-				var picked = state.files.filter(function (f) { return f.name === event.target.value; })[0];
+		var fileOptions = state.files.map(function (file) {
+			return { value: file.name, label: file.name };
+		});
 
-				target.file = event.target.value;
+		if (!fileOptions.length) {
+			fileOptions.push({ value: '', label: s('noFiles', 'No files uploaded yet.') });
+		}
+
+		var fileSelect = dropdown({
+			key: 'variant-file-' + familyIndex + '-' + variantIndex,
+			label: s('file', 'File'),
+			value: variant.file,
+			options: fileOptions,
+			onselect: function (value) {
+				var target = state.families[familyIndex].variants[variantIndex];
+				var picked = state.files.filter(function (f) { return f.name === value; })[0];
+
+				target.file = value;
 
 				// Weight and style are read from the file name so mapping a
 				// freshly uploaded file is a single step.
@@ -2211,29 +2768,6 @@
 				}
 
 				state.dirty = true;
-				render();
-			}
-		});
-
-		if (!state.files.length) {
-			fileSelect.appendChild(el('option', { value: '', text: s('noFiles', 'No files uploaded yet.') }));
-		}
-
-		state.files.forEach(function (file) {
-			fileSelect.appendChild(el('option', {
-				value: file.name,
-				text: file.name,
-				selected: file.name === variant.file
-			}));
-		});
-
-		var weightSelect = el('select', {
-			class: 'efm-input efm-input--select',
-			'aria-label': s('weight', 'Weight'),
-			onchange: function (event) {
-				state.families[familyIndex].variants[variantIndex].weight = event.target.value;
-				state.dirty = true;
-				renderHeaderActions();
 			}
 		});
 
@@ -2245,30 +2779,34 @@
 			weights.push(String(variant.weight));
 		}
 
-		weights.forEach(function (weight) {
-			weightSelect.appendChild(el('option', {
-				value: weight,
-				text: weight.indexOf(' ') !== -1 ? s('variable', 'variable') + ' ' + weight : weight,
-				selected: weight === String(variant.weight)
-			}));
-		});
-
-		var styleSelect = el('select', {
-			class: 'efm-input efm-input--select',
-			'aria-label': s('style', 'Style'),
-			onchange: function (event) {
-				state.families[familyIndex].variants[variantIndex].style = event.target.value;
+		var weightSelect = dropdown({
+			key: 'variant-weight-' + familyIndex + '-' + variantIndex,
+			label: s('weight', 'Weight'),
+			value: String(variant.weight),
+			options: weights.map(function (weight) {
+				return {
+					value: weight,
+					label: weight.indexOf(' ') !== -1 ? s('variable', 'variable') + ' ' + weight : weight
+				};
+			}),
+			onselect: function (value) {
+				state.families[familyIndex].variants[variantIndex].weight = value;
 				state.dirty = true;
-				renderHeaderActions();
 			}
 		});
 
-		[['normal', s('normal', 'Normal')], ['italic', s('italic', 'Italic')]].forEach(function (pair) {
-			styleSelect.appendChild(el('option', {
-				value: pair[0],
-				text: pair[1],
-				selected: pair[0] === variant.style
-			}));
+		var styleSelect = dropdown({
+			key: 'variant-style-' + familyIndex + '-' + variantIndex,
+			label: s('style', 'Style'),
+			value: variant.style,
+			options: [
+				{ value: 'normal', label: s('normal', 'Normal') },
+				{ value: 'italic', label: s('italic', 'Italic') }
+			],
+			onselect: function (value) {
+				state.families[familyIndex].variants[variantIndex].style = value;
+				state.dirty = true;
+			}
 		});
 
 		return el('div', { class: 'efm-table__row' }, [
@@ -2818,72 +3356,76 @@
 			}, 320)
 		});
 
-		var categorySelect = el('select', {
-			class: 'efm-input efm-input--select',
-			'data-efm-focus': 'google-category',
-			'aria-label': s('category', 'Category'),
-			onchange: function (event) {
-				state.category = event.target.value;
-				searchGoogle();
-			}
-		}, [el('option', { value: '', text: s('allCategories', 'All categories'), selected: !state.category })]);
+		var categoryOptions = [{ value: '', label: s('allCategories', 'All categories') }];
 
 		state.categories.forEach(function (cat) {
-			categorySelect.appendChild(el('option', { value: cat, text: cat, selected: state.category === cat }));
+			categoryOptions.push({ value: cat, label: cat });
 		});
 
-		var sortSelect = el('select', {
-			class: 'efm-input efm-input--select',
-			'data-efm-focus': 'google-sort',
-			'aria-label': s('sortBy', 'Sort by'),
-			onchange: function (event) {
-				state.sort = event.target.value;
+		var categorySelect = dropdown({
+			key: 'google-category',
+			label: s('category', 'Category'),
+			value: state.category,
+			options: categoryOptions,
+			onselect: function (value) {
+				state.category = value;
 				searchGoogle();
 			}
-		}, [
-			el('option', { value: 'popularity', text: s('sortPopular', 'Most popular'), selected: state.sort === 'popularity' }),
-			el('option', { value: 'trending', text: s('sortTrending', 'Trending'), selected: state.sort === 'trending' }),
-			el('option', { value: 'newest', text: s('sortNewest', 'Newest'), selected: state.sort === 'newest' }),
-			el('option', { value: 'alphabetical', text: s('sortAlpha', 'A to Z'), selected: state.sort === 'alphabetical' })
-		]);
+		});
+
+		var sortSelect = dropdown({
+			key: 'google-sort',
+			label: s('sortBy', 'Sort by'),
+			value: state.sort,
+			options: [
+				{ value: 'popularity', label: s('sortPopular', 'Most popular') },
+				{ value: 'trending', label: s('sortTrending', 'Trending') },
+				{ value: 'newest', label: s('sortNewest', 'Newest') },
+				{ value: 'alphabetical', label: s('sortAlpha', 'A to Z') }
+			],
+			onselect: function (value) {
+				state.sort = value;
+				searchGoogle();
+			}
+		});
 
 		/*
 		 * Writing system. The count matters: it is the difference between "Latin,
 		 * 1817 families" and "Sinhala, 8", and picking a script without knowing
 		 * that looks like a broken filter rather than a small catalogue.
 		 */
-		var subsetSelect = el('select', {
-			class: 'efm-input efm-input--select',
-			'data-efm-focus': 'google-subset',
-			'aria-label': s('writingSystem', 'Writing system'),
-			onchange: function (event) {
-				state.subset = event.target.value;
+		var subsetOptions = [{ value: '', label: s('allScripts', 'Any writing system') }];
+
+		state.subsetList.forEach(function (entry) {
+			subsetOptions.push({ value: entry.subset, label: entry.subset + ' (' + entry.count + ')' });
+		});
+
+		var subsetSelect = dropdown({
+			key: 'google-subset',
+			label: s('writingSystem', 'Writing system'),
+			value: state.subset,
+			options: subsetOptions,
+			onselect: function (value) {
+				state.subset = value;
 				resetSubsetDefaults();
 				searchGoogle();
 			}
-		}, [el('option', { value: '', text: s('allScripts', 'Any writing system'), selected: !state.subset })]);
-
-		state.subsetList.forEach(function (entry) {
-			subsetSelect.appendChild(el('option', {
-				value: entry.subset,
-				text: entry.subset + ' (' + entry.count + ')',
-				selected: state.subset === entry.subset
-			}));
 		});
 
-		var variableSelect = el('select', {
-			class: 'efm-input efm-input--select',
-			'data-efm-focus': 'google-technology',
-			'aria-label': s('technology', 'Technology'),
-			onchange: function (event) {
-				state.variableOnly = event.target.value;
+		var variableSelect = dropdown({
+			key: 'google-technology',
+			label: s('technology', 'Technology'),
+			value: state.variableOnly,
+			options: [
+				{ value: '', label: s('anyTech', 'Any technology') },
+				{ value: '1', label: s('variableOnly', 'Variable only') },
+				{ value: '0', label: s('staticOnly', 'Static only') }
+			],
+			onselect: function (value) {
+				state.variableOnly = value;
 				searchGoogle();
 			}
-		}, [
-			el('option', { value: '', text: s('anyTech', 'Any technology'), selected: '' === state.variableOnly }),
-			el('option', { value: '1', text: s('variableOnly', 'Variable only'), selected: '1' === state.variableOnly }),
-			el('option', { value: '0', text: s('staticOnly', 'Static only'), selected: '0' === state.variableOnly })
-		]);
+		});
 
 		contentEl.appendChild(previewToolbar(
 			el('div', { class: 'efm-toolbar__lead' }, [
@@ -3171,10 +3713,12 @@
 				state.picked = failed.slice();
 
 				if (failed.length) {
+					// Some installed and some did not, which is Etch's warning level
+					// rather than its error one.
 					setStatus(
 						s('bulkPartial', 'Installed') + ' ' + done + ', ' +
 							s('bulkFailed', 'failed') + ': ' + failed.join(', '),
-						'error'
+						'warning'
 					);
 				} else {
 					setStatus(s('bulkDone', 'Installed') + ' ' + done + ' ' +
@@ -3205,7 +3749,7 @@
 			var useVariable = hasVariable && state.variable[font.family] !== false;
 
 			state.busy = 'install:' + family;
-			setStatus(s('installing', 'Installing…') + ' ' + family + ' (' + (done + 1) + '/' + state.picked.length + ')');
+			setStatus(s('installing', 'Installing…') + ' ' + family + ' (' + (done + 1) + '/' + state.picked.length + ')', 'progress');
 			render();
 
 			request('/google/install', {
@@ -3648,16 +4192,18 @@
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('importTitle', 'Import') }));
 		contentEl.appendChild(el('p', { class: 'efm-muted', text: s('importHint', 'Load a configuration exported from another site.') }));
 
-		var modeSelect = el('select', {
-			class: 'efm-input efm-input--select',
-			'aria-label': s('importMode', 'Import mode'),
-			onchange: function (event) {
-				state.importMode = event.target.value;
+		var modeSelect = dropdown({
+			key: 'import-mode',
+			label: s('importMode', 'Import mode'),
+			value: state.importMode === 'merge' ? 'merge' : 'replace',
+			options: [
+				{ value: 'replace', label: s('importReplace', 'Replace everything') },
+				{ value: 'merge', label: s('importMerge', 'Merge with existing families') }
+			],
+			onselect: function (value) {
+				state.importMode = value;
 			}
-		}, [
-			el('option', { value: 'replace', text: s('importReplace', 'Replace everything'), selected: state.importMode !== 'merge' }),
-			el('option', { value: 'merge', text: s('importMerge', 'Merge with existing families'), selected: state.importMode === 'merge' })
-		]);
+		});
 
 		var fileInput = el('input', {
 			type: 'file',
@@ -3675,7 +4221,7 @@
 
 		contentEl.appendChild(
 			el('div', { class: 'efm-fields' }, [
-				el('label', { class: 'efm-field' }, [
+				el('div', { class: 'efm-field' }, [
 					el('span', { class: 'efm-field__label', text: s('importMode', 'Import mode') }),
 					modeSelect
 				])
@@ -4528,6 +5074,59 @@
 		});
 	}
 
+	/**
+	 * Map freshly uploaded files onto families.
+	 *
+	 * Uploading used to leave the files sitting in the table with the library
+	 * still empty: a family had to be created by hand and each file picked from a
+	 * dropdown. The file name already says which family and which cut it is, so
+	 * that mapping is done here instead.
+	 *
+	 * A file that some family already maps is left alone, and a name that matches
+	 * a family already in the library joins it as another variant rather than
+	 * creating a second family of the same name.
+	 *
+	 * @param {string[]} names File names as stored on the server.
+	 * @return {object} What was created: families named, and variants added.
+	 */
+	function adoptUploads(names) {
+		var report = { families: [], variants: 0 };
+
+		names.forEach(function (name) {
+			var file = state.files.filter(function (entry) { return entry.name === name; })[0];
+
+			if (!file || fileUsedBy(name).length) {
+				return;
+			}
+
+			var wanted = guessFamilyName(name);
+			var target = null;
+
+			state.families.forEach(function (family) {
+				if (!isTrashed(family) && String(family.name).toLowerCase() === wanted.toLowerCase()) {
+					target = family;
+				}
+			});
+
+			if (!target) {
+				target = { name: wanted, variants: [], display: 'swap', preload: false, fallback: '' };
+				state.families.push(target);
+				report.families.push(wanted);
+			}
+
+			target.variants = target.variants || [];
+			target.variants.push({
+				file: name,
+				weight: file.weight || '400',
+				style: file.style || 'normal'
+			});
+
+			report.variants += 1;
+		});
+
+		return report;
+	}
+
 	function uploadFiles(fileList) {
 		var files = Array.prototype.slice.call(fileList || []);
 		if (!files.length) {
@@ -4538,6 +5137,9 @@
 
 		var chain = Promise.resolve();
 		var done = 0;
+		var stored = [];
+		// Whether anything was already waiting to be saved before this upload.
+		var hadEdits = state.dirty;
 
 		files.forEach(function (file) {
 			chain = chain.then(function () {
@@ -4560,13 +5162,42 @@
 
 				return request('/upload', { method: 'POST', body: form }).then(function (result) {
 					applyState(result && result.state);
+					stored.push(item.filename);
 					done++;
 				});
 			});
 		});
 
 		chain.then(function () {
-			setStatus(s('uploaded', 'Uploaded') + ' · ' + done);
+			var added = adoptUploads(stored);
+			var message = s('uploaded', 'Uploaded') + ' · ' + done;
+
+			if (!added.variants) {
+				setStatus(message);
+				return;
+			}
+
+			state.dirty = true;
+
+			if (added.families.length) {
+				message += ' · ' + s('addedToLibrary', 'added to the library') + ': ' + added.families.join(', ');
+			} else {
+				message += ' · ' + s('mappedToFamily', 'mapped to an existing family');
+			}
+
+			/*
+			 * Saved straight away when nothing else was pending, so an upload
+			 * really does leave a usable family behind. If edits were already
+			 * waiting, they are the user's to review, so this joins them in the
+			 * buffer instead of flushing someone else's work.
+			 */
+			if (hadEdits) {
+				setStatus(message + ' · ' + s('reviewAndSave', 'review and save'), 'warning');
+				return;
+			}
+
+			setStatus(message);
+			saveFamilies();
 		}).catch(fail).then(render);
 	}
 
@@ -4656,6 +5287,10 @@
 
 	function searchGoogle() {
 		state.searching = true;
+
+		// A new result set makes the old position meaningless, so the catalogue
+		// starts at the top again rather than mid-way down a different list.
+		delete scrollMemory.google;
 		render();
 
 		request(googleQuery(0))
@@ -4705,7 +5340,7 @@
 
 	function installGoogleFont(family, subsets, variable, cuts) {
 		state.busy = 'install:' + family;
-		setStatus(s('installing', 'Installing…') + ' ' + family);
+		setStatus(s('installing', 'Installing…') + ' ' + family, 'progress');
 		render();
 
 		request('/google/install', {

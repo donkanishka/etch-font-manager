@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 0.26.0
+Stable tag: 0.27.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,16 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 0.27.0 =
+* Confirmation dialogs now match the builder instead of being your browser's grey system boxes.
+* Save and Discard moved to the bottom of the panel, next to where you are working, and the save now reads "Save fonts" so it is not confused with Etch's own Save button.
+* The Upload screen has been rebuilt to match Etch's Assets Library, including the supported formats.
+* Google Fonts now pages through results instead of piling them up behind a "Load more" button.
+* Every text field can be cleared with a button inside it: preview text, the library filter and the Google Fonts search.
+* Fixed: tooltips on the last row of a table were cut in half by the table's own edge.
+* Tables have separators between columns, and the Weights and Subsets rows on a font card now line up.
+* No change to your fonts, settings or stored data.
 
 = 0.26.0 =
 * Uploading a font now creates its family in the library for you, with the weights and styles already mapped, instead of leaving you to build it by hand.

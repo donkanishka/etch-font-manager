@@ -157,11 +157,33 @@
 	color: var(--efm-text);
 }
 
-.efm-header__actions {
+/*
+ * The save bar, pinned at the foot of the panel and shown only when something
+ * is waiting to be saved.
+ *
+ * At the foot rather than in the header because that is where the work is: the
+ * family editor runs long, its variants table sits at the bottom, and a header
+ * button meant scrolling back up to reach it. Aligned to the start, like
+ * everything else in the panel, which also puts it as far as it can be from
+ * the builder's own Save in the opposite bottom corner.
+ */
+.efm-savebar {
 	display: flex;
 	align-items: center;
-	gap: 6px;
-	margin-inline-start: auto;
+	gap: var(--e-space-s, 8px);
+	flex: 0 0 auto;
+	padding-block: var(--e-space-s, 8px);
+	border-block-start: 1px solid var(--e-border-color, #36363a);
+}
+
+.efm-savebar[hidden] {
+	display: none;
+}
+
+.efm-savebar__label {
+	margin-inline-end: var(--e-space-xs, 6px);
+	font-size: var(--e-font-size-s, 11px);
+	color: var(--efm-muted);
 }
 
 /*
@@ -715,8 +737,77 @@
 	gap: 8px;
 }
 
-.efm-toolbar__preview .efm-input {
+/* The measure belongs to the wrapper now, and the field fills it. */
+.efm-toolbar__preview .efm-input-wrap {
 	inline-size: 220px;
+}
+
+/*
+ * A field with a clear button inside it. The button sits over the field's own
+ * end padding, which is widened to make room, so the text never runs under it.
+ */
+.efm-input-wrap {
+	position: relative;
+	display: flex;
+	align-items: center;
+	flex: 0 1 auto;
+	min-inline-size: 0;
+}
+
+/*
+ * The field fills the wrapper rather than sizing itself. Its own inline-size of
+ * 100% resolves against the wrapper, which is circular while the wrapper is
+ * sized by content, so the field came out narrower than its wrapper and left
+ * the clear button stranded outside the border.
+ */
+.efm-input-wrap .efm-input {
+	flex: 1 1 auto;
+	min-inline-size: 0;
+	inline-size: 100%;
+	padding-inline-end: 26px;
+}
+
+/*
+ * Scoped to the wrapper so it outranks .efm-tooltip, which this button also
+ * carries and which sets position: relative further down the file. Left at one
+ * class, the button dropped back into the flow and sat outside the field.
+ */
+.efm-input-wrap .efm-input__clear {
+	position: absolute;
+	inset-inline-end: 4px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 20px;
+	block-size: 20px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--efm-radius);
+	background: transparent;
+	color: var(--efm-muted);
+	cursor: pointer;
+	transition: var(--efm-transition);
+	transition-property: background-color, color;
+}
+
+.efm-input__clear:hover {
+	background: color-mix(in srgb, var(--efm-text) 12%, transparent);
+	color: var(--efm-text-strong);
+}
+
+/* Nothing typed, nothing to clear. */
+.efm-input__clear[hidden] {
+	display: none;
+}
+
+/*
+ * The search fields carry this button too, so the one the browser draws for
+ * type="search" is removed: two clears in one field, one of them in the
+ * operating system's own styling, is worse than none.
+ */
+.efm-input::-webkit-search-cancel-button {
+	-webkit-appearance: none;
+	appearance: none;
 }
 
 .efm-toolbar__size {
@@ -747,6 +838,15 @@
 .efm-search .efm-input {
 	inline-size: 240px;
 	padding-inline-start: 28px;
+}
+
+/* The wrapper takes the field's width, so the search keeps its measure. */
+.efm-search .efm-input-wrap {
+	inline-size: 240px;
+}
+
+.efm-search .efm-input-wrap .efm-input {
+	inline-size: 100%;
 }
 
 /* -------------------------------- Grid --------------------------------- */
@@ -1182,16 +1282,35 @@
 	color: var(--efm-accent);
 }
 
+/*
+ * A label beside its chips. The label and the chip block used to be two items
+ * in one wrapping row, so whether the chips sat beside the label or below it
+ * depended on whether they happened to fit: on the same card, Weights ended up
+ * inline and Subsets stacked.
+ *
+ * The label now holds a column of its own and the chips wrap inside what is
+ * left, so every row reads the same way and the labels line up with each other
+ * down the card.
+ */
 .efm-subsets {
 	display: flex;
-	align-items: center;
+	align-items: start;
+	flex-wrap: nowrap;
 	gap: 8px;
-	flex-wrap: wrap;
 }
 
 .efm-subsets__label {
+	flex: 0 0 auto;
+	min-inline-size: 56px;
+	/* Optically centres an 11px label against the first 20px chip. */
+	padding-block-start: 4px;
 	font-size: var(--e-font-size-s, 11px);
 	color: var(--efm-muted);
+}
+
+.efm-subsets > .efm-chips {
+	flex: 1 1 auto;
+	min-inline-size: 0;
 }
 
 /* ------------------------------ Breadcrumb ----------------------------- */
@@ -1210,12 +1329,29 @@
 
 /* -------------------------------- Table -------------------------------- */
 
+/*
+ * No overflow: hidden here, deliberately. It was clipping the tooltip on the
+ * last row of every table: the tooltip opens 5px below its button, which on the
+ * final row is past the table's edge, so "Remove variant" was sliced in half by
+ * the very box it sits in. The corners are rounded on the head and the last row
+ * instead, which is what the clip was doing for.
+ */
 .efm-table {
 	display: flex;
 	flex-direction: column;
 	border: 1px solid var(--efm-line);
 	border-radius: var(--efm-radius);
-	overflow: hidden;
+}
+
+/* Nested inside a 1px border, so one pixel tighter than the table's own. */
+.efm-table__head {
+	border-start-start-radius: calc(var(--efm-radius) - 1px);
+	border-start-end-radius: calc(var(--efm-radius) - 1px);
+}
+
+.efm-table__row:last-child {
+	border-end-start-radius: calc(var(--efm-radius) - 1px);
+	border-end-end-radius: calc(var(--efm-radius) - 1px);
 }
 
 .efm-table__head,
@@ -1235,6 +1371,22 @@
 
 .efm-table__row + .efm-table__row {
 	border-block-start: 1px solid var(--efm-line);
+}
+
+/*
+ * Column separators, on the head and every row alike, so both tables read the
+ * same way: the files table and the variants table share these classes and both
+ * carry three data columns.
+ *
+ * Only between the data columns. The trailing 28px tracks hold icon buttons
+ * rather than values, and a rule there would fence off a control instead of
+ * dividing a column. The 8px grid gap sits before the line and the same padding
+ * after it, so the rule lands midway between one column's text and the next.
+ */
+.efm-table__head > *:nth-child(n+2):nth-child(-n+3),
+.efm-table__row > *:nth-child(n+2):nth-child(-n+3) {
+	border-inline-start: 1px solid var(--efm-line);
+	padding-inline-start: var(--e-space-s, 8px);
 }
 
 /* The files table carries a Convert action as well as Delete. */
@@ -1413,6 +1565,183 @@
 	user-select: all;
 }
 
+/* ------------------------------- Dialog -------------------------------- */
+
+/*
+ * Etch's dialog, taken from its own component in the builder bundle: the
+ * overlay fixed at z-index 150, the dialog fixed and centred above it at 200,
+ * on --e-base at the panel's radius, under a six-stop shadow. The overlay's
+ * tint and blur are Etch's own overlay recipe, the one its Asset Manager uses.
+ *
+ * It replaces window.confirm(), which drew the browser's dialog: system chrome,
+ * system type, the site's hostname above it, and no relation at all to the
+ * builder it interrupted.
+ */
+.efm-dialog-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 150;
+	background: rgb(39 39 43 / 40%);
+	backdrop-filter: blur(1.5px);
+}
+
+.efm-dialog {
+	position: fixed;
+	inset-block-start: 50%;
+	inset-inline-start: 50%;
+	translate: -50% -50%;
+	z-index: 200;
+	display: flex;
+	flex-direction: column;
+	gap: var(--e-space-m, 12px);
+	inline-size: min(440px, calc(100vw - 64px));
+	max-block-size: 80dvh;
+	padding: var(--e-space-l, 16px);
+	border-radius: var(--e-border-radius, 6px);
+	background: var(--e-base, #27272b);
+	color: var(--efm-text);
+	overflow-y: auto;
+	box-shadow:
+		0 2px 4px rgb(3 7 18 / .01),
+		0 9px 15px rgb(3 7 18 / .03),
+		0 21px 33px rgb(3 7 18 / .04),
+		0 38px 59px rgb(3 7 18 / .06),
+		0 59px 92px rgb(3 7 18 / .07),
+		0 85px 133px rgb(3 7 18 / .09);
+}
+
+.efm-dialog__title {
+	margin: 0;
+	font-size: var(--e-font-size-l, 13px);
+	font-weight: 600;
+	color: var(--efm-text-strong);
+}
+
+.efm-dialog__body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--e-space-s, 8px);
+	min-block-size: 0;
+	overflow-y: auto;
+}
+
+.efm-dialog__text {
+	margin: 0;
+	font-size: var(--e-font-size-m, 12px);
+	line-height: 1.5;
+	color: var(--efm-muted);
+	/* A list of file names can be long and unbroken. */
+	overflow-wrap: anywhere;
+}
+
+.efm-dialog__actions {
+	display: flex;
+	justify-content: end;
+	gap: var(--e-space-s, 8px);
+}
+
+/*
+ * The destructive answer. Tinted rather than filled: the fill in this panel is
+ * reserved for the affirmative action, and this one is a warning, which is how
+ * the danger colour is used everywhere else here.
+ */
+.efm-btn--danger {
+	background: color-mix(in srgb, var(--efm-danger) 16%, transparent);
+	border-color: color-mix(in srgb, var(--efm-danger) 45%, transparent);
+	color: var(--efm-danger);
+}
+
+.efm-btn--danger:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--efm-danger) 26%, transparent);
+	border-color: var(--efm-danger);
+	color: var(--efm-danger);
+}
+
+/* ----------------------------- Pagination ------------------------------ */
+
+/*
+ * shadcn's Pagination, in this panel's controls: previous, page numbers with a
+ * gap marker, and next. Its geometry is ours rather than shadcn's, so the
+ * buttons match every other control here: the panel's 28px height and 6px
+ * radius instead of shadcn's 32px and 10px.
+ *
+ * Aligned to the start, not centred as shadcn's is. Every other thing in this
+ * pane begins at the same left edge, including the result count this control
+ * answers, and the pane is wide enough that a centred row would sit some 500px
+ * from where the eye returns after reading the grid. Etch has no paginator of
+ * its own to follow, and its nearest equivalent, the Content Hub table footer,
+ * is left-aligned too.
+ *
+ * It replaces a full-width "Load more", which grew the pane by another 24 live
+ * previews on every press.
+ */
+.efm-pagination {
+	display: flex;
+	justify-content: start;
+	padding-block: var(--e-space-s, 8px);
+}
+
+.efm-pagination__list {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 2px;
+}
+
+/* Previous and next carry a label as well as an arrow, as shadcn's do. */
+.efm-pagination__step {
+	gap: var(--efm-gap);
+}
+
+.efm-pagination__page {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: var(--efm-control-block);
+	block-size: var(--efm-control-block);
+	padding: 0;
+	border: 1px solid transparent;
+	border-radius: var(--efm-radius);
+	background: transparent;
+	color: var(--efm-text);
+	font: inherit;
+	font-size: var(--e-font-size-m, 12px);
+	font-weight: 500;
+	cursor: pointer;
+	transition: var(--efm-transition);
+	transition-property: background-color, border-color, color;
+}
+
+.efm-pagination__page:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--efm-text) 10%, transparent);
+	color: var(--efm-text-strong);
+}
+
+/*
+ * The page you are on takes the raised fill the sidebar's active item uses,
+ * which is what Etch does for a current item. shadcn outlines it instead; the
+ * panel's own convention wins here.
+ */
+.efm-pagination__page.is-on {
+	background: var(--efm-surface-raised);
+	border-color: var(--efm-line);
+	color: var(--efm-text-strong);
+}
+
+.efm-pagination__page:disabled {
+	cursor: default;
+	opacity: .5;
+}
+
+.efm-pagination__gap {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: var(--efm-control-block);
+	block-size: var(--efm-control-block);
+	color: var(--efm-muted);
+}
+
 /* ------------------------------ Dropdown ------------------------------- */
 
 /*
@@ -1537,37 +1866,141 @@
 
 /* ------------------------------ Dropzone ------------------------------- */
 
+/*
+ * Etch's Assets Library empty state, measured from its own component: a dashed
+ * zone with everything centred in it, 48px of padding, a 340px measure on the
+ * text, and a soft radial wash from the centre. Etch's own values are kept
+ * where they are Etch's (the 2px radius on the zone, the 24px title, the 340px
+ * measure); ours differ only where the panel's tokens differ.
+ */
 .efm-dropzone {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 4px;
-	padding: 32px 16px;
+	justify-content: center;
+	min-block-size: 200px;
+	padding: 32px;
 	border: 1px dashed var(--etch-divider-color, #4b4b4e);
-	border-radius: var(--efm-radius);
+	border-radius: 2px;
 	color: var(--efm-muted);
 	text-align: center;
-	cursor: pointer;
-	transition: var(--efm-transition);
-	transition-property: border-color, background-color;
+	overflow: hidden;
+	transition: border-color .3s ease-out;
 }
 
+/*
+ * Nothing uploaded yet, so the zone is the screen rather than a band above a
+ * table. Etch does the same: its empty state fills the pane and only steps
+ * back once there is a list to show.
+ */
+.efm-dropzone--empty {
+	flex: 1 1 auto;
+	padding: 48px;
+}
+
+/*
+ * Etch's wash, and its direction matters: --etch-neutral-dark is #36363a,
+ * which is lighter than the pane it sits on, so the centre lifts rather than
+ * darkens. The same ellipse, the same 30% centre and 70% falloff.
+ */
+.efm-dropzone::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	background: radial-gradient(ellipse at center 30%, var(--etch-neutral-dark, #36363a) 0%, transparent 70%);
+	pointer-events: none;
+}
+
+.efm-dropzone__center {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--e-space-l, 16px);
+	max-inline-size: 340px;
+}
+
+/*
+ * The accent, not the focus blue. Blue is what this panel uses to say "focused
+ * by keyboard", so borrowing it for a hover said the wrong thing. A border is
+ * one of the two ways Etch uses the accent, so the dropzone can take it without
+ * becoming a second primary action on the screen. Etch tints its own drag
+ * border to 75% of the accent; this stays at full strength because the hover is
+ * the only signal the zone has.
+ */
 .efm-dropzone:hover,
 .efm-dropzone.is-dragover {
-	border-color: var(--e-focus-outline-color, #469fea);
-	background: color-mix(in srgb, currentColor 6%, transparent);
+	border-color: var(--efm-accent);
 }
 
+/*
+ * A file is over the zone: the wash takes the accent, as Etch's does, at the
+ * same tenth of an alpha its --etch-primary-trans carries.
+ */
+.efm-dropzone.is-dragover::before {
+	background: radial-gradient(
+		ellipse at center 30%,
+		var(--etch-primary-trans, color-mix(in srgb, var(--efm-accent) 10%, transparent)) 0%,
+		transparent 70%
+	);
+}
+
+/* Etch's own 24/600 for the title and 14/1.25 muted for the lines under it. */
 .efm-dropzone__title {
 	margin: 0;
-	font-size: var(--e-font-size-l, 13px);
-	color: var(--efm-text);
+	font-size: 24px;
+	font-weight: 600;
+	line-height: 1.25;
+	color: var(--efm-text-strong);
 }
 
-.efm-dropzone__hint {
+.efm-dropzone__desc {
 	margin: 0;
-	max-inline-size: 64ch;
-	font-size: var(--e-font-size-s, 11px);
+	font-size: 14px;
+	line-height: 1.25;
+	color: var(--efm-muted);
+}
+
+/*
+ * The accepted formats, as Etch lists them: a small label followed by a chip
+ * each, set in the same monospace the panel uses for file names, and pushed
+ * clear of the button above.
+ */
+.efm-dropzone__types {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-wrap: wrap;
+	gap: var(--e-space-xs, 6px);
+	margin-block-start: var(--e-space-m, 12px);
+}
+
+.efm-dropzone__types-label {
+	font-size: var(--e-font-size-m, 12px);
+	font-weight: 500;
+	line-height: 18px;
+	color: var(--efm-muted);
+}
+
+/*
+ * Etch's own .asset-badge, measured on its Assets Library: filled with the
+ * pane colour rather than the raised one, no border, and near-white text.
+ *
+ * The direction is the point. The wash lifts the middle of the zone toward
+ * --e-base-light, which is exactly what a raised fill uses, so a raised chip
+ * dissolves into it: measured at 1.11:1 against its own background. Going the
+ * other way keeps an edge wherever the wash falls, and takes the label from
+ * 9.22:1 to 11.41:1.
+ */
+.efm-chip--type {
+	background: var(--efm-surface);
+	border-color: transparent;
+	color: var(--efm-text-strong);
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 11px;
 }
 
 .efm-file-input {
@@ -1824,6 +2257,27 @@
 	background: var(--efm-accent);
 	border-color: transparent;
 	color: var(--efm-surface);
+}
+
+/*
+ * Strong without being the accent, for the panel's own primary action.
+ *
+ * Etch floods the accent in exactly one place: the builder's Save, which sits
+ * just below this panel while it is open. Measured with a manager of Etch's own
+ * open, that Save is the only accent-filled button on the screen, and its
+ * managers keep their actions quieter. This is the same idea: near-white on the
+ * raised surface reads as the strongest control in the panel without competing
+ * with the one that saves the page.
+ */
+.efm-btn--strong {
+	background: var(--efm-surface-raised);
+	border-color: var(--efm-line);
+	color: var(--efm-text-strong);
+}
+
+.efm-btn--strong:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--efm-text) 20%, var(--efm-surface-raised));
+	border-color: color-mix(in srgb, var(--efm-text) 30%, transparent);
 }
 
 .efm-btn--primary:hover:not(:disabled) {

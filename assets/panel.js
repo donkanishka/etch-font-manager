@@ -42,6 +42,8 @@
 		filter: '',
 		query: '',
 		results: [],
+		// Transient: which page of the catalogue is on screen, counted from zero.
+		page: 0,
 		searching: false,
 		category: '',
 		sort: 'popularity',
@@ -105,6 +107,9 @@
 	 * at the grid's 340px minimum, which is the width the layout is built around.
 	 */
 	var CHIP_LIMIT = 6;
+
+	/* How many families the catalogue asks for at a time, and so a page. */
+	var GOOGLE_PAGE_SIZE = 24;
 
 	/**
 	 * Read the saved browse preferences.
@@ -322,6 +327,7 @@
 		// arrow, not a bare chevron.
 		back: '<path d="M9 17L4 12L9 7"/><path d="M4 12H20"/>',
 		chevronDown: '<path d="M6 9L12 15L18 9"/>',
+		forward: '<path d="M15 7L20 12L15 17"/><path d="M20 12H4"/>',
 		copy: '<path d="M19.4 20H9.6C9.26863 20 9 19.7314 9 19.4V9.6C9 9.26863 9.26863 9 9.6 9H19.4C19.7314 9 20 9.26863 20 9.6V19.4C20 19.7314 19.7314 20 19.4 20Z"/><path d="M15 9V4.6C15 4.26863 14.7314 4 14.4 4H4.6C4.26863 4 4 4.26863 4 4.6V14.4C4 14.7314 4.26863 15 4.6 15H9"/>',
 		plus: '<path d="M6 12H12M18 12H12M12 12V6M12 12V18"/>',
 		check: '<path d="M5 13L9 17L19 7"/>',
@@ -334,7 +340,6 @@
 		trash: '<path d="M20 9L18.005 20.3463C17.8369 21.3026 17.0062 22 16.0353 22H7.96474C6.99379 22 6.1631 21.3026 5.99496 20.3463L4 9"/><path d="M21 6L15.375 6M3 6L8.625 6M8.625 6V4C8.625 2.89543 9.52043 2 10.625 2H13.375C14.4796 2 15.375 2.89543 15.375 4V6M8.625 6L15.375 6"/>',
 		library: '<path d="M21 3.6V20.4C21 20.7314 20.7314 21 20.4 21H3.6C3.26863 21 3 20.7314 3 20.4V3.6C3 3.26863 3.26863 3 3.6 3H20.4C20.7314 3 21 3.26863 21 3.6Z"/><path d="M7 9V7L17 7V9"/><path d="M12 7V17M12 17H10M12 17H14"/>',
 		upload: '<path d="M6 20L18 20"/><path d="M12 16V4M12 4L15.5 7.5M12 4L8.5 7.5"/>',
-		cloudUpload: '<path d="M12 22V13M12 13L15.5 16.5M12 13L8.5 16.5"/><path d="M20 17.6073C21.4937 17.0221 23 15.6889 23 13C23 9 19.6667 8 18 8C18 6 18 2 12 2C6 2 6 6 6 8C4.33333 8 1 9 1 13C1 15.6889 2.50628 17.0221 4 17.6073"/>',
 		google: '<path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/><path d="M2.5 12.5L8 14.5L7 18L8 21"/><path d="M17 20.5L16.5 18L14 17V13.5L17 12.5L21.5 13"/><path d="M19 5.5L18.5 7L15 7.5V10.5L17.5 9.5H19.5L21.5 10.5"/><path d="M2.5 10.5L5 8.5L7.5 8L9.5 5L8.5 3"/>',
 		settings: '<path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"/><path d="M19.6224 10.3954L18.5247 7.7448L20 6L18 4L16.2647 5.48295L13.5578 4.36974L12.9353 2H10.981L10.3491 4.40113L7.70441 5.51596L6 4L4 6L5.45337 7.78885L4.3725 10.4463L2 11V13L4.40111 13.6555L5.51575 16.2997L4 18L6 20L7.79116 18.5403L10.397 19.6123L11 22H13L13.6045 19.6132L16.2551 18.5155C16.6969 18.8313 18 20 18 20L20 18L18.5159 16.2494L19.6139 13.598L21.9999 12.9772L22 11L19.6224 10.3954Z"/>',
 		transfer: '<path d="M17 20V4M17 4L20 7M17 4L14 7"/><path d="M7 4V20M7 20L10 17M7 20L4 17"/>',
@@ -624,7 +629,7 @@
 	var manager = null;
 	var contentEl = null;
 	var navEl = null;
-	var headerActionsEl = null;
+	var saveBarEl = null;
 	var statusEl = null;
 	var statusMessageEl = null;
 	var statusRingEl = null;
@@ -684,7 +689,15 @@
 	function build() {
 		navEl = el('nav', { class: 'efm-nav', 'aria-label': s('fontManager', 'Font Manager') });
 		contentEl = el('div', { class: 'efm-content' });
-		headerActionsEl = el('div', { class: 'efm-header__actions' });
+
+		/*
+		 * The buffer is the whole panel's, not one pane's: nineteen different
+		 * edits set the dirty flag, across the family editor, the library cards
+		 * and the trash, and saving posts every family in one request. So this is
+		 * one bar for the panel, pinned at its foot where the work is, rather than
+		 * a button per section that would claim to save only that section.
+		 */
+		saveBarEl = el('div', { class: 'efm-savebar', hidden: true });
 		/*
 		 * The live region is the message itself rather than the whole toast, so a
 		 * screen reader announces what happened without also reading out the
@@ -743,10 +756,10 @@
 					}
 				}, [icon('back', 'sm')]),
 				el('h1', { class: 'efm-header__title', text: s('fontManager', 'Font Manager') }),
-				statusEl,
-				headerActionsEl
+				statusEl
 			]),
-			el('div', { class: 'efm-body' }, [navEl, contentEl])
+			el('div', { class: 'efm-body' }, [navEl, contentEl]),
+			saveBarEl
 		]);
 
 		manager.addEventListener('keydown', function (event) {
@@ -927,15 +940,34 @@
 	 * focus back, which is the case that actually needs it.
 	 */
 	function close(restoreFocus) {
-		if (state.dirty && !window.confirm(s('confirmDiscard', 'You have unsaved font changes. Close and discard them?'))) {
+		if (state.dirty) {
+			askConfirm({
+				title: s('unsavedChanges', 'Unsaved changes'),
+				message: s('confirmDiscard', 'You have unsaved font changes. Close and discard them?'),
+				confirm: s('discardAndClose', 'Discard and close'),
+				danger: true
+			}).then(function (yes) {
+				if (!yes) {
+					return;
+				}
+
+				state.dirty = false;
+				reload();
+				shutPanel(restoreFocus);
+			});
+
 			return;
 		}
 
-		if (state.dirty) {
-			state.dirty = false;
-			reload();
-		}
+		shutPanel(restoreFocus);
+	}
 
+	/**
+	 * Put the panel away, once there is nothing left to ask about.
+	 *
+	 * @param {boolean} restoreFocus Send focus back to the control.
+	 */
+	function shutPanel(restoreFocus) {
 		isOpen = false;
 
 		if (manager) {
@@ -951,6 +983,110 @@
 		if (restoreFocus && lastFocus && lastFocus.focus) {
 			lastFocus.focus({ preventScroll: true });
 		}
+	}
+
+	/**
+	 * Ask a yes or no question in a dialog of the panel's own.
+	 *
+	 * window.confirm() draws the browser's dialog: system chrome, system type,
+	 * the site's hostname above it, and no relation to the builder it interrupts.
+	 * This is Etch's dialog instead, measured from its own component: fixed and
+	 * centred, on --e-base at a 6px radius under its layered shadow, over a
+	 * blurred 40% overlay.
+	 *
+	 * Answering is asynchronous, unlike window.confirm, so callers take the
+	 * answer from the promise rather than from a return value.
+	 *
+	 * @param {object} config
+	 *   title   Heading.
+	 *   message Body text. Blank lines split it into paragraphs.
+	 *   confirm Label for the affirmative button.
+	 *   danger  Whether that button destroys something.
+	 * @return {Promise<boolean>} True when confirmed.
+	 */
+	function askConfirm(config) {
+		return new Promise(function (resolve) {
+			var previous = document.activeElement;
+			var overlay = el('div', { class: 'efm-dialog-overlay' });
+			var body = el('div', { class: 'efm-dialog__body' });
+
+			String(config.message || '').split('\n').forEach(function (line) {
+				if (line.trim()) {
+					body.appendChild(el('p', { class: 'efm-dialog__text', text: line.trim() }));
+				}
+			});
+
+			var cancel = el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--outline',
+				text: s('cancel', 'Cancel'),
+				onclick: function () { finish(false); }
+			});
+
+			var accept = el('button', {
+				type: 'button',
+				class: 'efm-btn ' + (config.danger ? 'efm-btn--danger' : 'efm-btn--strong'),
+				text: config.confirm || s('continue', 'Continue'),
+				onclick: function () { finish(true); }
+			});
+
+			var dialog = el('div', {
+				class: 'efm-dialog',
+				role: 'dialog',
+				'aria-modal': 'true',
+				'aria-label': config.title || ''
+			}, [
+				el('h2', { class: 'efm-dialog__title', text: config.title || '' }),
+				body,
+				el('div', { class: 'efm-dialog__actions' }, [cancel, accept])
+			]);
+
+			function onKey(event) {
+				if (event.key === 'Escape') {
+					// Before the manager's own Escape handler, which would otherwise
+					// close the whole panel underneath the question.
+					event.stopPropagation();
+					event.preventDefault();
+					finish(false);
+					return;
+				}
+
+				if (event.key !== 'Tab') {
+					return;
+				}
+
+				/*
+				 * Two buttons, so the trap is just the pair of them. Stopped as well
+				 * as prevented: the panel keeps its own focus trap, and since the
+				 * dialog is the last thing in it, that trap would see focus land on
+				 * the final control and send it back to the panel's first one.
+				 */
+				event.preventDefault();
+				event.stopPropagation();
+				(document.activeElement === accept ? cancel : accept).focus();
+			}
+
+			function finish(answer) {
+				document.removeEventListener('keydown', onKey, true);
+				overlay.remove();
+				dialog.remove();
+
+				if (previous && previous.focus) {
+					previous.focus({ preventScroll: true });
+				}
+
+				resolve(answer);
+			}
+
+			overlay.addEventListener('click', function () { finish(false); });
+			document.addEventListener('keydown', onKey, true);
+
+			(manager || document.body).appendChild(overlay);
+			(manager || document.body).appendChild(dialog);
+
+			// The safe answer holds focus, so Enter never destroys anything.
+			cancel.focus();
+		});
 	}
 
 	function toggle() {
@@ -1255,7 +1391,7 @@
 		}
 
 		renderNav();
-		renderHeaderActions();
+		renderSaveBar();
 		renderStatus();
 
 		contentEl.innerHTML = '';
@@ -1384,14 +1520,20 @@
 		);
 	}
 
-	function renderHeaderActions() {
-		headerActionsEl.innerHTML = '';
+	function renderSaveBar() {
+		saveBarEl.innerHTML = '';
 
 		if (!state.dirty) {
+			saveBarEl.setAttribute('hidden', '');
 			return;
 		}
 
-		headerActionsEl.appendChild(
+		saveBarEl.removeAttribute('hidden');
+
+		// The bar says what it is, so the two buttons do not have to carry that
+		// on their own.
+		saveBarEl.appendChild(el('span', { class: 'efm-savebar__label', text: s('unsavedChanges', 'Unsaved changes') }));
+		saveBarEl.appendChild(
 			el('button', {
 				type: 'button',
 				class: 'efm-btn efm-btn--outline',
@@ -1399,11 +1541,17 @@
 				onclick: reload
 			})
 		);
-		headerActionsEl.appendChild(
+		saveBarEl.appendChild(
 			el('button', {
 				type: 'button',
-				class: 'efm-btn efm-btn--primary',
-				text: state.busy === 'save' ? s('saving', 'Saving…') : s('save', 'Save changes'),
+				/*
+				 * Not the accent variant. Etch floods the accent in exactly one
+				 * place, the builder's own Save, and that button sits nine pixels
+				 * below this panel while it is open. Two accent-filled saves on one
+				 * screen is the confusion; this one is strong but neutral.
+				 */
+				class: 'efm-btn efm-btn--strong',
+				text: state.busy === 'save' ? s('saving', 'Saving…') : s('save', 'Save fonts'),
 				disabled: state.busy === 'save',
 				onclick: saveFamilies
 			})
@@ -1448,6 +1596,42 @@
 		];
 	}
 
+	/**
+	 * Put a button inside a field that empties it.
+	 *
+	 * Shown only once there is something to clear, and on its own input listener
+	 * rather than the field's, which is usually debounced: the button should
+	 * appear with the first character, not a fraction of a second after it.
+	 *
+	 * @param {HTMLInputElement} input   Field to wrap.
+	 * @param {string}           label   Accessible name for the button.
+	 * @param {Function}         onclear Runs after the field is emptied.
+	 * @return {HTMLElement} Field and button in a positioned wrapper.
+	 */
+	function clearableField(input, label, onclear) {
+		var button = el('button', {
+			type: 'button',
+			class: 'efm-input__clear efm-tooltip efm-tooltip--end',
+			'aria-label': label,
+			'data-efm-tooltip': label,
+			hidden: !input.value,
+			onclick: function () {
+				input.value = '';
+				button.hidden = true;
+
+				// Straight back to typing, since that is what the field is for.
+				input.focus();
+				onclear();
+			}
+		}, [icon('close', 'sm')]);
+
+		input.addEventListener('input', function () {
+			button.hidden = !input.value;
+		});
+
+		return el('div', { class: 'efm-input-wrap' }, [input, button]);
+	}
+
 	function previewToolbar(lead) {
 		var sizeLabel = el('span', { class: 'efm-toolbar__size', text: state.previewSize + 'px' });
 
@@ -1465,6 +1649,19 @@
 			}, 160)
 		});
 
+		/*
+		 * Clearing puts every card back to its own script, which is the default
+		 * this panel exists to show. Selecting the text and deleting it was the
+		 * only way back to that.
+		 */
+		var textField = clearableField(textInput, s('clearPreview', 'Clear preview text'), function () {
+			state.previewCustom = '';
+			savePrefs();
+			repaintSpecimens();
+			syncPresetChips();
+		});
+		var clearText = textField.querySelector('.efm-input__clear');
+
 		var chips = el('div', { class: 'efm-chips efm-chips--presets' }, previewPresets().map(function (preset) {
 			return el('button', {
 				type: 'button',
@@ -1475,6 +1672,8 @@
 				onclick: function () {
 					state.previewCustom = preset.text;
 					textInput.value = preset.text;
+					// A preset fills the field too, so the clear stays in step.
+					clearText.hidden = !preset.text;
 					savePrefs();
 					repaintSpecimens();
 					syncPresetChips();
@@ -1513,7 +1712,7 @@
 
 		return el('div', { class: 'efm-toolbar' }, [
 			lead || null,
-			el('div', { class: 'efm-toolbar__preview' }, [textInput, chips, size, sizeLabel])
+			el('div', { class: 'efm-toolbar__preview' }, [textField, chips, size, sizeLabel])
 		]);
 	}
 
@@ -1647,6 +1846,110 @@
 			el('span', { class: 'efm-subsets__label', text: label }),
 			el('div', { class: 'efm-chips' }, chips.concat(tail || []))
 		]);
+	}
+
+	/**
+	 * Which page numbers to show, with gaps marked.
+	 *
+	 * Always the first and last page, and the current one with a neighbour each
+	 * side. Anything skipped becomes a single gap marker, so the control stays
+	 * the same width whether the catalogue is 3 pages or 80.
+	 *
+	 * @param {number} current Current page, from zero.
+	 * @param {number} count   Total pages.
+	 * @return {Array} Page indexes, with null for a gap.
+	 */
+	function pageWindow(current, count) {
+		var wanted = [0, count - 1, current, current - 1, current + 1];
+		var pages = [];
+		var out = [];
+
+		wanted.forEach(function (page) {
+			if (page >= 0 && page < count && pages.indexOf(page) === -1) {
+				pages.push(page);
+			}
+		});
+
+		pages.sort(function (a, b) { return a - b; });
+
+		pages.forEach(function (page, i) {
+			if (i > 0 && page - pages[i - 1] > 1) {
+				out.push(null);
+			}
+
+			out.push(page);
+		});
+
+		return out;
+	}
+
+	/**
+	 * Page through a long list.
+	 *
+	 * Follows shadcn's Pagination: a centred nav of previous, page numbers with a
+	 * gap marker, and next, with the current page carrying aria-current. Drawn in
+	 * this panel's own controls rather than shadcn's, so it sits in Etch.
+	 *
+	 * @param {number}   current Current page, from zero.
+	 * @param {number}   count   Total pages.
+	 * @param {Function} onPick  Called with the page to show.
+	 * @return {HTMLElement} Navigation element.
+	 */
+	function pagination(current, count, onPick) {
+		var list = el('div', { class: 'efm-pagination__list' });
+
+		function step(label, tooltip, glyph, page, disabled) {
+			return el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--ghost efm-btn--sm efm-pagination__step',
+				'aria-label': tooltip,
+				disabled: disabled || !!state.loadingMore,
+				onclick: function () { onPick(page); }
+			}, glyph === 'back'
+				? [icon('back', 'sm'), el('span', { text: label })]
+				: [el('span', { text: label }), icon('forward', 'sm')]);
+		}
+
+		list.appendChild(step(
+			s('previous', 'Previous'),
+			s('previousPage', 'Go to previous page'),
+			'back',
+			current - 1,
+			current === 0
+		));
+
+		pageWindow(current, count).forEach(function (page) {
+			if (page === null) {
+				list.appendChild(el('span', { class: 'efm-pagination__gap', 'aria-hidden': 'true', text: '\u2026' }));
+				return;
+			}
+
+			var on = page === current;
+
+			list.appendChild(el('button', {
+				type: 'button',
+				class: 'efm-pagination__page' + (on ? ' is-on' : ''),
+				'aria-label': s('goToPage', 'Go to page') + ' ' + (page + 1),
+				'aria-current': on ? 'page' : null,
+				disabled: !!state.loadingMore,
+				text: String(page + 1),
+				onclick: function () { onPick(page); }
+			}));
+		});
+
+		list.appendChild(step(
+			s('next', 'Next'),
+			s('nextPage', 'Go to next page'),
+			'forward',
+			current + 1,
+			current >= count - 1
+		));
+
+		return el('nav', {
+			class: 'efm-pagination',
+			role: 'navigation',
+			'aria-label': s('pagination', 'Pagination')
+		}, [list]);
 	}
 
 	/**
@@ -2075,20 +2378,35 @@
 				type: 'button',
 				class: 'efm-btn efm-btn--outline efm-btn--sm',
 				onclick: function () {
-					if (!window.confirm(s('confirmEmptyTrash', 'Delete every family in the trash for good? Their font files stay on the server and can be removed from Import & export.'))) {
-						return;
-					}
+					askConfirm({
+						title: s('emptyTrash', 'Empty trash'),
+						message: s('confirmEmptyTrash', 'Delete every family in the trash for good? Their font files stay on the server and can be removed from Import & export.'),
+						confirm: s('deleteAction', 'Delete'),
+						danger: true
+					}).then(function (yes) {
+						if (!yes) {
+							return;
+						}
 
-					state.families = state.families.filter(function (family) {
-						return !isTrashed(family);
+						emptyTrash();
 					});
-					state.editing = null;
-					state.dirty = true;
-					render();
 				}
 			}, [icon('trash', 'sm'), el('span', { text: s('emptyTrash', 'Empty trash') })])
 		]));
 
+		renderTrashGrid();
+	}
+
+	function emptyTrash() {
+		state.families = state.families.filter(function (family) {
+			return !isTrashed(family);
+		});
+		state.editing = null;
+		state.dirty = true;
+		render();
+	}
+
+	function renderTrashGrid() {
 		var grid = el('div', { class: 'efm-grid' });
 
 		state.families.forEach(function (family, index) {
@@ -2117,14 +2435,21 @@
 							'aria-label': s('deleteFamily', 'Delete permanently'),
 							'data-efm-tooltip': s('deleteFamily', 'Delete permanently'),
 							onclick: function () {
-								if (!window.confirm(s('confirmDeleteFamily', 'Delete this family for good? Its font files stay on the server and can be removed from Import & export.'))) {
-									return;
-								}
+								askConfirm({
+									title: s('deleteFamily', 'Delete permanently'),
+									message: s('confirmDeleteFamily', 'Delete this family for good? Its font files stay on the server and can be removed from Import & export.'),
+									confirm: s('deleteAction', 'Delete'),
+									danger: true
+								}).then(function (yes) {
+									if (!yes) {
+										return;
+									}
 
-								state.families.splice(index, 1);
-								state.editing = null;
-								state.dirty = true;
-								render();
+									state.families.splice(index, 1);
+									state.editing = null;
+									state.dirty = true;
+									render();
+								});
 							}
 						}, [icon('trash')])
 					])
@@ -2153,7 +2478,13 @@
 
 		contentEl.appendChild(previewToolbar(
 			el('div', { class: 'efm-toolbar__lead' }, [
-				el('div', { class: 'efm-search' }, [icon('search', 'sm'), search]),
+				el('div', { class: 'efm-search' }, [
+					icon('search', 'sm'),
+					clearableField(search, s('clearFilter', 'Clear filter'), function () {
+						state.filter = '';
+						render();
+					})
+				]),
 				el('button', {
 					type: 'button',
 					class: 'efm-btn efm-btn--outline',
@@ -2306,7 +2637,7 @@
 						oninput: function (event) {
 							state.families[index].name = event.target.value;
 							state.dirty = true;
-							renderHeaderActions();
+							renderSaveBar();
 						}
 					})
 				]),
@@ -2646,7 +2977,7 @@
 			onselect: function (value) {
 				state.families[index].display = value;
 				state.dirty = true;
-				renderHeaderActions();
+				renderSaveBar();
 			}
 		});
 
@@ -2659,7 +2990,7 @@
 			oninput: function (event) {
 				state.families[index].fallback = event.target.value;
 				state.dirty = true;
-				renderHeaderActions();
+				renderSaveBar();
 			}
 		});
 
@@ -2680,7 +3011,7 @@
 			onchange: function (event) {
 				state.families[index].preload = event.target.checked;
 				state.dirty = true;
-				renderHeaderActions();
+				renderSaveBar();
 			}
 		});
 
@@ -2708,7 +3039,7 @@
 						oninput: function (event) {
 							state.families[index].selector = event.target.value;
 							state.dirty = true;
-							renderHeaderActions();
+							renderSaveBar();
 						}
 					}),
 					el('span', { class: 'efm-field__hint', text: s('applyToHint', 'Optional. A comma separated selector list this family is applied to, so you do not have to write the rule yourself.') })
@@ -2841,18 +3172,26 @@
 			}
 		});
 
+		/*
+		 * Shaped like Etch's Assets Library, measured from its own component: a
+		 * dashed zone with the message centred in it, a button to open the picker
+		 * and the accepted formats as chips underneath. With nothing uploaded yet
+		 * the zone fills the pane the way Etch's empty state does; once there are
+		 * files it steps back to a band above the table.
+		 *
+		 * The zone is a drop target, not a button. Etch puts the click on the
+		 * button alone, which also avoids a control nested inside a control.
+		 */
+		var types = el('div', { class: 'efm-dropzone__types' }, [
+			el('span', { class: 'efm-dropzone__types-label', text: s('supported', 'Supported:') })
+		]);
+
+		['WOFF2', 'WOFF', 'TTF', 'OTF'].forEach(function (format) {
+			types.appendChild(el('span', { class: 'efm-chip efm-chip--type', text: format }));
+		});
+
 		var dropzone = el('div', {
-			class: 'efm-dropzone',
-			tabindex: '0',
-			role: 'button',
-			'aria-label': s('upload', 'Upload font files'),
-			onclick: function () { input.click(); },
-			onkeydown: function (event) {
-				if (event.key === 'Enter' || event.key === ' ') {
-					event.preventDefault();
-					input.click();
-				}
-			},
+			class: 'efm-dropzone' + (state.files.length ? '' : ' efm-dropzone--empty'),
 			ondragover: function (event) {
 				event.preventDefault();
 				dropzone.classList.add('is-dragover');
@@ -2864,9 +3203,17 @@
 				uploadFiles(event.dataTransfer.files);
 			}
 		}, [
-			icon('cloudUpload', 'lg'),
-			el('p', { class: 'efm-dropzone__title', text: s('upload', 'Upload font files') }),
-			el('p', { class: 'efm-dropzone__hint', text: s('uploadHint', 'Drop woff2, woff, ttf or otf files here, or click to browse.') }),
+			el('div', { class: 'efm-dropzone__center' }, [
+				el('h2', { class: 'efm-dropzone__title', text: s('upload', 'Upload font files') }),
+				el('p', { class: 'efm-dropzone__desc', text: s('uploadIntro', 'Font files live on your own server, and every family you build here is made from them.') }),
+				el('p', { class: 'efm-dropzone__desc', text: s('uploadHint', 'Drag files from your computer, or select them with the button below.') }),
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--outline efm-btn--lg',
+					onclick: function () { input.click(); }
+				}, [icon('plus', 'sm'), el('span', { text: s('selectFiles', 'Select files') })]),
+				types
+			]),
 			input
 		]);
 
@@ -2948,9 +3295,16 @@
 									'.\n' + s('confirmDeleteUsedHint', 'Those variants will be removed too.');
 							}
 
-							if (window.confirm(message)) {
-								deleteFile(file.name);
-							}
+							askConfirm({
+								title: s('deleteFile', 'Delete file'),
+								message: message,
+								confirm: s('deleteAction', 'Delete'),
+								danger: true
+							}).then(function (yes) {
+								if (yes) {
+									deleteFile(file.name);
+								}
+							});
 						}
 					}, [icon('trash')])
 				])
@@ -3429,7 +3783,13 @@
 
 		contentEl.appendChild(previewToolbar(
 			el('div', { class: 'efm-toolbar__lead' }, [
-				el('div', { class: 'efm-search' }, [icon('search', 'sm'), search]),
+				el('div', { class: 'efm-search' }, [
+					icon('search', 'sm'),
+					clearableField(search, s('clearSearch', 'Clear search'), function () {
+						state.query = '';
+						searchGoogle();
+					})
+				]),
 				filterPopover([
 					filterField(s('category', 'Category'), categorySelect),
 					filterField(s('writingSystem', 'Writing system'), subsetSelect),
@@ -3643,16 +4003,8 @@
 		contentEl.appendChild(grid);
 		observePreviews(grid);
 
-		if (state.results.length < state.total) {
-			contentEl.appendChild(
-				el('button', {
-					type: 'button',
-					class: 'efm-btn efm-btn--ghost efm-btn--block',
-					text: state.loadingMore ? s('loading', 'Loading…') : s('loadMore', 'Load more'),
-					disabled: state.loadingMore,
-					onclick: loadMoreGoogle
-				})
-			);
+		if (googlePageCount() > 1) {
+			contentEl.appendChild(pagination(state.page, googlePageCount(), goToGooglePage));
 		}
 	}
 
@@ -4551,7 +4903,7 @@
 
 	function saveFamilies() {
 		state.busy = 'save';
-		renderHeaderActions();
+		renderSaveBar();
 
 		request('/families', { method: 'POST', body: { families: state.families } })
 			.then(function (next) {
@@ -5008,9 +5360,23 @@
 			return;
 		}
 
-		// Repointing variants writes the family list back to the server, which
-		// would take the saved version and drop anything edited but not saved.
-		if (state.dirty && !window.confirm(s('convertDirty', 'Converting saves the family mapping. Unsaved changes will be discarded. Continue?'))) {
+		/*
+		 * Repointing variants writes the family list back to the server, which
+		 * would take the saved version and drop anything edited but not saved. The
+		 * question is asked first, and the conversion runs from its answer.
+		 */
+		if (state.dirty) {
+			askConfirm({
+				title: s('convertFile', 'Convert to WOFF2'),
+				message: s('convertDirty', 'Converting saves the family mapping. Unsaved changes will be discarded. Continue?'),
+				confirm: s('continue', 'Continue')
+			}).then(function (yes) {
+				if (yes) {
+					state.dirty = false;
+					convertExisting(file);
+				}
+			});
+
 			return;
 		}
 
@@ -5209,12 +5575,21 @@
 		}
 
 		// Deleting bytes is not reversible, so it is always confirmed.
-		if (!window.confirm(s('cleanupConfirm', 'Delete these font files from the server?') + '\n\n' + unused.map(function (file) {
-			return file.name;
-		}).join('\n'))) {
-			return;
-		}
+		askConfirm({
+			title: s('cleanupTitle', 'Unused files'),
+			message: s('cleanupConfirm', 'Delete these font files from the server?') + '\n\n' + unused.map(function (file) {
+				return file.name;
+			}).join('\n'),
+			confirm: s('deleteAction', 'Delete'),
+			danger: true
+		}).then(function (yes) {
+			if (yes) {
+				prune();
+			}
+		});
+	}
 
+	function prune() {
 		state.pruning = true;
 		render();
 
@@ -5246,7 +5621,7 @@
 			'&subset=' + encodeURIComponent(state.subset) +
 			'&variable=' + encodeURIComponent(state.variableOnly) +
 			'&sort=' + encodeURIComponent(state.sort) +
-			'&limit=24&offset=' + offset;
+			'&limit=' + GOOGLE_PAGE_SIZE + '&offset=' + offset;
 	}
 
 	/**
@@ -5287,6 +5662,7 @@
 
 	function searchGoogle() {
 		state.searching = true;
+		state.page = 0;
 
 		// A new result set makes the old position meaningless, so the catalogue
 		// starts at the top again rather than mid-way down a different list.
@@ -5322,20 +5698,46 @@
 			});
 	}
 
-	function loadMoreGoogle() {
+	/**
+	 * Show one page of the catalogue.
+	 *
+	 * The catalogue used to grow: every "Load more" appended another 24 families
+	 * to the ones already on screen, so by the fourth press the page held a
+	 * hundred cards, each with a live preview face. A page replaces rather than
+	 * appends, which keeps the pane a fixed size however deep you go.
+	 *
+	 * @param {number} page Page index, counted from zero.
+	 */
+	function goToGooglePage(page) {
+		var last = googlePageCount() - 1;
+		var next = Math.max(0, Math.min(page, last));
+
+		if (next === state.page || state.loadingMore) {
+			return;
+		}
+
 		state.loadingMore = true;
 		render();
 
-		request(googleQuery(state.results.length))
+		request(googleQuery(next * GOOGLE_PAGE_SIZE))
 			.then(function (data) {
-				state.results = state.results.concat((data && data.results) || []);
+				state.results = (data && data.results) || [];
 				state.total = (data && data.total) || state.total;
+				state.page = next;
+
+				// A new page starts at its own top rather than at the offset the
+				// previous one was left at.
+				delete scrollMemory.google;
 			})
 			.catch(fail)
 			.then(function () {
 				state.loadingMore = false;
 				render();
 			});
+	}
+
+	function googlePageCount() {
+		return Math.max(1, Math.ceil((state.total || 0) / GOOGLE_PAGE_SIZE));
 	}
 
 	function installGoogleFont(family, subsets, variable, cuts) {

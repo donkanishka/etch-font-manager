@@ -2,6 +2,72 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.27.0
+
+The panel's own dialogs, its own dropdowns for paging, and the Upload screen rebuilt from Etch's Assets
+Library. Two of the fixes are things the measuring found rather than things that were reported.
+
+### Added
+
+- **Every field that holds text can be emptied from a button inside it.** The preview text, the library filter
+  and the Google Fonts search all carry the same clear button, shown only once there is something to clear and
+  put there with the first character rather than after the field's own debounce. The browser's native clear on
+  the two search fields is suppressed, since two of them in one field, one in the operating system's styling,
+  is worse than none.
+
+- **Pagination, in place of "Load more".** Following shadcn's Pagination for structure and semantics, drawn in
+  this panel's controls: previous, page numbers with a gap marker, next, and `aria-current` on the page you are
+  on. It always shows the first and last page and the current one with a neighbour each side, so the control is
+  the same width at 3 pages or 80.
+
+  The behaviour changed with it. "Load more" appended another 24 families per press, so a few presses left a
+  hundred cards on screen, each with a live preview face. A page replaces instead, and the pane stays a fixed
+  size however deep you go.
+
+### Fixed
+
+- **Tooltips were being cut in half on the last row of a table.** The table clipped its own overflow to round
+  its corners, and a tooltip opens below its button, which on the final row is past that edge. Measured on the
+  variants table: eight pixels of the tooltip were lost. The corners are rounded on the head and the last row
+  instead, so nothing is clipped.
+
+- **The clear button sat outside its field**, and **`.efm-tooltip` was quietly overriding `position: absolute`**
+  on it. Both found while building the feature, neither visible until the layout was measured rather than
+  looked at.
+
+### Changed
+
+- **Dialogs are the panel's own, not the browser's.** `window.confirm()` drew system chrome, system type and
+  the site's hostname over the builder. All six confirmations now use Etch's dialog, taken from its component:
+  centred on `--e-base` at a 6px radius under its six-stop shadow, over a blurred 40% overlay. Cancel holds
+  focus so Enter never destroys anything, Escape closes the question without closing the panel underneath it,
+  and Tab stays inside the dialog.
+
+- **Save and Discard moved to a bar at the foot of the panel**, where the work is: the family editor runs long
+  and its variants table sits at the bottom, so a header button meant scrolling back up. The save is labelled
+  "Save fonts" and no longer uses the accent fill. Etch floods the accent in exactly one place, the builder's
+  own Save, which sits nine pixels below this panel while it is open; measured with the panel dirty, that Save
+  is now the only accent-filled button on the screen.
+
+- **The Upload screen is shaped like Etch's Assets Library**: a dashed zone with the message centred in it, a
+  button to open the picker, and the accepted formats as chips. It fills the pane while nothing is uploaded and
+  steps back to a band above the files table once there is something to list. The zone is a drop target rather
+  than a button, as Etch's is, which also removes a control nested inside a control.
+
+- **Tables have column separators**, on the head and every row, in both the files table and the variants table.
+
+- **Weights and Subsets line up on a Google Fonts card.** The label and its chips were two items in one wrapping
+  row, so whether the chips sat beside the label or below it depended on whether they happened to fit: on the
+  same card Weights went inline and Subsets stacked. The label now holds a column of its own.
+
+- **The upload zone's hover takes the accent** rather than the focus blue, which this panel uses to mean
+  "focused by keyboard".
+
+### Translators
+
+Sixteen new strings, mostly button labels for the dialogs and the pagination. `Load more` and `Save changes`
+are gone; `Save fonts` replaces the latter.
+
 ## 0.26.0
 
 Another pass over the interface, again measured against Etch rather than guessed at, and two bugs that the

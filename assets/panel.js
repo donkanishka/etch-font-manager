@@ -328,6 +328,7 @@
 		back: '<path d="M9 17L4 12L9 7"/><path d="M4 12H20"/>',
 		chevronDown: '<path d="M6 9L12 15L18 9"/>',
 		forward: '<path d="M15 7L20 12L15 17"/><path d="M20 12H4"/>',
+		external: '<path d="M21 3H15M21 3V9M21 3L13 11"/><path d="M21 13V19.4C21 19.7314 20.7314 20 20.4 20H4.6C4.26863 20 4 19.7314 4 19.4V3.6C4 3.26863 4.26863 3 4.6 3H11"/>',
 		copy: '<path d="M19.4 20H9.6C9.26863 20 9 19.7314 9 19.4V9.6C9 9.26863 9.26863 9 9.6 9H19.4C19.7314 9 20 9.26863 20 9.6V19.4C20 19.7314 19.7314 20 19.4 20Z"/><path d="M15 9V4.6C15 4.26863 14.7314 4 14.4 4H4.6C4.26863 4 4 4.26863 4 4.6V14.4C4 14.7314 4.26863 15 4.6 15H9"/>',
 		plus: '<path d="M6 12H12M18 12H12M12 12V6M12 12V18"/>',
 		check: '<path d="M5 13L9 17L19 7"/>',
@@ -659,7 +660,18 @@
 		{ key: 'upload', icon: 'upload', label: function () { return s('upload', 'Upload fonts'); }, count: function () { return state.files.length; } },
 		{ key: 'google', icon: 'google', label: function () { return s('googleFonts', 'Google Fonts'); } },
 		{ key: 'settings', icon: 'settings', label: function () { return s('settings', 'Settings'); } },
-		{ key: 'tools', icon: 'transfer', label: function () { return s('tools', 'Import & export'); } }
+		{ key: 'tools', icon: 'transfer', label: function () { return s('tools', 'Import & export'); } },
+		/*
+		 * Listed at all times, not conditional on something being in it. The trash
+		 * used to appear only once a family had been thrown away, so the one place
+		 * a deleted family can be recovered from was missing from the sidebar
+		 * exactly while somebody was looking for it, and the sidebar changed
+		 * length under the pointer as families came and went.
+		 *
+		 * The count stays even at zero, which is what Library and Upload already
+		 * do, so the row keeps its shape rather than growing a badge on use.
+		 */
+		{ key: 'trash', icon: 'trash', label: function () { return s('trash', 'Trash'); }, count: function () { return trashedFamilies().length; } }
 	];
 
 	/**
@@ -1396,12 +1408,6 @@
 
 		contentEl.innerHTML = '';
 
-		// Restoring or purging the last trashed family leaves that view empty.
-		if (state.view === 'trash' && !trashedFamilies().length) {
-			state.view = 'library';
-		}
-
-		// After the fallback above, so the key names the view actually drawn.
 		var nextView = viewKey();
 
 		if (state.editing !== null && state.families[state.editing]) {
@@ -1450,20 +1456,7 @@
 	function renderNav() {
 		navEl.innerHTML = '';
 
-		var trashed = trashedFamilies();
-		var views = VIEWS.slice();
-
-		// The trash only appears once something is in it.
-		if (trashed.length) {
-			views.push({
-				key: 'trash',
-				icon: 'trash',
-				label: function () { return s('trash', 'Trash'); },
-				count: function () { return trashed.length; }
-			});
-		}
-
-		views.forEach(function (view) {
+		VIEWS.forEach(function (view) {
 			var active = state.view === view.key && state.editing === null;
 			var children = [icon(view.icon), el('span', { text: view.label() })];
 			var count = view.count ? view.count() : null;
@@ -1705,10 +1698,13 @@
 			oninput: function (event) {
 				state.previewSize = parseInt(event.target.value, 10);
 				sizeLabel.textContent = state.previewSize + 'px';
+				syncRange(event.target);
 				savePrefs();
 				repaintSpecimens();
 			}
 		});
+
+		syncRange(size);
 
 		return el('div', { class: 'efm-toolbar' }, [
 			lead || null,
@@ -2285,11 +2281,35 @@
 		});
 	}
 
-	function emptyState(title, hint, cta, onCta) {
+	/**
+	 * The state a view ends in when it has nothing to show.
+	 *
+	 * Shaped like Etch's Assets Library empty state, which is what the Upload
+	 * screen already follows: it fills the pane and centres on it rather than
+	 * leaving a line of small print at the top of a screen of nothing.
+	 *
+	 * @param {string} title    What is missing.
+	 * @param {string} [hint]   One line on what to do about it.
+	 * @param {Array}  [acts]   Buttons, each { label, onclick, variant }. The
+	 *                          first takes the primary fill and the rest outline.
+	 * @return {Element} The empty state.
+	 */
+	function emptyState(title, hint, acts) {
+		var actions = (acts || []).filter(function (action) {
+			return action && action.label;
+		});
+
 		return el('div', { class: 'efm-empty' }, [
 			el('p', { class: 'efm-empty__title', text: title }),
 			hint ? el('p', { class: 'efm-empty__hint', text: hint }) : null,
-			cta ? el('button', { type: 'button', class: 'efm-btn efm-btn--primary', text: cta, onclick: onCta }) : null
+			actions.length ? el('div', { class: 'efm-empty__actions' }, actions.map(function (action, at) {
+				return el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--' + (action.variant || (at === 0 ? 'primary' : 'outline')),
+					text: action.label,
+					onclick: action.onclick
+				});
+			})) : null
 		]);
 	}
 
@@ -2354,13 +2374,41 @@
 	 * under unused files in Import & export.
 	 */
 	function renderTrash() {
+		var inTrash = trashedFamilies();
+
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('trash', 'Trash') }));
+
+		/*
+		 * The view is reachable at any time now, so it has to answer for itself
+		 * when there is nothing in it. Before, it could only be opened once it had
+		 * contents; empty, it would have drawn a hint about restoring above a
+		 * "Restore all (0)", an "Empty trash" that empties nothing, and a grid of
+		 * no cards.
+		 */
+		if (!inTrash.length) {
+			/*
+			 * Outline rather than the primary fill. An empty trash is the state you
+			 * want, not a problem to solve, so the way out is offered without being
+			 * urged; the library's empty state fills its first button because there
+			 * the emptiness is the thing to fix.
+			 */
+			contentEl.appendChild(emptyState(
+				s('trashEmpty', 'The trash is empty'),
+				s('trashEmptyHint', 'Families you delete from the library wait here, and can be restored until you empty it.'),
+				[{
+					label: s('backToLibrary', 'Back to Library'),
+					variant: 'outline',
+					onclick: function () { go('library'); }
+				}]
+			));
+
+			return;
+		}
+
 		contentEl.appendChild(el('p', {
 			class: 'efm-muted',
 			text: s('trashHint', 'These families are not loaded on the site. Their font files are still on the server, so restoring one brings it back exactly as it was.')
 		}));
-
-		var inTrash = trashedFamilies();
 
 		contentEl.appendChild(el('div', { class: 'efm-card__actions' }, [
 			el('button', {
@@ -2495,11 +2543,18 @@
 		));
 
 		if (!liveFamilies().length) {
+			/*
+			 * The hint names two routes out, so both are offered. It used to say
+			 * "Upload a font file or install one from Google Fonts" over a single
+			 * Google Fonts button, leaving the reader to find the other one.
+			 */
 			contentEl.appendChild(emptyState(
 				s('noFamilies', 'No font families yet.'),
 				s('noFamiliesHint', 'Upload a font file or install one from Google Fonts.'),
-				s('googleFonts', 'Google Fonts'),
-				function () { go('google'); }
+				[
+					{ label: s('googleFonts', 'Google Fonts'), onclick: function () { go('google'); } },
+					{ label: s('upload', 'Upload font files'), onclick: function () { go('upload'); } }
+				]
 			));
 			return;
 		}
@@ -2972,7 +3027,13 @@
 			key: 'display-' + index,
 			value: family.display || 'swap',
 			options: ['swap', 'optional', 'fallback', 'block', 'auto'].map(function (value) {
-				return { value: value, label: value };
+				/*
+				 * The value is the CSS keyword and goes into the stylesheet exactly
+				 * as written here; only the label is capitalised. A menu of five
+				 * lowercase words reads as code being echoed back rather than as a
+				 * set of choices, and every other menu in the panel is capitalised.
+				 */
+				return { value: value, label: value.charAt(0).toUpperCase() + value.slice(1) };
 			}),
 			onselect: function (value) {
 				state.families[index].display = value;
@@ -3022,7 +3083,7 @@
 				el('div', { class: 'efm-field' }, [
 					el('span', { class: 'efm-field__label', text: s('fontDisplay', 'Loading behaviour') }),
 					displaySelect,
-					el('span', { class: 'efm-field__hint', text: s('fontDisplayHint', 'swap shows a fallback until the font arrives. optional skips the font entirely on slow connections, which removes layout shift.') })
+					el('span', { class: 'efm-field__hint', text: s('fontDisplayHint', 'Swap shows a fallback until the font arrives. Optional skips the font entirely on slow connections, which removes layout shift.') })
 				]),
 				el('label', { class: 'efm-field' }, [
 					el('span', { class: 'efm-field__label', text: s('fallbackStack', 'Fallback stack') }),
@@ -3419,6 +3480,26 @@
 			});
 	}
 
+	/**
+	 * Keep a slider's filled track in step with its value.
+	 *
+	 * A webkit runnable track has no progress pseudo-element, so the fill is a
+	 * background layer in panel.css sized from --efm-range-fill. Firefox draws
+	 * its own through ::-moz-range-progress and ignores this.
+	 *
+	 * @param {HTMLInputElement} input Range input.
+	 */
+	function syncRange(input) {
+		var min = parseFloat(input.min);
+		var max = parseFloat(input.max);
+		var span = max - min;
+
+		input.style.setProperty(
+			'--efm-range-fill',
+			String(span > 0 ? (parseFloat(input.value) - min) / span : 0)
+		);
+	}
+
 	function axisState(family) {
 		if (!state.axisValues[family]) {
 			state.axisValues[family] = {};
@@ -3507,7 +3588,7 @@
 
 		if (hasVariable) {
 			var cssLine = el('code', {
-				class: 'efm-code efm-code--inline',
+				class: 'efm-token__value',
 				text: 'font-variation-settings: ' + variationSettings(font) + ';'
 			});
 
@@ -3518,13 +3599,56 @@
 				cssLine.textContent = 'font-variation-settings: ' + settings + ';';
 			};
 
+			contentEl.appendChild(el('h3', {
+				class: 'efm-section-title',
+				text: s('variableAxes', 'Variable axes')
+			}));
+
+			/*
+			 * The reset travels with the sliders, in the next column along. In the
+			 * heading band it was right-aligned against a rule that spans the whole
+			 * pane, which left it about fifteen hundred pixels from the axes it
+			 * resets; on a row of its own underneath it read as a step that came
+			 * after them. Beside them it reads as theirs.
+			 */
+			var resetAxes = el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--ghost efm-btn--sm',
+				// Inert until an axis has actually moved, so the control reports
+				// whether there is anything to undo rather than always offering it.
+				disabled: !state.axisValues[font.family] ||
+					!Object.keys(state.axisValues[font.family]).length,
+				onclick: function () {
+					delete state.axisValues[font.family];
+					render();
+				}
+			}, [icon('refresh', 'sm'), el('span', { text: s('resetAxes', 'Reset axes') })]);
+
 			contentEl.appendChild(el('div', { class: 'efm-axes' }, axes.map(function (axis) {
 				var meta = state.axisNames[axis.tag] || {};
 				var step = Math.pow(10, meta.precision || 0);
+				var span = axis.max - axis.min;
 				var valueLabel = el('span', {
 					class: 'efm-axis__value',
 					text: trimNumber(axisValue(font, axis))
 				});
+				var slider = el('input', {
+					type: 'range',
+					class: 'efm-range',
+					min: trimNumber(axis.min),
+					max: trimNumber(axis.max),
+					step: trimNumber(step),
+					value: trimNumber(axisValue(font, axis)),
+					'aria-label': (meta.name || axis.tag) + ' (' + axis.tag + ')',
+					oninput: function (event) {
+						axisState(font.family)[axis.tag] = parseFloat(event.target.value);
+						valueLabel.textContent = event.target.value;
+						syncRange(event.target);
+						repaint();
+					}
+				});
+
+				syncRange(slider);
 
 				return el('label', { class: 'efm-axis' }, [
 					el('span', { class: 'efm-axis__label' }, [
@@ -3532,40 +3656,42 @@
 						el('span', { class: 'efm-axis__tag', text: axis.tag }),
 						valueLabel
 					]),
-					el('input', {
-						type: 'range',
-						class: 'efm-range',
-						min: trimNumber(axis.min),
-						max: trimNumber(axis.max),
-						step: trimNumber(step),
-						value: trimNumber(axisValue(font, axis)),
-						'aria-label': (meta.name || axis.tag) + ' (' + axis.tag + ')',
-						oninput: function (event) {
-							axisState(font.family)[axis.tag] = parseFloat(event.target.value);
-							valueLabel.textContent = event.target.value;
-							repaint();
+					/*
+					 * The wrapper carries where the default sits on this axis, which
+					 * panel.css draws as a single graduation under the track. That
+					 * replaces the "default 400" that used to trail every slider on a
+					 * third line, and puts the fact where it means something.
+					 */
+					el('div', {
+						class: 'efm-axis__track',
+						style: {
+							'--efm-axis-default': String(span > 0 ? (axis.def - axis.min) / span : 0)
 						}
-					}),
-					el('span', {
-						class: 'efm-axis__range',
-						text: trimNumber(axis.min) + ' – ' + trimNumber(axis.max) +
-							' · ' + s('axisDefault', 'default') + ' ' + trimNumber(axis.def)
-					})
+					}, [slider]),
+					el('span', { class: 'efm-axis__scale' }, [
+						el('span', { text: trimNumber(axis.min) }),
+						el('span', { text: trimNumber(axis.max) })
+					])
 				]);
-			})));
+			}).concat([resetAxes])));
 
-			contentEl.appendChild(el('div', { class: 'efm-detail__actions' }, [
+			/*
+			 * The live declaration, on the same copyable well the CSS variable uses
+			 * in the family editor. It was a bare full-width code block holding
+			 * forty characters, with no way to lift them out.
+			 */
+			contentEl.appendChild(el('div', { class: 'efm-token efm-token--fit' }, [
+				cssLine,
 				el('button', {
 					type: 'button',
-					class: 'efm-btn efm-btn--ghost efm-btn--sm',
+					class: 'efm-btn efm-btn--ghost efm-btn--sm efm-btn--icon efm-tooltip efm-tooltip--end',
+					'aria-label': s('copy', 'Copy'),
+					'data-efm-tooltip': s('copy', 'Copy'),
 					onclick: function () {
-						delete state.axisValues[font.family];
-						render();
+						copyText(cssLine.textContent);
 					}
-				}, [icon('refresh', 'sm'), el('span', { text: s('resetAxes', 'Reset axes') })])
+				}, [icon('copy', 'sm')])
 			]));
-
-			contentEl.appendChild(cssLine);
 		} else {
 			contentEl.appendChild(el('p', {
 				class: 'efm-muted',
@@ -3586,6 +3712,16 @@
 		var allCuts = availableCuts(font);
 		var cuts = selectedCuts(font);
 		var pickCuts = !useVariable && allCuts.length > 1;
+
+		/*
+		 * Everything below this point decides what gets installed. Without a band
+		 * it ran on from the tester as one undifferentiated stack of rows, which
+		 * is the fault the section headings were introduced to fix everywhere else.
+		 */
+		contentEl.appendChild(el('h3', {
+			class: 'efm-section-title',
+			text: s('installOptions', 'Install options')
+		}));
 
 		contentEl.appendChild(el('div', { class: 'efm-subsets' }, [
 			el('span', { class: 'efm-subsets__label', text: s('subsets', 'Subsets') }),
@@ -3658,16 +3794,23 @@
 					installGoogleFont(font.family, chosen, useVariable, cuts);
 				}
 			}),
-			installed ? el('span', { class: 'efm-badge' }, [icon('check', 'sm'), el('span', { text: s('installed', 'Installed') })]) : null
-		]));
-
-		contentEl.appendChild(el('p', { class: 'efm-muted' }, [
+			installed ? el('span', { class: 'efm-badge' }, [icon('check', 'sm'), el('span', { text: s('installed', 'Installed') })]) : null,
+			/*
+			 * The one place the user leaves for, and it was a line of muted text
+			 * stranded under everything else -- the only control in the panel that
+			 * was not shaped like one. It takes the outline button every other
+			 * secondary action uses and stands beside the install it belongs with,
+			 * with the icon saying it opens outside the builder.
+			 */
 			el('a', {
+				class: 'efm-btn efm-btn--outline',
 				href: 'https://fonts.google.com/specimen/' + font.family.replace(/ /g, '+'),
 				target: '_blank',
-				rel: 'noopener noreferrer',
-				text: s('viewOnGoogle', 'View on Google Fonts')
-			})
+				rel: 'noopener noreferrer'
+			}, [
+				el('span', { text: s('viewOnGoogle', 'View on Google Fonts') }),
+				icon('external', 'sm')
+			])
 		]));
 
 		loadVariableFace(font, function () {
@@ -3828,8 +3971,9 @@
 				: emptyState(
 					s('noResults', 'No fonts found.'),
 					null,
-					googleFiltered() ? s('resetAll', 'Reset all') : null,
-					resetGoogleFilters
+					googleFiltered()
+						? [{ label: s('resetAll', 'Reset all'), onclick: resetGoogleFilters }]
+						: null
 				));
 			return;
 		}
@@ -3897,17 +4041,27 @@
 								}
 							})
 						]),
-						el('h2', { class: 'efm-card__title' }, [
+						el('h2', { class: 'efm-card__title efm-card__title--link' }, [
 							el('button', {
 								type: 'button',
-								class: 'efm-linkbtn',
-								text: font.family,
-								title: s('openDetail', 'Open the type tester'),
+								/*
+								 * The hint is Etch's own tooltip rather than the browser's
+								 * grey box, which meant the heading had to stop clipping:
+								 * a ::after cannot escape an ancestor with hidden overflow.
+								 * The name moves into a span so the ellipsis still happens,
+								 * and the arrow beside it is the hover affordance that
+								 * replaced the underline.
+								 */
+								class: 'efm-linkbtn efm-tooltip',
+								'data-efm-tooltip': s('openDetail', 'Open the type tester'),
 								onclick: function () {
 									state.detail = font.family;
 									render();
 								}
-							})
+							}, [
+								el('span', { class: 'efm-linkbtn__text', text: font.family }),
+								icon('forward', 'sm')
+							])
 						]),
 						el('div', { class: 'efm-card__actions' }, [
 							installed ? el('span', { class: 'efm-badge' }, [icon('check', 'sm'), el('span', { text: s('installed', 'Installed') })]) : null,
@@ -3933,13 +4087,14 @@
 						: null,
 					specimen(font.family, font.subsets, font.script),
 					/*
-					 * One line. The axis range earns its place on a card, but the
-					 * explanation behind it does not need repeating twenty-four
-					 * times down a grid, so it moves to the label's tooltip.
+					 * One line: the label and its axis range, nothing else. The
+					 * explanation used to hang off this label as a wrapping tooltip,
+					 * which opened downward across the Subsets row underneath and hid
+					 * the chips the reader was on their way to. The type tester still
+					 * spells it out, where there is one family and room to say it.
 					 */
 					hasVariable ? el('label', {
-						class: 'efm-toggle efm-toggle--inline efm-tooltip efm-tooltip--wrap',
-						'data-efm-tooltip': s('variableHint', 'one file per subset instead of one per weight')
+						class: 'efm-toggle efm-toggle--inline'
 					}, [
 						el('input', {
 							type: 'checkbox',

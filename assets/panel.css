@@ -50,6 +50,13 @@
 	 * derives it: one icon plus the input padding on each side. It resolves to
 	 * 28px, matching both .etch-input-wrapper and .etch-builder-button.
 	 */
+	/*
+	 * The inset of a titled section box, and the pull its heading band uses to
+	 * reach that box's edges. Declared once because the two have to agree: the
+	 * band is drawn by negating this exact value on three sides.
+	 */
+	--efm-section-pad: var(--e-space-l, 16px);
+
 	--efm-radius: var(--e-border-radius, 6px);
 	--efm-pad-block: var(--e-input-padding-block, 6px);
 	--efm-pad-inline: var(--e-input-padding-inline, 8px);
@@ -554,6 +561,7 @@
 	margin-block-start: 0;
 }
 
+
 /*
  * Inside a section box the heading is that box's own header, so the rule runs
  * to the box's edges rather than stopping inside its padding.
@@ -563,15 +571,15 @@
  * on it. Etch's divider colour is the one that reads on a raised surface.
  */
 .efm-section > .efm-section-title {
-	inline-size: calc(100% + var(--e-space-m, 12px) * 2);
+	inline-size: calc(100% + var(--efm-section-pad) * 2);
 	/*
 	 * Pulled out of the box's padding on all three sides, not just the two.
-	 * Left in the padding, the box's 12px top edge stacks on the band and the
-	 * title sits low in it rather than centred.
+	 * Left in the padding, the box's top edge stacks on the band and the title
+	 * sits low in it rather than centred.
 	 */
-	margin-block-start: calc(var(--e-space-m, 12px) * -1);
-	margin-inline: calc(var(--e-space-m, 12px) * -1);
-	padding-inline: var(--e-space-m, 12px);
+	margin-block-start: calc(var(--efm-section-pad) * -1);
+	margin-inline: calc(var(--efm-section-pad) * -1);
+	padding-inline: var(--efm-section-pad);
 	border-color: var(--etch-divider-color, #4b4b4e);
 }
 
@@ -709,16 +717,19 @@
 .efm-section {
 	display: flex;
 	flex-direction: column;
-	gap: var(--e-space-m, 12px);
+	gap: var(--efm-section-pad);
 	align-items: flex-start;
-	padding: var(--e-space-m, 12px);
+	padding: var(--efm-section-pad);
 	border-radius: var(--efm-radius);
 	background: var(--efm-surface-raised);
 }
 
-.efm-section > .efm-muted {
-	margin-block-start: calc(var(--e-space-m, 12px) * -1 + 4px);
-}
+/*
+ * The description used to be pulled back up to 4px under the heading band,
+ * which read as jammed against it -- the band has its own rule, so the text was
+ * sitting on a line rather than under a heading. It takes the section's own gap
+ * like everything else in the box.
+ */
 
 /* ------------------------------- Toolbar ------------------------------- */
 
@@ -790,9 +801,16 @@
 	transition-property: background-color, color;
 }
 
-.efm-input__clear:hover {
-	background: color-mix(in srgb, var(--efm-text) 12%, transparent);
-	color: var(--efm-text-strong);
+/*
+ * The panel's ghost hover, to the letter. This carried a 12% wash lifting to
+ * the strong foreground, against the 10% and ordinary foreground every other
+ * ghost control uses, so the one icon button sitting inside a field lit up
+ * brighter than the identical-looking ones beside it in the same toolbar.
+ * Measured: rgb(68,68,71) here against rgb(63,63,66) on a ghost icon button.
+ */
+.efm-input__clear:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--efm-text) 10%, transparent);
+	color: var(--efm-text);
 }
 
 /* Nothing typed, nothing to clear. */
@@ -816,10 +834,80 @@
 	color: var(--efm-muted);
 }
 
+/*
+ * Etch's own slider, taken from .compression-slider in the builder bundle
+ * rather than invented: a 2px track on the border colour, the filled part and
+ * an 8px round thumb in the text colour, and the thumb growing to 1.5x behind a
+ * 4px halo over 0.17s. Etch never fills a slider with the accent, so neither
+ * does this one; the browser default did, through accent-color.
+ *
+ * A webkit track cannot fill itself, so the fill is a background layer sized
+ * from --efm-range-fill, which panel.js keeps in step with the value. The layer
+ * stops at the thumb's centre, and the thumb travels between half a thumb in
+ * from each end, which is where the calc comes from.
+ */
 .efm-range {
+	appearance: none;
+	-webkit-appearance: none;
 	inline-size: 120px;
-	accent-color: var(--efm-accent);
+	block-size: 16px;
+	margin: 0;
+	background: none;
 	cursor: pointer;
+}
+
+.efm-range::-webkit-slider-runnable-track {
+	block-size: 2px;
+	border-radius: 999px;
+	background:
+		linear-gradient(var(--efm-text-strong) 0 0)
+			no-repeat 0 50% / calc(4px + (100% - 8px) * var(--efm-range-fill, 0)) 100%,
+		var(--e-border-color, #36363a);
+}
+
+.efm-range::-webkit-slider-thumb {
+	appearance: none;
+	-webkit-appearance: none;
+	inline-size: 8px;
+	block-size: 8px;
+	margin-block-start: -3px;
+	border: 0;
+	border-radius: 50%;
+	background: var(--efm-text-strong);
+	transition: transform .17s ease-out, box-shadow .17s ease-out;
+}
+
+.efm-range:hover::-webkit-slider-thumb,
+.efm-range:active::-webkit-slider-thumb {
+	transform: scale(1.5);
+	box-shadow: 0 0 0 4px var(--efm-surface);
+	cursor: ew-resize;
+}
+
+.efm-range:focus-visible::-webkit-slider-thumb {
+	box-shadow: var(--efm-focus);
+}
+
+/* Firefox fills its own track, so there it is only a matter of colour. */
+.efm-range::-moz-range-track {
+	block-size: 2px;
+	border-radius: 999px;
+	background: var(--e-border-color, #36363a);
+}
+
+.efm-range::-moz-range-progress {
+	block-size: 2px;
+	border-radius: 999px;
+	background: var(--efm-text-strong);
+}
+
+.efm-range::-moz-range-thumb {
+	inline-size: 8px;
+	block-size: 8px;
+	border: 0;
+	border-radius: 50%;
+	background: var(--efm-text-strong);
+	transition: transform .17s ease-out, box-shadow .17s ease-out;
 }
 
 .efm-search {
@@ -1005,6 +1093,11 @@
 
 /* A title that opens the type tester, without looking like a form control. */
 .efm-linkbtn {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	min-inline-size: 0;
+	max-inline-size: 100%;
 	padding: 0;
 	border: 0;
 	background: none;
@@ -1014,9 +1107,47 @@
 	cursor: pointer;
 }
 
-.efm-linkbtn:hover {
-	color: var(--efm-accent);
-	text-decoration: underline;
+/*
+ * The ellipsis lives on the label, not on the heading: the heading has to stop
+ * clipping so the tooltip and the focus ring can leave it, and something still
+ * has to truncate a name like "Cormorant Infant Semibold Display".
+ */
+.efm-linkbtn__text {
+	min-inline-size: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	transition: var(--efm-transition);
+	transition-property: color;
+}
+
+/*
+ * No underline and no accent. Measured across Etch's bundle, nothing recolours
+ * text to the accent on hover -- .bulk-bar__select-all and
+ * .settings-input-change-btn both move on brightness alone -- and a browser
+ * underline on a card heading is the one decoration Etch never draws. The
+ * affordance is carried by the arrow instead, the same one the detail view
+ * uses to come back, so going in and coming out share a vocabulary.
+ *
+ * The arrow is held in the layout at rest rather than inserted on hover, so
+ * the name cannot reflow under the pointer; only its opacity and offset move.
+ */
+.efm-linkbtn .efm-icon {
+	opacity: 0;
+	translate: -3px 0;
+	transition: var(--efm-transition);
+	transition-property: opacity, translate;
+}
+
+.efm-linkbtn:hover .efm-linkbtn__text,
+.efm-linkbtn:focus-visible .efm-linkbtn__text {
+	color: var(--efm-text-strong);
+}
+
+.efm-linkbtn:hover .efm-icon,
+.efm-linkbtn:focus-visible .efm-icon {
+	opacity: 1;
+	translate: 0 0;
 }
 
 .efm-detail__head {
@@ -1033,6 +1164,8 @@
 
 .efm-detail__actions {
 	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
 	gap: 8px;
 }
 
@@ -1052,16 +1185,24 @@
 	word-break: break-word;
 }
 
+/*
+ * Capped, not 1fr. A 1fr track stretched an axis across half the pane, which
+ * left a 120px slider adrift in 490px of column with its own value parked a few
+ * hundred pixels away at the far edge -- the label read as belonging to the axis
+ * beside it. A slider only needs a usable measure, so the column takes one and
+ * the leftover space simply stays empty.
+ */
 .efm-axes {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-	gap: var(--e-space-m, 12px);
+	grid-template-columns: repeat(auto-fill, minmax(180px, 260px));
+	gap: var(--e-space-m, 12px) var(--e-space-l, 16px);
 }
 
 .efm-axis {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
+	gap: 4px;
+	cursor: pointer;
 }
 
 .efm-axis__label {
@@ -1081,21 +1222,73 @@
 	color: var(--efm-muted);
 }
 
+/*
+ * The live value, sitting over the end of its own track now that the slider
+ * fills the column. It was in the accent, which put a signal colour on two
+ * numbers that only report a position; Etch's slider is neutral end to end.
+ */
 .efm-axis__value {
 	margin-inline-start: auto;
 	font-variant-numeric: tabular-nums;
 	font-size: var(--e-font-size-s, 11px);
-	color: var(--efm-accent);
+	font-weight: 500;
+	color: var(--efm-text-strong);
 }
 
-.efm-axis__range {
+.efm-axis__track {
+	position: relative;
+	block-size: 20px;
+}
+
+.efm-axis__track .efm-range {
+	position: absolute;
+	inset-block-start: 0;
+	inset-inline: 0;
+	inline-size: 100%;
+}
+
+/*
+ * The axis default, drawn the way Etch draws the graduations under its own
+ * slider: 2 by 6 in the control colour at a quarter opacity. It replaces the
+ * "default 400" that used to trail every axis on a third line of small print,
+ * and it says the same thing in the one place where it means something -- where
+ * the value would sit if you had not moved it.
+ *
+ * Positioned along the thumb's travel rather than the track's width, so it
+ * meets the thumb instead of drifting up to four pixels apart at the ends.
+ */
+.efm-axis__track::before {
+	content: "";
+	position: absolute;
+	inset-block-start: 13px;
+	inset-inline-start: calc(4px + (100% - 8px) * var(--efm-axis-default, 0));
+	inline-size: 2px;
+	block-size: 6px;
+	translate: -50% 0;
+	background: currentColor;
+	opacity: 0.25;
+	pointer-events: none;
+}
+
+/*
+ * The reset takes the column after the last axis, level with the tracks. It was
+ * right-aligned in the heading band, whose rule spans the whole pane, so on a
+ * wide builder it sat some fifteen hundred pixels from the sliders it resets.
+ */
+.efm-axes > .efm-btn {
+	align-self: center;
+	justify-self: start;
+}
+
+/* The two ends of the range, under the two ends of the track they describe. */
+.efm-axis__scale {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
 	font-size: 10px;
+	font-variant-numeric: tabular-nums;
 	color: var(--efm-muted);
-}
-
-.efm-code--inline {
-	max-height: none;
-	font-size: 11px;
 }
 
 /*
@@ -1164,6 +1357,16 @@
 	text-overflow: ellipsis;
 	font-size: var(--e-font-size-l, 13px);
 	font-weight: 500;
+}
+
+/*
+ * The Google Fonts heading wraps a button, and a clipping heading would slice
+ * that button's underline offset, its focus ring and its tooltip alike. It
+ * stops clipping; .efm-linkbtn__text inside takes over the ellipsis.
+ */
+.efm-card__title--link {
+	overflow: visible;
+	text-overflow: clip;
 }
 
 .efm-card__actions {
@@ -1550,6 +1753,17 @@
 	border: 1px solid var(--efm-line);
 	border-radius: var(--efm-radius);
 	background: var(--e-base-dark, #1d1d20);
+}
+
+/*
+ * Hugs its declaration instead of spanning the pane. A full-width well holding
+ * forty characters of monospace put the copy button an entire screen away from
+ * the text it copies, and read as an input waiting to be filled rather than as
+ * a value to take.
+ */
+.efm-token--fit {
+	inline-size: fit-content;
+	max-inline-size: 100%;
 }
 
 .efm-token__value {
@@ -2143,24 +2357,50 @@
 
 /* -------------------------------- Empty -------------------------------- */
 
+/*
+ * Etch's Assets Library empty state, which the Upload screen already follows:
+ * it fills the pane and centres on it, at 24/600 over 14/1.25 muted inside a
+ * 340px measure. This was 13px of text sitting 56px down an otherwise empty
+ * pane, so it read as a stray line rather than as the state of the screen.
+ *
+ * Etch's own carries a dashed border and a radial wash. Those are deliberately
+ * not here: they belong to a drop target, and nothing can be dropped on the
+ * library. The centring, the measure and the type are what make it read as the
+ * same screen; the border would be a promise the view cannot keep.
+ */
 .efm-empty {
+	flex: 1 1 auto;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 6px;
-	padding: 56px 16px;
+	justify-content: center;
+	gap: var(--e-space-l, 16px);
+	padding: 48px;
 	text-align: center;
 }
 
 .efm-empty__title {
 	margin: 0;
-	font-size: var(--e-font-size-l, 13px);
+	font-size: 24px;
+	font-weight: 600;
+	line-height: 1.25;
+	color: var(--efm-text-strong);
 }
 
 .efm-empty__hint {
-	margin: 0 0 6px;
-	max-inline-size: 46ch;
+	margin: 0;
+	max-inline-size: 340px;
+	font-size: 14px;
+	line-height: 1.25;
 	color: var(--efm-muted);
+}
+
+.efm-empty__actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--e-space-s, 8px);
 }
 
 /*
@@ -2228,6 +2468,8 @@
 	font: inherit;
 	line-height: 1.5;
 	white-space: nowrap;
+	/* The Google Fonts link wears this class, and an anchor arrives underlined. */
+	text-decoration: none;
 	cursor: pointer;
 	user-select: none;
 	transition: var(--efm-transition);
@@ -2280,10 +2522,25 @@
 	border-color: color-mix(in srgb, var(--efm-text) 30%, transparent);
 }
 
+/*
+ * Etch's own rule for a primary hover: keep the accent, drop its lightness to
+ * .71 and leave hue and chroma alone (--etch-primary-hover is defined exactly
+ * that way, and its dialog's primary button hovers on it). Derived from
+ * --efm-accent rather than borrowed from Etch's token, because that token is
+ * built from --etch-primary while this button is painted from --e-primary, and
+ * a site that themes one and not the other would hover to a different hue.
+ *
+ * What was here abandoned the fill for --efm-surface-raised, which measures
+ * 1.24:1 against the pane behind it -- the button effectively vanished under the
+ * pointer. The accent at .71 measures 6.07:1 there, and the dark label on it
+ * clears AA at the same ratio.
+ */
 .efm-btn--primary:hover:not(:disabled) {
-	background: var(--efm-surface-raised);
-	border-color: var(--efm-surface-raised);
-	color: var(--efm-text);
+	/* For engines without relative colour syntax; the next line wins where it works. */
+	background: color-mix(in srgb, var(--efm-accent) 70%, #000);
+	background: oklch(from var(--efm-accent) .71 c h);
+	border-color: transparent;
+	color: var(--efm-surface);
 }
 
 /* Etch's outline variant. */

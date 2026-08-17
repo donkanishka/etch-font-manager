@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 0.27.0
+Stable tag: 0.28.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,19 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 0.28.0 =
+* The Width and Weight sliders in the type tester have been rebuilt to match Etch's own slider, and are no longer painted in the accent colour.
+* Each axis now shows its value over its own track, its range under the two ends of it, and its default as a small tick, instead of a line of small print.
+* "Reset axes" sits with the sliders it resets, and is greyed out until an axis has been moved.
+* A family name on a Google Fonts card no longer turns yellow and underlined under the pointer; it brightens and shows an arrow, and its tooltip is the panel's own rather than the browser's.
+* "View on Google Fonts" is a proper button beside Install, not a browser-blue link stranded at the bottom of the panel.
+* Trash is always in the sidebar now, so a family you deleted can be found without having to remember it is there.
+* The Library and Trash screens answer with a full empty state, like the Upload screen already did, and the Library offers both ways to add a font rather than one.
+* Sections in Import & export have more room inside them.
+* Fixed: hovering a primary button turned it the same colour as the pane behind it, so it seemed to disappear. Measured at 1.24:1 against the background; it is now 6.07:1.
+* Fixed: the clear button inside a filter field lit up brighter than the identical buttons beside it.
+* The Loading behaviour menu is capitalised.
 
 = 0.27.0 =
 * Confirmation dialogs now match the builder instead of being your browser's grey system boxes.

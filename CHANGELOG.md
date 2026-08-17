@@ -2,6 +2,127 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.28.0
+
+The type tester's variable axes rebuilt around Etch's own slider, and nine more faults found by pointing at the
+panel one screen at a time. Two of the fixes are things the measuring found rather than things that were
+reported.
+
+### Added
+
+- **The trash is in the sidebar at all times.** It used to be pushed into the nav only once a family had been
+  thrown away, so the one place a deleted family can be recovered from was missing from the sidebar exactly
+  while somebody was looking for it, and the column changed length under the pointer as families came and went.
+  It is an ordinary member of the view list now, and keeps its count at zero the way Library and Upload
+  already do.
+
+  Two things followed. A guard that bounced you out to the Library the moment the trash emptied is gone, so
+  restoring the last family leaves you looking at the trash rather than somewhere else. And the view had to
+  learn an empty state: opened empty it would have drawn a hint about restoring, above a "Restore all (0)", an
+  "Empty trash" that empties nothing, and a grid of no cards.
+
+### Fixed
+
+- **A primary button turned into the pane behind it under the pointer.** The hover threw the accent fill away
+  for `--efm-surface-raised`, which measures **1.24:1** against the pane the button sits on — the button
+  effectively dissolved. It now does what Etch's own primary does: keeps hue and chroma and drops the lightness
+  to .71, which is exactly how `--etch-primary-hover` is defined in the builder bundle. Measured on the
+  default accent, hover goes from `rgb(54,54,58)` to `rgb(149,177,0)`, **6.07:1** against the pane, with the
+  dark label on it clearing AA at the same ratio.
+
+  Derived from `--efm-accent` rather than borrowed from Etch's token, because that token is built from
+  `--etch-primary` while this button is painted from `--e-primary`; a site that themes one and not the other
+  would have hovered to a different hue.
+
+- **The clear button inside a field lit up brighter than the buttons beside it.** It carried a 12% wash lifting
+  to the strong foreground, against the 10% and ordinary foreground every other ghost control uses. Measured in
+  one toolbar: `rgb(68,68,71)` on the clear button against `rgb(63,63,66)` on a ghost icon button an inch
+  away. Both are `rgb(63,63,66)` now.
+
+- **A fallback that disagreed with Etch.** `--e-space-l` was given a 20px fallback while Etch defines it as
+  16px, so any install that did not declare the token would have spaced one thing wrong. Found while opening
+  the sections up, not reported.
+
+### Changed
+
+- **The variable axes, rebuilt.** Six things were wrong with them at once.
+
+  The sliders were the browser's own control tinted with `accent-color`. They are now Etch's slider, taken
+  from `.compression-slider` in the builder bundle: a 2px track on the border colour, the filled part and an
+  8px round thumb in the text colour, and the thumb growing to 1.5x behind a 4px halo over 0.17s. Etch never
+  fills a slider with the accent, so neither does this one — sampled across all three sliders in the panel,
+  **zero accent pixels**, and only three colours present: the pane, the text colour and the border colour.
+
+  Each axis was a `1fr` column, so on a wide builder an axis stretched to half the pane while its slider
+  stayed a fixed 120px and its value sat parked a few hundred pixels away at the far edge, reading as though it
+  belonged to the axis beside it. The column is capped at 260px, the slider fills it, and the value sits over
+  the end of its own track.
+
+  `75 – 100 · default 100` was a third line of small print under every slider. The two ends of the range are
+  now under the two ends of the track, and the default is drawn as one of the graduations Etch puts under its
+  own slider, at 2 by 6 in the control colour at a quarter opacity. It is positioned along the thumb's travel
+  rather than the track's width, so it meets the thumb instead of drifting up to four pixels apart at the ends.
+
+  "Reset axes" was a row of its own under the sliders, which read as a step that came after them. It sits in
+  the next column along, level with the tracks, and is inert until an axis has actually been moved.
+
+  `font-variation-settings` was a bare full-width code block holding forty characters with no way to lift them
+  out. It sits on the same copyable well the CSS variable uses in the family editor, hugging its own text at
+  374px rather than spanning the pane, so the copy button is beside the text rather than a screen away from it.
+
+- **A family name on a card no longer answers in the accent.** Hover swapped the name to the accent colour and
+  added the browser's underline, which sits on the baseline and cuts through descenders. Measured across Etch's
+  bundle, nothing there recolours text to the accent on hover — `.bulk-bar__select-all` and
+  `.settings-input-change-btn` both move on brightness alone. The name brightens and an arrow fades in beside
+  it, the same arrow the detail view uses to come back, so going in and coming out share a vocabulary. The
+  arrow is held in the layout rather than inserted, so the row cannot reflow under the pointer: 62.68px wide
+  at rest and 62.68px on hover.
+
+  Its hint moved from a native `title` to the panel's own tooltip. That is why the heading stopped clipping —
+  a `::after` cannot escape an ancestor with hidden overflow — and the ellipsis moved to a span inside, which
+  also stopped the focus ring being sliced.
+
+- **"View on Google Fonts" is a control.** It was the only element in the panel not shaped like one: muted body
+  text in its own paragraph below everything else, drawing in the browser's default blue and then the visited
+  purple under a baseline underline. It takes the outline button every other secondary action uses and stands
+  beside the Install it belongs with, with an icon saying it opens outside the builder.
+
+- **The Library and the trash answer with a real empty state.** The library's was 13px of text sitting 56px
+  down an otherwise empty pane, which reads as a stray line rather than as the state of the screen. Both now
+  take the shape Etch's Assets Library uses and the Upload screen already followed: filling the pane, centred
+  on it, 24/600 over 14/1.25 muted inside a 340px measure. Etch's own carries a dashed border and a radial
+  wash; those are deliberately not here, because they belong to a drop target and nothing can be dropped on
+  either view.
+
+  The library also offers both routes now. It said "Upload a font file or install one from Google Fonts" over a
+  single Google Fonts button, leaving the reader to go and find the other one.
+
+- **Sections have room in them.** The box was inset at 12px with a 12px internal gap, and its description was
+  pulled back up to 4px under the heading band, which read as text sitting on a line rather than under a
+  heading. Both take `--e-space-l`, and the pull is gone. The inset is declared once as `--efm-section-pad`,
+  because the band reaches the box's edges by negating it on three sides and the two numbers have to agree;
+  they were four separate literals that could drift apart.
+
+- **An "Install options" band in the type tester.** Everything below the tester ran on as one undifferentiated
+  stack of rows. Section headings were introduced in 0.26.0 for exactly this and that view never got them.
+
+- **The Loading behaviour menu is capitalised.** Five lowercase words read as code being echoed back rather
+  than as a set of choices. Only the label changed: the value is still the CSS keyword and goes into the
+  stylesheet exactly as before. Done in JavaScript rather than with `text-transform`, because the dropdown is
+  shared with eight other menus and a blanket `capitalize` would have made "Replace everything" into "Replace
+  Everything". The hint under it, which opened two sentences in lowercase, is capitalised with it.
+
+### Removed
+
+- **The Variable tooltip on a Google Fonts card.** It was the wrapping variant, so it opened downward across
+  the Subsets row underneath and covered the chips the reader was on their way to. The type tester still spells
+  the same thing out as visible text, where there is one family and room to say it.
+
+### Translators
+
+Four new strings: `variableAxes`, `installOptions`, `trashEmpty` and `trashEmptyHint`. `fontDisplayHint` is
+reworded for capitalisation. `axisDefault` is removed, since the axis default is drawn rather than written.
+
 ## 0.27.0
 
 The panel's own dialogs, its own dropdowns for paging, and the Upload screen rebuilt from Etch's Assets

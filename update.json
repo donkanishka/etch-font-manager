@@ -1,10 +1,10 @@
 {
-  "version": "0.28.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.28.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.28.0",
+  "version": "0.29.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.29.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.29.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
-  "date": "2026-08-17",
-  "notes": "The type tester’s Width and Weight sliders now match Etch’s own and are no longer painted in the accent colour, each axis shows its value over its own track, Trash is always in the sidebar, and a primary button no longer disappears into the pane when you hover it."
+  "date": "2026-08-22",
+  "notes": "Fixes a family loading nothing after a configuration is brought in without its font files, a Google Fonts search that dropped characters as you typed, and the None button in Export. Confirmation dialogs now match Etch’s own, and the save bar says which family changed instead of just “Unsaved changes”."
 }

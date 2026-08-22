@@ -935,7 +935,7 @@ class EFM_Fonts {
 			$best   = null;
 
 			foreach ( $family['variants'] as $variant ) {
-				if ( empty( $variant['file'] ) ) {
+				if ( empty( $variant['file'] ) || ! self::file_present( $variant['file'] ) ) {
 					continue;
 				}
 
@@ -1450,6 +1450,58 @@ class EFM_Fonts {
 	// CSS.
 
 	/**
+	 * Whether a variant's file is actually on disk.
+	 *
+	 * A record can outlive its file. An export without the font files bundled in
+	 * carries the mapping and none of the bytes, so importing it writes families
+	 * that reference names nothing has ever written.
+	 *
+	 * @param string $file Stored file name.
+	 * @return bool
+	 */
+	public static function file_present( $file ) {
+		$file = (string) $file;
+
+		if ( '' === $file ) {
+			return false;
+		}
+
+		$path = self::dir() . $file;
+
+		return self::path_is_inside( $path ) && file_exists( $path );
+	}
+
+	/**
+	 * File names referenced by a family but absent from the fonts folder.
+	 *
+	 * @param array|null $families Optional families. Defaults to stored data.
+	 * @return array List of file names.
+	 */
+	public static function missing_files( $families = null ) {
+		if ( null === $families ) {
+			$families = self::families();
+		}
+
+		$missing = array();
+
+		foreach ( $families as $family ) {
+			foreach ( (array) ( $family['variants'] ?? array() ) as $variant ) {
+				$file = (string) ( $variant['file'] ?? '' );
+
+				if ( '' === $file || isset( $missing[ $file ] ) ) {
+					continue;
+				}
+
+				if ( ! self::file_present( $file ) ) {
+					$missing[ $file ] = true;
+				}
+			}
+		}
+
+		return array_keys( $missing );
+	}
+
+	/**
 	 * Build the @font-face CSS.
 	 *
 	 * @param array|null $families Optional families. Defaults to stored data.
@@ -1475,6 +1527,17 @@ class EFM_Fonts {
 
 			foreach ( $family['variants'] as $variant ) {
 				if ( empty( $variant['file'] ) ) {
+					continue;
+				}
+
+				/*
+				 * A rule pointing at a file that is not there is worse than no rule.
+				 * It declares the family, so the browser accepts font-family and then
+				 * falls back silently when the request 404s, which is why an import
+				 * without bundled files looked installed in a browser already holding
+				 * the face and rendered as the fallback in a clean one.
+				 */
+				if ( ! self::file_present( $variant['file'] ) ) {
 					continue;
 				}
 

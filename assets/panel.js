@@ -27,6 +27,14 @@
 
 	var state = {
 		families: (cfg.state && cfg.state.families) || [],
+		/*
+		 * The last copy the server confirmed, stringified. Etch tracks its own
+		 * unsaved state exactly this way -- every store holds a serialised snapshot
+		 * and compares it against the live object -- and holding one here is what
+		 * lets the save bar name which families changed instead of only saying that
+		 * something did.
+		 */
+		saved: JSON.stringify((cfg.state && cfg.state.families) || []),
 		files: (cfg.state && cfg.state.files) || [],
 		settings: (cfg.state && cfg.state.settings) || {},
 		cssUrl: (cfg.state && cfg.state.cssUrl) || '',
@@ -60,11 +68,24 @@
 		cuts: {},
 		pruning: false,
 		recovering: '',
-		exportPick: [],
+		/*
+		 * null means "not chosen yet", which defaults to every family. An array
+		 * means an explicit choice, and an empty one means none. They were the same
+		 * value before, which is what made the None chip appear to do nothing: it
+		 * set the list empty, and empty was read back as "all".
+		 */
+		exportPick: null,
 		exportBundle: false,
 		importPreview: null,
 		importPayload: null,
 		unused: (cfg.state && cfg.state.unused) || [],
+		/*
+		 * File names a family maps but that are not in the fonts folder. An export
+		 * without the files bundled in carries the mapping and none of the bytes, so
+		 * importing it produces exactly this: families that look complete and load
+		 * nothing.
+		 */
+		missing: (cfg.state && cfg.state.missing) || [],
 		cssBuilt: (cfg.state && cfg.state.cssBuilt) || 0,
 		previewText: s('preview', 'The quick brown fox'),
 		previewSize: 30,
@@ -406,6 +427,96 @@
 			: Math.max(1, Math.round(bytes / 1024)) + ' KB';
 	}
 
+	/**
+	 * What differs from the last saved copy, family by family.
+	 *
+	 * Matched by name, so a rename reads as one gone and one arrived. When that
+	 * is the only thing on each side it is reported as the rename it almost
+	 * certainly is; families carry no id to match on, so anything more ambitious
+	 * would be guessing.
+	 *
+	 * @return {Array} Entries of { name, what }.
+	 */
+	function changeSummary() {
+		var before;
+
+		try {
+			before = JSON.parse(state.saved || '[]');
+		} catch (error) {
+			return [];
+		}
+
+		var was = {};
+		var seen = {};
+		var added = [];
+		var removed = [];
+		var out = [];
+
+		before.forEach(function (family) {
+			was[family.name || ''] = family;
+		});
+
+		state.families.forEach(function (family) {
+			var name = family.name || '';
+			var prior = was[name];
+
+			seen[name] = true;
+
+			if (!prior) {
+				added.push(name);
+				return;
+			}
+
+			if (!!prior.trashed !== !!family.trashed) {
+				out.push({ name: name, what: family.trashed ? s('changeTrashed', 'moved to trash') : s('changeRestored', 'restored') });
+				return;
+			}
+
+			if (isEnabled(prior) !== isEnabled(family)) {
+				out.push({ name: name, what: isEnabled(family) ? s('changeEnabled', 'enabled') : s('changeDisabled', 'disabled') });
+				return;
+			}
+
+			if (JSON.stringify(prior) === JSON.stringify(family)) {
+				return;
+			}
+
+			var had = (prior.variants || []).length;
+			var has = (family.variants || []).length;
+
+			if (has !== had) {
+				var delta = Math.abs(has - had);
+
+				out.push({
+					name: name,
+					what: (has > had ? s('changeGained', 'gained') : s('changeLost', 'lost')) + ' ' + delta + ' ' +
+						plural(delta, s('variant', 'variant'), s('variants', 'variants'))
+				});
+
+				return;
+			}
+
+			out.push({ name: name, what: s('changeEdited', 'edited') });
+		});
+
+		before.forEach(function (family) {
+			if (!seen[family.name || '']) {
+				removed.push(family.name || '');
+			}
+		});
+
+		if (1 === added.length && 1 === removed.length) {
+			out.push({ name: removed[0], what: s('changeRenamed', 'renamed to') + ' ' + added[0] });
+
+			return out;
+		}
+
+		added.forEach(function (name) { out.push({ name: name, what: s('changeAdded', 'added') }); });
+		removed.forEach(function (name) { out.push({ name: name, what: s('changeRemoved', 'removed') }); });
+
+		return out;
+	}
+
 	function plural(count, one, many) {
 		return count === 1 ? one : many;
 	}
@@ -551,11 +662,13 @@
 			return;
 		}
 		state.families = next.families || [];
+		state.saved = JSON.stringify(next.families || []);
 		state.files = next.files || [];
 		state.settings = next.settings || {};
 		state.cssUrl = next.cssUrl || state.cssUrl;
 		state.cssVersion = next.cssVersion || state.cssVersion;
 		state.unused = next.unused || [];
+		state.missing = next.missing || [];
 		state.cssBuilt = next.cssBuilt || 0;
 		state.dirty = false;
 		refreshFontCss();
@@ -684,6 +797,26 @@
 	 */
 	function isEnabled(family) {
 		return family.enabled === undefined || !!family.enabled;
+	}
+
+	/**
+	 * Files this family maps that are not on the server.
+	 *
+	 * @param {object} family Family record.
+	 * @return {string[]} Missing file names.
+	 */
+	function missingFor(family) {
+		var absent = state.missing || [];
+
+		if (!absent.length) {
+			return [];
+		}
+
+		return (family.variants || []).map(function (variant) {
+			return variant.file || '';
+		}).filter(function (file, at, all) {
+			return file && absent.indexOf(file) !== -1 && all.indexOf(file) === at;
+		});
 	}
 
 	function isTrashed(family) {
@@ -955,6 +1088,7 @@
 		if (state.dirty) {
 			askConfirm({
 				title: s('unsavedChanges', 'Unsaved changes'),
+				icon: 'undo',
 				message: s('confirmDiscard', 'You have unsaved font changes. Close and discard them?'),
 				confirm: s('discardAndClose', 'Discard and close'),
 				danger: true
@@ -1028,19 +1162,44 @@
 				}
 			});
 
+			/*
+			 * A list of names is not prose and must not be set as prose. Etch centres
+			 * a dialog's message, which is right for a sentence and wrong for five
+			 * file names: centred, ragged both sides and in the body face, they read
+			 * as more of the question rather than as the things it is asking about.
+			 * They go in the sunken well this panel already uses for anything
+			 * machine-written, left aligned, monospaced, and scrolling past a handful
+			 * so the dialog cannot grow to the height of the screen.
+			 */
+			if (config.list && config.list.length) {
+				body.appendChild(el('div', { class: 'efm-filewell' }, config.list.map(function (item) {
+					return el('span', { class: 'efm-filewell__item', text: item });
+				})));
+			}
+
+			/*
+			 * Etch heads its confirmation with an icon beside a centred title and
+			 * repeats that icon on the destructive answer, which is what makes the
+			 * question readable before any of the words are. A caller can name its
+			 * own; a destructive one falls back to the trash.
+			 */
+			var glyph = config.icon || (config.danger ? 'trash' : null);
+
 			var cancel = el('button', {
 				type: 'button',
-				class: 'efm-btn efm-btn--outline',
+				class: 'efm-dialog__btn efm-dialog__btn--cancel',
 				text: s('cancel', 'Cancel'),
 				onclick: function () { finish(false); }
 			});
 
 			var accept = el('button', {
 				type: 'button',
-				class: 'efm-btn ' + (config.danger ? 'efm-btn--danger' : 'efm-btn--strong'),
-				text: config.confirm || s('continue', 'Continue'),
+				class: 'efm-dialog__btn ' + (config.danger ? 'efm-dialog__btn--danger' : 'efm-dialog__btn--primary'),
 				onclick: function () { finish(true); }
-			});
+			}, [
+				config.danger && glyph ? icon(glyph, 'sm') : null,
+				el('span', { text: config.confirm || s('continue', 'Continue') })
+			]);
 
 			var dialog = el('div', {
 				class: 'efm-dialog',
@@ -1048,7 +1207,12 @@
 				'aria-modal': 'true',
 				'aria-label': config.title || ''
 			}, [
-				el('h2', { class: 'efm-dialog__title', text: config.title || '' }),
+				el('div', {
+					class: 'efm-dialog__header' + (config.danger ? ' efm-dialog__header--danger' : '')
+				}, [
+					glyph ? icon(glyph, 'sm') : null,
+					el('h2', { class: 'efm-dialog__title', text: config.title || '' })
+				]),
 				body,
 				el('div', { class: 'efm-dialog__actions' }, [cancel, accept])
 			]);
@@ -1380,6 +1544,16 @@
 		}
 	}
 
+	/*
+	 * One debounced call each, for the whole session, rather than one per render.
+	 * These inputs are rebuilt every time the pane redraws, and a debounce created
+	 * inline in the handler goes with them: the timer already pending on the
+	 * discarded input still fires, so two instances race and the earlier keystroke
+	 * can land after the later one.
+	 */
+	var queueGoogleSearch = debounce(function () { searchGoogle(); }, 320);
+	var queueLibraryRender = debounce(function () { render(); }, 200);
+
 	function render() {
 		if (!manager) {
 			return;
@@ -1523,13 +1697,36 @@
 
 		saveBarEl.removeAttribute('hidden');
 
-		// The bar says what it is, so the two buttons do not have to carry that
-		// on their own.
-		saveBarEl.appendChild(el('span', { class: 'efm-savebar__label', text: s('unsavedChanges', 'Unsaved changes') }));
+
+		/*
+		 * What is unsaved, not that something is. "Unsaved changes" told the reader
+		 * nothing they could act on, and after a long editing session it is the one
+		 * thing worth knowing before pressing either button. Two are named in the
+		 * bar and the rest counted; the whole list is on the tooltip, because the
+		 * bar is one row and a family name can be long.
+		 */
+		var changes = changeSummary();
+		var phrase = function (change) { return change.name + ' ' + change.what; };
+		var label = changes.length
+			? changes.slice(0, 2).map(phrase).join(', ') +
+				(changes.length > 2 ? ', +' + (changes.length - 2) + ' ' + s('moreLabel', 'more') : '')
+			: s('unsavedChanges', 'Unsaved changes');
+
+		saveBarEl.appendChild(el('span', {
+			class: 'efm-savebar__label' + (changes.length > 2 ? ' efm-tooltip efm-tooltip--wrap efm-tooltip--start' : ''),
+			'data-efm-tooltip': changes.length > 2 ? changes.map(phrase).join(', ') : null
+		}, [
+			el('span', { class: 'efm-savebar__text', text: label })
+		]));
 		saveBarEl.appendChild(
 			el('button', {
 				type: 'button',
-				class: 'efm-btn efm-btn--outline',
+				/*
+				 * Ghost, not outline. Discard and Save were two boxes of near-equal
+				 * mass, so the row read as a choice between equals when one of them
+				 * throws work away. The quiet way out is quiet.
+				 */
+				class: 'efm-btn efm-btn--ghost',
 				text: s('discard', 'Discard'),
 				onclick: reload
 			})
@@ -1628,18 +1825,30 @@
 	function previewToolbar(lead) {
 		var sizeLabel = el('span', { class: 'efm-toolbar__size', text: state.previewSize + 'px' });
 
+		// syncPresetChips is a declaration further down, so it is already hoisted.
+		var queuePreview = debounce(function () {
+			savePrefs();
+			repaintSpecimens();
+			syncPresetChips();
+		}, 160);
+
 		var textInput = el('input', {
 			type: 'text',
 			class: 'efm-input',
 			value: state.previewCustom,
 			'aria-label': s('previewText', 'Preview text'),
 			placeholder: s('previewAuto', 'Each family in its own script'),
-			oninput: debounce(function (event) {
+			/*
+			 * Same split again. This field does not redraw the pane, so it never lost
+			 * a caret in practice, but state.previewCustom still trailed it by a
+			 * debounce: any render fired by something else in that window rebuilt the
+			 * field from the older value. The read is immediate; only the repaint,
+			 * which touches every specimen on screen, waits.
+			 */
+			oninput: function (event) {
 				state.previewCustom = event.target.value;
-				savePrefs();
-				repaintSpecimens();
-				syncPresetChips();
-			}, 160)
+				queuePreview();
+			}
 		});
 
 		/*
@@ -2518,10 +2727,11 @@
 			'data-efm-focus': 'library-filter',
 			placeholder: s('filterFamilies', 'Filter families'),
 			value: state.filter,
-			oninput: debounce(function (event) {
+			// Same split as the Google search: read now, redraw later.
+			oninput: function (event) {
 				state.filter = event.target.value;
-				render();
-			}, 200)
+				queueLibraryRender();
+			}
 		});
 
 		contentEl.appendChild(previewToolbar(
@@ -2588,6 +2798,7 @@
 			}).sort();
 
 			var enabled = isEnabled(family);
+			var gone = missingFor(family);
 
 			grid.appendChild(
 				el('article', { class: 'efm-card' + (enabled ? '' : ' is-disabled') }, [
@@ -2601,6 +2812,17 @@
 						 * title, where it is still reachable.
 						 */
 						enabled ? null : el('span', { class: 'efm-badge efm-badge--muted', text: s('disabledLabel', 'Disabled') }),
+						/*
+						 * Nothing else said so. The specimen renders in whatever the
+						 * browser falls back to, which on the machine that did the
+						 * export is often the real face out of its own cache, so the
+						 * card looked correct and the site loaded nothing.
+						 */
+						gone.length ? el('span', {
+							class: 'efm-badge efm-badge--warn efm-tooltip efm-tooltip--wrap',
+							'data-efm-tooltip': s('missingNotice', 'These files are not on the server, so this family loads nothing. Upload them, or reinstall the family from Google Fonts.') + ' ' + gone.join(', '),
+							text: s('missingLabel', 'Files missing')
+						}) : null,
 						el('div', { class: 'efm-card__actions' }, [
 							el('button', {
 								type: 'button',
@@ -3847,10 +4069,19 @@
 			'data-efm-focus': 'google-search',
 			placeholder: s('searchGoogle', 'Search Google Fonts'),
 			value: state.query,
-			oninput: debounce(function (event) {
+			/*
+			 * The query is taken off the field at once and only the search is
+			 * deferred. Debouncing the assignment too left state.query a keystroke or
+			 * more behind the field, and since every render rebuilds this input from
+			 * state.query, whatever was typed during the wait or the request was
+			 * wiped and the caret jumped back to the end of the shorter string. Two
+			 * renders happen per search -- one for the skeleton, one for the results --
+			 * so the window was the debounce plus the round trip.
+			 */
+			oninput: function (event) {
 				state.query = event.target.value;
-				searchGoogle();
-			}, 320)
+				queueGoogleSearch();
+			}
 		});
 
 		var categoryOptions = [{ value: '', label: s('allCategories', 'All categories') }];
@@ -4604,10 +4835,14 @@
 		}));
 
 		if (unused.length) {
-			contentEl.appendChild(el('ul', { class: 'efm-files' }, unused.map(function (file) {
-				return el('li', { class: 'efm-file' }, [
-					el('span', { class: 'efm-file__name', text: file.name + ' · ' + formatSize(file.size) })
-				]);
+			/*
+			 * The same well the confirmation shows these names in. It was an
+			 * unstyled <ul> -- .efm-files and .efm-file carried no CSS at all -- so
+			 * the one machine-written list in the panel was the only thing set as
+			 * body copy, and read as a paragraph that had lost its sentences.
+			 */
+			contentEl.appendChild(el('div', { class: 'efm-filewell' }, unused.map(function (file) {
+				return el('span', { class: 'efm-filewell__item', text: file.name + ' \u00b7 ' + formatSize(file.size) });
 			})));
 
 			contentEl.appendChild(
@@ -4627,9 +4862,9 @@
 		contentEl.appendChild(el('p', { class: 'efm-muted', text: s('exportHint', 'Download families, their variant mapping and assignments as a JSON file. Choose which families to include, and whether to bundle the font files with them.') }));
 
 		var exportable = state.families.map(function (family) { return family.name; });
+		var picked = state.exportPick || exportable;
 
 		if (exportable.length) {
-			var picked = state.exportPick && state.exportPick.length ? state.exportPick : exportable;
 
 			contentEl.appendChild(el('div', { class: 'efm-subsets' }, [
 				el('span', { class: 'efm-subsets__label', text: s('exportPick', 'Families') }),
@@ -4691,7 +4926,8 @@
 				type: 'button',
 				class: 'efm-btn efm-btn--primary',
 				text: state.busy === 'export' ? s('loading', 'Loading…') : s('exportButton', 'Download configuration'),
-				disabled: state.busy === 'export',
+				// An export of no families is an empty file, so the button says so.
+				disabled: state.busy === 'export' || !picked.length,
 				onclick: exportConfig
 			})
 		);
@@ -4801,8 +5037,8 @@
 
 			if (report.missing && report.missing.length) {
 				lines.push(el('p', { class: 'efm-notice', text: s('importMissing', 'These files are referenced but not present in the fonts folder. Upload them, or reinstall the family from Google Fonts:') }));
-				lines.push(el('ul', { class: 'efm-files' }, report.missing.map(function (name) {
-					return el('li', { class: 'efm-file' }, [el('span', { class: 'efm-file__name', text: name })]);
+				lines.push(el('div', { class: 'efm-filewell' }, report.missing.map(function (name) {
+					return el('span', { class: 'efm-filewell__item', text: name });
 				})));
 			}
 
@@ -4964,16 +5200,26 @@
 	}
 
 	function exportConfig() {
+		var all = liveFamilies().map(function (family) { return family.name; });
+		var chosen = state.exportPick || all;
+		var query = [];
+
+		/*
+		 * A deliberate choice of nothing cannot be expressed as a query, because
+		 * omitting families[] is how "all" is sent, so it is refused here rather
+		 * than quietly exporting the lot. The button is disabled in that state; this
+		 * guards the path, not the pointer.
+		 */
+		if (!chosen.length) {
+			return;
+		}
+
 		state.busy = 'export';
 		render();
 
-		var chosen = state.exportPick || [];
-		var all = liveFamilies().map(function (family) { return family.name; });
-		var query = [];
-
 		// Sending every name and sending none mean the same thing to the server,
 		// so the shorter request wins.
-		if (chosen.length && chosen.length !== all.length) {
+		if (chosen.length !== all.length) {
 			chosen.forEach(function (name) {
 				query.push('families[]=' + encodeURIComponent(name));
 			});
@@ -5523,6 +5769,7 @@
 		if (state.dirty) {
 			askConfirm({
 				title: s('convertFile', 'Convert to WOFF2'),
+				icon: 'compress',
 				message: s('convertDirty', 'Converting saves the family mapping. Unsaved changes will be discarded. Continue?'),
 				confirm: s('continue', 'Continue')
 			}).then(function (yes) {
@@ -5732,9 +5979,8 @@
 		// Deleting bytes is not reversible, so it is always confirmed.
 		askConfirm({
 			title: s('cleanupTitle', 'Unused files'),
-			message: s('cleanupConfirm', 'Delete these font files from the server?') + '\n\n' + unused.map(function (file) {
-				return file.name;
-			}).join('\n'),
+			message: s('cleanupConfirm', 'Delete these font files from the server?'),
+			list: unused.map(function (file) { return file.name; }),
 			confirm: s('deleteAction', 'Delete'),
 			danger: true
 		}).then(function (yes) {

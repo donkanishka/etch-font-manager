@@ -294,6 +294,9 @@ class EFM_Rest {
 			'cssBuilt'   => EFM_Fonts::css_generated(),
 			'version'    => EFM_VERSION,
 			'unused'     => EFM_Fonts::unused_files(),
+			// Referenced by a family but absent from the folder, which is what an
+			// import without bundled font files leaves behind.
+			'missing'    => EFM_Fonts::missing_files( $families ),
 		);
 	}
 

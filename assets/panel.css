@@ -187,10 +187,26 @@
 	display: none;
 }
 
+/*
+ * Takes the row, so the two buttons sit together at the end instead of trailing
+ * a label of unpredictable length. It does not clip: it carries the tooltip when
+ * there are more changes than fit, and a clipping ancestor slices a CSS tooltip
+ * outright. The span inside does the truncating.
+ */
 .efm-savebar__label {
+	display: flex;
+	flex: 1 1 auto;
+	min-inline-size: 0;
 	margin-inline-end: var(--e-space-xs, 6px);
 	font-size: var(--e-font-size-s, 11px);
 	color: var(--efm-muted);
+}
+
+.efm-savebar__text {
+	min-inline-size: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
 }
 
 /*
@@ -916,7 +932,16 @@
 	align-items: center;
 }
 
-.efm-search svg {
+/*
+ * Direct child, not any descendant. The clear button sits inside this wrapper
+ * and carries an icon of its own, which a descendant selector also caught: it
+ * absolutely positioned that cross 8px from the button's left edge, 5px off
+ * centre in a 20px box, and pinned its colour to the muted token so the
+ * button's own hover never reached it. Measured on a live builder, the filter
+ * field's cross sat at offset 8 where the preview field's sat at 3, and stayed
+ * muted on hover while the button around it went to rgb(225,225,229).
+ */
+.efm-search > svg {
 	position: absolute;
 	inset-inline-start: 8px;
 	color: var(--efm-muted);
@@ -1156,10 +1181,26 @@
 	gap: 4px;
 }
 
+/*
+ * The family name is this view's heading, so it takes the band every other
+ * heading in the panel has: Etch's 40px header height with a rule along the
+ * bottom. It was a plain line of 13/500 text, the only heading in the manager
+ * without one, which left the designers and the chips under it reading as a
+ * continuation of the name rather than as its detail.
+ *
+ * The margin below is what the pane's own gap gives a section heading; the head
+ * is a flex column at 4px, which is right between the designers and the chips
+ * and far too tight under a rule.
+ */
 .efm-detail__title {
-	margin: 0;
+	display: flex;
+	align-items: center;
+	min-block-size: var(--e-panel-header-height, 40px);
+	margin: 0 0 var(--e-space-s, 8px);
+	border-block-end: 1px solid var(--e-border-color, #36363a);
 	font-size: var(--e-font-size-l, 13px);
-	font-weight: 500;
+	font-weight: 600;
+	color: var(--efm-text-strong);
 }
 
 .efm-detail__actions {
@@ -1306,6 +1347,42 @@
 	background: var(--efm-surface-raised);
 }
 
+/*
+ * A list of file names as the machine wrote them, used both in Import & export
+ * and inside a confirmation. Monospace on the sunken well this panel gives to
+ * anything generated, hugging its own longest line rather than spanning the
+ * pane, and capped in height so a folder with forty stray files cannot push the
+ * button below it off the screen or grow a dialog past the viewport.
+ *
+ * Left aligned on purpose. A dialog centres its message, which is right for a
+ * sentence and wrong for five file names: centred and ragged on both sides they
+ * read as more of the question rather than as the things it asks about.
+ */
+.efm-filewell {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	inline-size: fit-content;
+	max-inline-size: 100%;
+	max-block-size: 168px;
+	padding: var(--e-space-s, 8px);
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+	background: var(--e-base-dark, #1d1d20);
+	overflow-y: auto;
+	text-align: start;
+	scrollbar-width: thin;
+	scrollbar-color: var(--etch-scrollbar-thumb-color, #4b4b4e) transparent;
+}
+
+.efm-filewell__item {
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 11px;
+	line-height: 1.6;
+	color: var(--efm-text);
+	overflow-wrap: anywhere;
+}
+
 /* Read-only view of the CSS a family contributes. */
 /*
  * Etch's --e-code-background-color resolves to --e-base-light, which is also
@@ -1424,6 +1501,18 @@
 	padding: 4px 10px;
 	border-radius: 999px;
 	background: color-mix(in srgb, var(--efm-text) 12%, transparent);
+}
+
+/*
+ * A fault rather than a state, so it takes the warning pair the status toast
+ * already uses: --e-warning on --e-warning-dark. Shaped like the muted badge it
+ * sits beside, since they share a row on the card.
+ */
+.efm-badge--warn {
+	padding: 4px 10px;
+	border-radius: 999px;
+	background: var(--e-warning-dark, #4c4233);
+	color: var(--e-warning, #f2c960);
 }
 
 /* -------------------------------- Chips -------------------------------- */
@@ -1796,7 +1885,6 @@
 	inset: 0;
 	z-index: 150;
 	background: rgb(39 39 43 / 40%);
-	backdrop-filter: blur(1.5px);
 }
 
 .efm-dialog {
@@ -1808,27 +1896,49 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--e-space-m, 12px);
+	min-inline-size: min(400px, calc(100vw - 64px));
 	inline-size: min(440px, calc(100vw - 64px));
 	max-block-size: 80dvh;
-	padding: var(--e-space-l, 16px);
-	border-radius: var(--e-border-radius, 6px);
+	padding: var(--e-space-m, 12px);
+	/*
+	 * 18px, which is Etch's own and nothing else in this panel uses. A dialog is
+	 * the one surface that floats free of the builder rather than sitting in it,
+	 * and Etch rounds it far harder than any panel control to say so.
+	 */
+	border: 1px solid var(--e-border-color, #36363a);
+	border-radius: 18px;
 	background: var(--e-base, #27272b);
 	color: var(--efm-text);
 	overflow-y: auto;
 	box-shadow:
-		0 2px 4px rgb(3 7 18 / .01),
-		0 9px 15px rgb(3 7 18 / .03),
-		0 21px 33px rgb(3 7 18 / .04),
-		0 38px 59px rgb(3 7 18 / .06),
-		0 59px 92px rgb(3 7 18 / .07),
-		0 85px 133px rgb(3 7 18 / .09);
+		0 1px 3px 0 rgb(0 0 0 / .15),
+		0 6px 12px 0 rgb(0 0 0 / .08),
+		0 18px 24px 0 rgb(0 0 0 / .1);
+}
+
+/* Icon and title together, centred, the way Etch heads its own. */
+.efm-dialog__header {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+}
+
+/*
+ * Colours the icon, not the title: Etch puts the danger colour on the header
+ * and gives the title its own foreground, so the glyph carries the warning and
+ * the words stay legible.
+ */
+.efm-dialog__header--danger {
+	color: var(--efm-danger);
 }
 
 .efm-dialog__title {
 	margin: 0;
 	font-size: var(--e-font-size-l, 13px);
 	font-weight: 600;
-	color: var(--efm-text-strong);
+	line-height: 1;
+	color: var(--efm-text);
 }
 
 .efm-dialog__body {
@@ -1842,23 +1952,93 @@
 .efm-dialog__text {
 	margin: 0;
 	font-size: var(--e-font-size-m, 12px);
+	font-weight: 400;
 	line-height: 1.5;
-	color: var(--efm-muted);
+	text-align: center;
+	color: var(--efm-text);
+	opacity: 0.75;
 	/* A list of file names can be long and unbroken. */
 	overflow-wrap: anywhere;
 }
 
 .efm-dialog__actions {
 	display: flex;
-	justify-content: end;
 	gap: var(--e-space-s, 8px);
+	margin-block-start: var(--e-space-m, 12px);
 }
 
 /*
- * The destructive answer. Tinted rather than filled: the fill in this panel is
- * reserved for the affirmative action, and this one is a warning, which is how
- * the danger colour is used everywhere else here.
+ * A dialog's buttons are its own, not the panel's. Etch resets them and
+ * stretches both to equal width across the foot at 10px of block padding,
+ * which is taller than the 28px controls inside the panel: the question is
+ * modal, so its two answers are the largest targets on the screen.
  */
+.efm-dialog__btn {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	padding: 10px 12px;
+	border: 1px solid transparent;
+	border-radius: var(--efm-radius);
+	background: none;
+	color: inherit;
+	font: inherit;
+	font-size: var(--e-font-size-m, 12px);
+	font-weight: 500;
+	line-height: 1;
+	cursor: pointer;
+	user-select: none;
+	transition: var(--efm-transition);
+	transition-property: background-color;
+}
+
+.efm-dialog__btn--cancel {
+	background: var(--etch-neutral-semi-dark, #3e3e41);
+	color: var(--efm-text);
+}
+
+.efm-dialog__btn--cancel:hover {
+	background: var(--etch-neutral-medium, #4b4b4e);
+}
+
+/*
+ * Etch's --etch-danger-trans-20 is the danger colour at a fifth of an alpha,
+ * behind a full-strength danger border, with near-white words and only the
+ * glyph in the danger colour. The words being legible rather than red is the
+ * point: the border and the icon carry the warning.
+ */
+.efm-dialog__btn--danger {
+	background: color-mix(in srgb, var(--efm-danger) 20%, transparent);
+	background: oklch(from var(--efm-danger) l c h / .2);
+	border-color: var(--efm-danger);
+	color: var(--efm-text-strong);
+}
+
+.efm-dialog__btn--danger .efm-icon {
+	color: var(--efm-danger);
+}
+
+/*
+ * Etch fills this with its accent and sets near-white words on it, which works
+ * for the mid teal it ships. This panel's accent is whatever --e-primary is on
+ * the site, and on the default it is a near-yellow that near-white would
+ * disappear into, so the label takes the pane colour the way every other
+ * accent-filled button here already does.
+ */
+.efm-dialog__btn--primary {
+	background: var(--efm-accent);
+	color: var(--efm-surface);
+}
+
+/* The same neutral hover the panel's primary buttons take. */
+.efm-dialog__btn--primary:hover {
+	background: var(--e-base-light, #36363a);
+	border-color: var(--etch-divider-color, #4b4b4e);
+	color: var(--efm-text-strong);
+}
+
 .efm-btn--danger {
 	background: color-mix(in srgb, var(--efm-danger) 16%, transparent);
 	border-color: color-mix(in srgb, var(--efm-danger) 45%, transparent);
@@ -2523,24 +2703,23 @@
 }
 
 /*
- * Etch's own rule for a primary hover: keep the accent, drop its lightness to
- * .71 and leave hue and chroma alone (--etch-primary-hover is defined exactly
- * that way, and its dialog's primary button hovers on it). Derived from
- * --efm-accent rather than borrowed from Etch's token, because that token is
- * built from --etch-primary while this button is painted from --e-primary, and
- * a site that themes one and not the other would hover to a different hue.
+ * Neutral on hover, not a darker accent: Etch's --e-base-light, which is what
+ * Etch fills an active or selected surface with, and Dumal's call for every
+ * primary button in the panel.
  *
- * What was here abandoned the fill for --efm-surface-raised, which measures
- * 1.24:1 against the pane behind it -- the button effectively vanished under the
- * pointer. The accent at .71 measures 6.07:1 there, and the dark label on it
- * clears AA at the same ratio.
+ * The border is the reason it reads. --e-base-light is also what a section box
+ * is filled with, and "Download configuration" sits inside one, so a bare fill
+ * would leave the button exactly the colour of the box around it. Etch's
+ * divider colour is the one value that shows against both the pane and a raised
+ * box, which is the same fix the boxed section headings needed.
+ *
+ * The label goes to the near-white Etch pairs with --e-base-light rather than
+ * staying the pane colour it uses on the accent, which would be unreadable.
  */
 .efm-btn--primary:hover:not(:disabled) {
-	/* For engines without relative colour syntax; the next line wins where it works. */
-	background: color-mix(in srgb, var(--efm-accent) 70%, #000);
-	background: oklch(from var(--efm-accent) .71 c h);
-	border-color: transparent;
-	color: var(--efm-surface);
+	background: var(--e-base-light, #36363a);
+	border-color: var(--etch-divider-color, #4b4b4e);
+	color: var(--efm-text-strong);
 }
 
 /* Etch's outline variant. */

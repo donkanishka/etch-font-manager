@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 0.29.0
+Stable tag: 0.30.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,19 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 0.30.0 =
+* Fixed: a font could be converted to WOFF2 again after it had already been converted, redoing the work to overwrite the file it produced last time. The button now names the file holding the result instead.
+* Fixed: the generated CSS preview labelled every file as WOFF2, so a .ttf was shown as format("woff2"). The stylesheet itself was always correct; only the preview was wrong.
+* Fixed: the preview also showed rules for files that are not on the server, which the real stylesheet leaves out.
+* The Fallback stack field no longer opens a browser-drawn list. It is the panel's own menu now, and still accepts any stack you type.
+* Deleting a family permanently, or emptying the trash, can now delete its font files too. It is off by default, lists only files no other family uses, and runs after the delete is saved.
+* Confirmations that delete files say so plainly: the Trash holds families, not files.
+* The delete button in a confirmation now has a hover state.
+* The family name in Manage font gets the same heading rule as everywhere else.
+* Unused files fill the width of the confirmation they appear in.
+* Discard has its border back, and both buttons sit beside the message rather than at the far corner.
+* Converting now says what it is converting to.
 
 = 0.29.0 =
 * Fixed: importing a configuration exported without the font files produced families that looked installed and loaded nothing. The stylesheet no longer writes rules for files that are not on the server, and any family missing its files now says so in the Library.

@@ -2,6 +2,93 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.30.0
+
+A sixth pass, and three bugs. One of the three surfaced as a question about what a line of generated CSS meant,
+which turned out to be the best way to find it.
+
+### Added
+
+- **A permanent delete can take the font files with it.** Deleting a family for good, or emptying the trash,
+  now offers a checkbox with the count and the total size, off by default and shaped like the export bundle's.
+
+  It lists only files no surviving family maps, because two families can point at one file and deleting one of
+  them must not pull the ground from under the other. It is offered rather than implied on purpose: a Google
+  file is a click away from being downloaded again, an uploaded one is often the only copy in existence, and a
+  family record carries nothing that says which of the two it holds.
+
+  The timing is the part worth knowing. Removing a family is buffered like every other edit, so unlinking its
+  files at the moment of asking would leave Discard able to restore a record whose files had already gone --
+  precisely the family that looks installed and loads nothing. The names go into a queue that is only acted on
+  once the removal has actually been saved, one file at a time; Discard throws the queue away with everything
+  else, the queue is taken before the request fires so a second save cannot send it twice, and a file that is
+  already gone does not stop the rest.
+
+  `askConfirm()` grew an optional checkbox whose value the caller owns, so the promise still resolves a plain
+  yes or no and the confirmations that do not need one are untouched.
+
+### Fixed
+
+- **A font could be converted to WOFF2 twice.** The button only asked whether the extension was convertible,
+  never whether the work had already been done, so a `.ttf` kept offering it with its own `.woff2` sitting on
+  the row below. Pressing it spent the entire conversion to overwrite the file it produced last time.
+
+  The row now derives the twin with the same `woff2Name()` the converter uses and checks the file list. It is
+  disabled rather than hidden, since a control that vanishes leaves the reader wondering, and its tooltip names
+  the file holding the result. That needed one considered divergence: `.efm-btn:disabled` takes buttons out of
+  the hit test as Etch does, but here the tooltip is the explanation, so `.efm-icon-btn:disabled` dims to the
+  same 30% and stays hoverable. The disabled attribute still blocks the press.
+
+- **The generated CSS preview labelled every file WOFF2.** It wrote `format("woff2")` literally, whatever the
+  file was, so a `.ttf` was shown as `url("DancingScript-Bold.ttf") format("woff2")`. Its own docblock claimed
+  it mirrored `build_css()`; it did not. The shipped stylesheet was always right, since `EFM_Fonts::FORMATS`
+  maps `ttf` to `truetype` and `otf` to `opentype`, so only the preview lied -- which is the one thing that
+  screen exists to avoid.
+
+- **The preview also showed rules the stylesheet leaves out.** Since 0.29.0 the real generator skips a variant
+  whose file is not on the server, and the preview did not, so it could show a face the stylesheet does not
+  contain. It checks the same list now.
+
+### Changed
+
+- **The Fallback stack field is the panel's own menu.** It was a native `<datalist>`, and a datalist's list is
+  drawn by the operating system, so it arrived with its own marker, type, spacing and scrollbar and ignored the
+  stylesheet entirely. It was the last OS-drawn menu in the panel, missed when 0.26.0 replaced the nine selects
+  because it is an input rather than a select.
+
+  It is a combobox, not a dropdown, and the distinction is why `dropdown()` could not simply be reused: those
+  nine hold closed sets and lock the value to an option, while a fallback stack is free text and must accept
+  any valid CSS font list. The field keeps its own value and the four suggestions open beside it. The arrow-key
+  handling `dropdown()` had inline is now one `walkMenu()` both call.
+
+- **A confirmation that deletes files says so.** "The Trash holds families, not files, so this cannot be
+  undone", last, where Etch puts the same warning. Two dialogs delete files and neither said which kind of
+  Delete it was; the three family-level ones already explained where the files go and are untouched.
+
+- **The delete button in a confirmation has a hover state.** It had none at all, so the only feedback was the
+  cursor. Etch hovers it on the same colour at twice the alpha, `oklch(from var(--etch-danger) l c h / 0.4)`
+  against the 0.2 it rests at, so the fill deepens without the button changing identity.
+
+- **The family name in Manage font is a heading**, with the rule every other heading has. It shared a line with
+  the back button, where a rule could only run as far as the word did, so it renders the same title element the
+  type tester does rather than a second one that has to be kept in step.
+
+- **Unused files fill the width of the confirmation** they appear in. Hugging the longest line is right on the
+  Import & export pane, where the well sits in a wide section, and wrong in a 440px dialog where it was the
+  only ragged edge in the stack.
+
+- **Discard has its border back**, and the pair sits beside the message rather than at the far corner of a pane
+  that can be two thousand pixels wide. Outline against a fill is the panel's own language for a secondary
+  action beside a primary one; the ghost was the odd one out, and it made the control hard to find.
+
+- **Converting says what it is converting to.** "Converting to WOFF2", in both the batch upload and the single
+  file, from one shared string.
+
+### Translators
+
+Six new strings: `commonStacks`, `confirmPermanent`, `alsoDeleteFiles`, `fileSingular`, `filesLower`
+and `convertedAlready`. `converting` is reworded to name the target format. Nothing was removed or renamed.
+
 ## 0.29.0
 
 A fifth pass over the interface, and four bugs. Two of the four were reported as something looking wrong

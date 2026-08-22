@@ -188,14 +188,18 @@
 }
 
 /*
- * Takes the row, so the two buttons sit together at the end instead of trailing
- * a label of unpredictable length. It does not clip: it carries the tooltip when
- * there are more changes than fit, and a clipping ancestor slices a CSS tooltip
- * outright. The span inside does the truncating.
+ * Sized to its text so the buttons sit beside the message rather than at the far
+ * corner of a panel that can be two thousand pixels wide. Grouping the sentence
+ * with the two answers to it keeps one unit; separated, the controls end up as
+ * far from what they act on as the axes reset once was.
+ *
+ * It shrinks but does not grow, and it does not clip: it carries the tooltip
+ * when there are more changes than fit, and a clipping ancestor slices a CSS
+ * tooltip outright. The span inside does the truncating.
  */
 .efm-savebar__label {
 	display: flex;
-	flex: 1 1 auto;
+	flex: 0 1 auto;
 	min-inline-size: 0;
 	margin-inline-end: var(--e-space-xs, 6px);
 	font-size: var(--e-font-size-s, 11px);
@@ -1196,11 +1200,21 @@
 	display: flex;
 	align-items: center;
 	min-block-size: var(--e-panel-header-height, 40px);
-	margin: 0 0 var(--e-space-s, 8px);
+	margin: 0;
 	border-block-end: 1px solid var(--e-border-color, #36363a);
 	font-size: var(--e-font-size-l, 13px);
 	font-weight: 600;
 	color: var(--efm-text-strong);
+}
+
+/*
+ * Only inside the type tester's head, which is a flex column at 4px: 8 and 4
+ * make the 12 the pane gives a heading everywhere else. The family editor
+ * renders the same title straight into the pane, where that gap already exists,
+ * so the margin would double it.
+ */
+.efm-detail__head .efm-detail__title {
+	margin-block-end: var(--e-space-s, 8px);
 }
 
 .efm-detail__actions {
@@ -1373,6 +1387,16 @@
 	text-align: start;
 	scrollbar-width: thin;
 	scrollbar-color: var(--etch-scrollbar-thumb-color, #4b4b4e) transparent;
+}
+
+/*
+ * Full width inside a dialog. Hugging the longest line is right on the pane,
+ * where the well sits in a wide section under a heading with a button below it,
+ * but in a 440px dialog with a centred question above and two buttons filling
+ * the foot it is the only ragged edge in the stack.
+ */
+.efm-dialog .efm-filewell {
+	inline-size: auto;
 }
 
 .efm-filewell__item {
@@ -1607,16 +1631,11 @@
 
 /* ------------------------------ Breadcrumb ----------------------------- */
 
+/* The way back, on its own row. The heading below it carries the rule. */
 .efm-breadcrumb {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-}
-
-.efm-breadcrumb__title {
-	margin: 0;
-	font-size: var(--e-font-size-l, 13px);
-	font-weight: 500;
 }
 
 /* -------------------------------- Table -------------------------------- */
@@ -1961,6 +1980,14 @@
 	overflow-wrap: anywhere;
 }
 
+/*
+ * An extra the answer carries. Centred like the message above it, since the
+ * dialog centres everything that is not a list of names.
+ */
+.efm-dialog__extra {
+	align-self: center;
+}
+
 .efm-dialog__actions {
 	display: flex;
 	gap: var(--e-space-s, 8px);
@@ -2018,6 +2045,18 @@
 
 .efm-dialog__btn--danger .efm-icon {
 	color: var(--efm-danger);
+}
+
+/*
+ * The same colour, twice the alpha. Etch hovers this button on
+ * oklch(from var(--etch-danger) l c h / 0.4) against the 0.2 it rests at, so the
+ * fill deepens without the button changing identity, and the border and glyph
+ * stay put. This variant had no hover rule at all, so the only feedback was the
+ * cursor.
+ */
+.efm-dialog__btn--danger:hover {
+	background: color-mix(in srgb, var(--efm-danger) 40%, transparent);
+	background: oklch(from var(--efm-danger) l c h / .4);
 }
 
 /*
@@ -2200,6 +2239,49 @@
  * Height is capped so a list of sixty writing systems scrolls inside the menu
  * rather than running off the pane.
  */
+/*
+ * A field that suggests without constraining: the input keeps its own value and
+ * the four shortcuts open beside it. It replaced a native <datalist>, whose list
+ * the operating system draws, so it arrived with its own marker, type and
+ * scrollbar and ignored the panel completely.
+ *
+ * .efm-select above supplies the positioning context, so the menu lands where
+ * every other menu in the panel does.
+ */
+.efm-combo .efm-input {
+	padding-inline-end: 26px;
+}
+
+/*
+ * Colour only on hover, no fill. That is what a bare control inside a field does
+ * here: a 20px rounded square lighting up four pixels inside the border reads as
+ * a tile pasted into a slot, which is why the clear button lost its wash.
+ */
+.efm-combo__toggle {
+	position: absolute;
+	inset-inline-end: 4px;
+	inset-block-start: 50%;
+	translate: 0 -50%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 20px;
+	block-size: 20px;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--efm-muted);
+	cursor: pointer;
+	transition: var(--efm-transition);
+	transition-property: color;
+}
+
+.efm-combo__toggle:hover,
+.efm-combo__toggle:focus-visible,
+.efm-combo__toggle.is-open {
+	color: var(--efm-text-strong);
+}
+
 .efm-select__menu {
 	inline-size: max-content;
 	min-inline-size: 100%;
@@ -2800,7 +2882,18 @@
 	transition-property: background-color, color;
 }
 
-.efm-icon-btn:hover {
+/*
+ * Etch dims a disabled button to 30% and takes it out of the hit test. This one
+ * keeps the hit test on purpose: it carries the tooltip that says why it cannot
+ * be pressed, and pointer-events: none would swallow the explanation along with
+ * the click. The disabled attribute still stops the press.
+ */
+.efm-icon-btn:disabled {
+	opacity: .3;
+	cursor: default;
+}
+
+.efm-icon-btn:hover:not(:disabled) {
 	background: color-mix(in oklch, currentColor 10%, transparent);
 	color: var(--efm-text);
 }

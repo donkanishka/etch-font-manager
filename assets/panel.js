@@ -74,6 +74,14 @@
 		 * value before, which is what made the None chip appear to do nothing: it
 		 * set the list empty, and empty was read back as "all".
 		 */
+		/*
+		 * Files a permanent delete asked to remove, held until the delete is saved.
+		 * Removing a family is buffered like every other edit, so unlinking its
+		 * files at the moment of asking would leave Discard able to restore a record
+		 * whose files had already gone -- which is precisely the family that looks
+		 * installed and loads nothing.
+		 */
+		pendingFileDeletes: [],
 		exportPick: null,
 		exportBundle: false,
 		importPreview: null,
@@ -615,6 +623,46 @@
 		}).join(' ');
 	}
 
+	/**
+	 * Files a family maps that nothing else does.
+	 *
+	 * Shared files stay: two families can point at one file, and deleting one of
+	 * them must not pull the ground from under the other.
+	 *
+	 * @param {number[]} indexes Family indexes being removed.
+	 * @return {string[]} File names no surviving family maps.
+	 */
+	function orphanedBy(indexes) {
+		var doomed = {};
+		var kept = {};
+
+		state.families.forEach(function (family, at) {
+			var bucket = indexes.indexOf(at) === -1 ? kept : doomed;
+
+			(family.variants || []).forEach(function (variant) {
+				if (variant.file) {
+					bucket[variant.file] = true;
+				}
+			});
+		});
+
+		return Object.keys(doomed).filter(function (file) {
+			return !kept[file];
+		});
+	}
+
+	/**
+	 * Total size on disk of a list of file names.
+	 *
+	 * @param {string[]} names File names.
+	 * @return {number} Bytes.
+	 */
+	function sizeOfFiles(names) {
+		return (state.files || []).reduce(function (total, file) {
+			return names.indexOf(file.name) === -1 ? total : total + (file.size || 0);
+		}, 0);
+	}
+
 	function fileUsedBy(filename) {
 		return state.families.filter(function (family) {
 			return (family.variants || []).some(function (variant) {
@@ -768,6 +816,26 @@
 	 * its asset collections but not its tools, so Google Fonts, Settings and
 	 * Import & export carry no badge.
 	 */
+	/*
+	 * Extension to the value CSS wants in format(). Mirrors EFM_Fonts::FORMATS,
+	 * which is what the shipped stylesheet is built from; this copy exists only so
+	 * the preview can be rebuilt live without asking the server.
+	 */
+	var FILE_FORMATS = {
+		woff2: 'woff2',
+		woff: 'woff',
+		ttf: 'truetype',
+		otf: 'opentype'
+	};
+
+	/* Suggested fallback stacks. The field accepts anything; these are shortcuts. */
+	var FALLBACK_STACKS = [
+		'system-ui, sans-serif',
+		'Arial, Helvetica, sans-serif',
+		'Georgia, "Times New Roman", serif',
+		'ui-monospace, SFMono-Regular, monospace'
+	];
+
 	var VIEWS = [
 		{ key: 'library', icon: 'library', label: function () { return s('library', 'Library'); }, count: function () { return liveFamilies().length; } },
 		{ key: 'upload', icon: 'upload', label: function () { return s('upload', 'Upload fonts'); }, count: function () { return state.files.length; } },
@@ -1175,6 +1243,25 @@
 				body.appendChild(el('div', { class: 'efm-filewell' }, config.list.map(function (item) {
 					return el('span', { class: 'efm-filewell__item', text: item });
 				})));
+			}
+
+			/*
+			 * An optional extra the answer carries with it. The caller owns the
+			 * object, so the promise still resolves a plain yes or no and the five
+			 * confirmations that do not need one are untouched.
+			 */
+			if (config.checkbox) {
+				body.appendChild(el('label', { class: 'efm-toggle efm-toggle--inline efm-dialog__extra' }, [
+					el('input', {
+						type: 'checkbox',
+						class: 'efm-checkbox',
+						checked: !!config.checkbox.state.checked,
+						onchange: function (event) {
+							config.checkbox.state.checked = event.target.checked;
+						}
+					}),
+					el('span', { class: 'efm-toggle__label', text: config.checkbox.label })
+				]));
 			}
 
 			/*
@@ -1722,11 +1809,12 @@
 			el('button', {
 				type: 'button',
 				/*
-				 * Ghost, not outline. Discard and Save were two boxes of near-equal
-				 * mass, so the row read as a choice between equals when one of them
-				 * throws work away. The quiet way out is quiet.
+				 * Outline against Save's fill, which is the panel's own language for a
+				 * secondary action beside a primary one. A ghost read as hierarchy in
+				 * isolation but made the control hard to find as a target, and it was
+				 * the only borderless button in the panel doing real work.
 				 */
-				class: 'efm-btn efm-btn--ghost',
+				class: 'efm-btn efm-btn--outline',
 				text: s('discard', 'Discard'),
 				onclick: reload
 			})
@@ -2273,6 +2361,76 @@
 	 *   label    Accessible name, when no visible label sits beside it.
 	 * @return {HTMLElement} Trigger and menu in a positioned wrapper.
 	 */
+	/**
+	 * A field that suggests without constraining.
+	 *
+	 * dropdown() locks its value to one of its options, which is right for the
+	 * nine closed sets in this panel and wrong for a fallback stack: any valid CSS
+	 * font list is allowed, so the suggestions have to sit beside the field rather
+	 * than replace it. This was a native <datalist>, and a datalist's list is drawn
+	 * by the operating system -- the last OS-drawn menu left in the panel after
+	 * 0.26.0 replaced the selects, missed then because it is an input, not a select.
+	 *
+	 * @param {object} config key, label, input, options, onpick.
+	 * @return {HTMLElement}
+	 */
+	function suggestField(config) {
+		var open = state.openMenu === config.key;
+		var focusKey = 'suggest-' + config.key;
+
+		var toggle = el('button', {
+			type: 'button',
+			class: 'efm-combo__toggle' + (open ? ' is-open' : ''),
+			'aria-haspopup': 'listbox',
+			'aria-expanded': open ? 'true' : 'false',
+			'aria-label': config.label,
+			'data-efm-focus': focusKey,
+			onclick: function () {
+				if (open) {
+					closeMenu(true);
+
+					return;
+				}
+
+				state.openMenu = config.key;
+				render();
+				revealMenu(config.key);
+			}
+		}, [icon('chevronDown', 'sm')]);
+
+		var menu = el('div', {
+			class: 'efm-popover efm-select__menu',
+			role: 'listbox',
+			'aria-label': config.label,
+			'data-efm-menu': config.key,
+			hidden: !open,
+			onkeydown: function (event) {
+				walkMenu(event, menu);
+			}
+		}, config.options.map(function (value) {
+			// Matched against what is in the field, so a stack typed by hand that
+			// happens to equal a suggestion is still shown as the current one.
+			var on = value === (config.input.value || '');
+
+			return el('button', {
+				type: 'button',
+				role: 'option',
+				class: 'efm-select__option' + (on ? ' is-on' : ''),
+				'aria-selected': on ? 'true' : 'false',
+				'data-efm-focus': focusKey,
+				onclick: function () {
+					state.openMenu = '';
+					config.onpick(value);
+				}
+			}, [
+				el('span', { class: 'efm-select__option-label', text: value }),
+				on ? icon('check', 'sm') : null
+			]);
+		}));
+
+		return el('div', { class: 'efm-select efm-combo' }, [config.input, toggle, menu]);
+	}
+
 	function dropdown(config) {
 		var open = state.openMenu === config.key;
 		var focusKey = 'select-' + config.key;
@@ -2315,27 +2473,7 @@
 			'data-efm-menu': config.key,
 			hidden: !open,
 			onkeydown: function (event) {
-				if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
-					return;
-				}
-
-				// The list is the focus ring here, so the arrows walk it and wrap
-				// at both ends rather than leaving the menu.
-				event.preventDefault();
-
-				var items = Array.prototype.slice.call(menu.querySelectorAll('.efm-select__option'));
-				var at = items.indexOf(document.activeElement);
-				var next = event.key === 'ArrowDown' ? at + 1 : at - 1;
-
-				if (next < 0) {
-					next = items.length - 1;
-				} else if (next >= items.length) {
-					next = 0;
-				}
-
-				if (items[next]) {
-					items[next].focus();
-				}
+				walkMenu(event, menu);
 			}
 		}, config.options.map(function (option) {
 			var on = String(option.value) === String(config.value);
@@ -2394,6 +2532,37 @@
 	 *
 	 * @param {string} key Dropdown key.
 	 */
+	/**
+	 * Arrow keys inside an open menu.
+	 *
+	 * The list is the focus ring, so the arrows walk it and wrap at both ends
+	 * rather than leaving the menu.
+	 *
+	 * @param {KeyboardEvent} event Key event.
+	 * @param {Element}       menu  The open menu.
+	 */
+	function walkMenu(event, menu) {
+		if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+			return;
+		}
+
+		event.preventDefault();
+
+		var items = Array.prototype.slice.call(menu.querySelectorAll('.efm-select__option'));
+		var at = items.indexOf(document.activeElement);
+		var next = event.key === 'ArrowDown' ? at + 1 : at - 1;
+
+		if (next < 0) {
+			next = items.length - 1;
+		} else if (next >= items.length) {
+			next = 0;
+		}
+
+		if (items[next]) {
+			items[next].focus();
+		}
+	}
+
 	function revealMenu(key) {
 		var menu = manager.querySelector('[data-efm-menu="' + key + '"]');
 
@@ -2635,14 +2804,35 @@
 				type: 'button',
 				class: 'efm-btn efm-btn--outline efm-btn--sm',
 				onclick: function () {
+					var doomed = [];
+
+					state.families.forEach(function (family, at) {
+						if (isTrashed(family)) {
+							doomed.push(at);
+						}
+					});
+
+					var orphans = orphanedBy(doomed);
+					var also = { checked: false };
+
 					askConfirm({
 						title: s('emptyTrash', 'Empty trash'),
 						message: s('confirmEmptyTrash', 'Delete every family in the trash for good? Their font files stay on the server and can be removed from Import & export.'),
 						confirm: s('deleteAction', 'Delete'),
-						danger: true
+						danger: true,
+						checkbox: orphans.length ? {
+							state: also,
+							label: s('alsoDeleteFiles', 'Also delete its font files') + ' \u00b7 ' +
+								orphans.length + ' ' + plural(orphans.length, s('fileSingular', 'file'), s('filesLower', 'files')) +
+								' \u00b7 ' + formatSize(sizeOfFiles(orphans))
+						} : null
 					}).then(function (yes) {
 						if (!yes) {
 							return;
+						}
+
+						if (also.checked) {
+							state.pendingFileDeletes = state.pendingFileDeletes.concat(orphans);
 						}
 
 						emptyTrash();
@@ -2692,14 +2882,34 @@
 							'aria-label': s('deleteFamily', 'Delete permanently'),
 							'data-efm-tooltip': s('deleteFamily', 'Delete permanently'),
 							onclick: function () {
+								var orphans = orphanedBy([index]);
+								var also = { checked: false };
+
 								askConfirm({
 									title: s('deleteFamily', 'Delete permanently'),
 									message: s('confirmDeleteFamily', 'Delete this family for good? Its font files stay on the server and can be removed from Import & export.'),
 									confirm: s('deleteAction', 'Delete'),
-									danger: true
+									danger: true,
+									/*
+									 * Offered rather than implied, and off by default. A
+									 * Google file is a click away from being downloaded
+									 * again; an uploaded one is often the only copy there
+									 * is, and the record does not know which it holds.
+									 * Only files no surviving family maps are listed.
+									 */
+									checkbox: orphans.length ? {
+										state: also,
+										label: s('alsoDeleteFiles', 'Also delete its font files') + ' \u00b7 ' +
+											orphans.length + ' ' + plural(orphans.length, s('fileSingular', 'file'), s('filesLower', 'files')) +
+											' \u00b7 ' + formatSize(sizeOfFiles(orphans))
+									} : null
 								}).then(function (yes) {
 									if (!yes) {
 										return;
+									}
+
+									if (also.checked) {
+										state.pendingFileDeletes = state.pendingFileDeletes.concat(orphans);
 									}
 
 									state.families.splice(index, 1);
@@ -2890,10 +3100,17 @@
 						state.editing = null;
 						render();
 					}
-				}, [icon('back', 'sm')]),
-				el('h2', { class: 'efm-breadcrumb__title', text: family.name })
+				}, [icon('back', 'sm')])
 			])
 		);
+
+		/*
+		 * The same shape the type tester uses: the way back on its own row, then the
+		 * family name as this view's heading with a rule under it. It shared a line
+		 * with the button before, which meant the rule could only run as far as the
+		 * word did.
+		 */
+		contentEl.appendChild(el('h2', { class: 'efm-detail__title', text: family.name }));
 
 		contentEl.appendChild(previewToolbar(null));
 		contentEl.appendChild(specimen(family.name));
@@ -3015,6 +3232,18 @@
 	 * @param {object} family Family record.
 	 * @return {string}
 	 */
+	/**
+	 * The value format() takes for a file, from its extension.
+	 *
+	 * @param {string} file File name.
+	 * @return {string}
+	 */
+	function formatOf(file) {
+		var ext = String(file || '').split('.').pop().toLowerCase();
+
+		return FILE_FORMATS[ext] || 'woff2';
+	}
+
 	function previewCss(family) {
 		if (!isEnabled(family) || isTrashed(family)) {
 			return s('cssPreviewOff', 'This family is not loaded, so it contributes no CSS.');
@@ -3023,12 +3252,19 @@
 		var display = family.display || 'swap';
 		var name = family.name || '';
 
+		var absent = state.missing || [];
+
+		/*
+		 * Both halves of mirroring build_css(): a file that is not on the server
+		 * produces no rule there, so it must produce none here either, or the
+		 * preview shows a face the stylesheet does not contain.
+		 */
 		var blocks = (family.variants || []).filter(function (variant) {
-			return !!variant.file;
+			return !!variant.file && absent.indexOf(variant.file) === -1;
 		}).map(function (variant) {
 			var rule = '@font-face {\n' +
 				'\tfont-family: "' + name + '";\n' +
-				'\tsrc: url("' + variant.file + '") format("woff2");\n' +
+				'\tsrc: url("' + variant.file + '") format("' + formatOf(variant.file) + '");\n' +
 				'\tfont-weight: ' + (variant.weight || '400') + ';\n' +
 				'\tfont-style: ' + (variant.style || 'normal') + ';\n' +
 				'\tfont-display: ' + display + ';\n';
@@ -3267,7 +3503,8 @@
 		var stackInput = el('input', {
 			type: 'text',
 			class: 'efm-input',
-			list: 'efm-stacks',
+			// Carried across the re-render a pick causes, so the caret survives.
+			'data-efm-focus': 'fallback-' + index,
 			placeholder: 'sans-serif',
 			value: family.fallback || '',
 			oninput: function (event) {
@@ -3277,14 +3514,16 @@
 			}
 		});
 
-		var stacks = el('datalist', { id: 'efm-stacks' });
-		[
-			'system-ui, sans-serif',
-			'Arial, Helvetica, sans-serif',
-			'Georgia, "Times New Roman", serif',
-			'ui-monospace, SFMono-Regular, monospace'
-		].forEach(function (value) {
-			stacks.appendChild(el('option', { value: value }));
+		var stackField = suggestField({
+			key: 'fallback-' + index,
+			label: s('commonStacks', 'Common stacks'),
+			input: stackInput,
+			options: FALLBACK_STACKS,
+			onpick: function (value) {
+				state.families[index].fallback = value;
+				state.dirty = true;
+				render();
+			}
 		});
 
 		var preloadInput = el('input', {
@@ -3299,7 +3538,6 @@
 		});
 
 		return el('div', { class: 'efm-delivery' }, [
-			stacks,
 			el('div', { class: 'efm-fields' }, [
 				// A div, not a label: the control inside is a dropdown button now.
 				el('div', { class: 'efm-field' }, [
@@ -3307,9 +3545,11 @@
 					displaySelect,
 					el('span', { class: 'efm-field__hint', text: s('fontDisplayHint', 'Swap shows a fallback until the font arrives. Optional skips the font entirely on slow connections, which removes layout shift.') })
 				]),
-				el('label', { class: 'efm-field' }, [
+				// A div, not a label: a label wrapping the menu would fire the input
+				// on every option click.
+				el('div', { class: 'efm-field' }, [
 					el('span', { class: 'efm-field__label', text: s('fallbackStack', 'Fallback stack') }),
-					stackInput,
+					stackField,
 					el('span', { class: 'efm-field__hint', text: s('fallbackHint', 'Shown while the font loads, and if it fails. A close match reduces layout shift.') })
 				]),
 				el('label', { class: 'efm-field' }, [
@@ -3545,6 +3785,16 @@
 		]);
 
 		state.files.forEach(function (file) {
+			/*
+			 * A file whose WOFF2 twin is already sitting in this same table has
+			 * nothing left to convert: running it again would spend the work only to
+			 * overwrite the file it produced last time.
+			 */
+			var twin = woff2Name(file.name);
+			var already = twin !== file.name && state.files.some(function (other) {
+				return other.name === twin;
+			});
+
 			table.appendChild(
 				el('div', { class: 'efm-table__row' }, [
 					el('span', { class: 'efm-file__name', text: file.name, title: file.name }),
@@ -3554,9 +3804,13 @@
 						? el('button', {
 							type: 'button',
 							class: 'efm-icon-btn efm-tooltip efm-tooltip--end',
-							disabled: !!state.converting,
-							'aria-label': s('convertFile', 'Convert to WOFF2'),
-							'data-efm-tooltip': s('convertFile', 'Convert to WOFF2'),
+							disabled: !!state.converting || already,
+							// Named, so the answer to "why can I not press this" is the
+							// file that already holds the result.
+							'aria-label': already ? s('convertedAlready', 'Already converted to WOFF2') : s('convertFile', 'Convert to WOFF2'),
+							'data-efm-tooltip': already
+								? s('convertedAlready', 'Already converted to WOFF2') + ' \u00b7 ' + twin
+								: s('convertFile', 'Convert to WOFF2'),
 							onclick: function () {
 								convertExisting(file);
 							}
@@ -3577,6 +3831,16 @@
 								message += '\n\n' + s('confirmDeleteUsed', 'It is mapped by:') + ' ' + users.join(', ') +
 									'.\n' + s('confirmDeleteUsedHint', 'Those variants will be removed too.');
 							}
+
+							/*
+							 * Last, where Etch puts "This action cannot be undone". Two
+							 * different things in this panel are called Delete and only
+							 * one of them is recoverable: a family goes to the Trash and
+							 * leaves its files behind, while a file is unlinked from disk
+							 * on the spot. The dialog never said which of the two this
+							 * was.
+							 */
+							message += '\n\n' + s('confirmPermanent', 'The Trash holds families, not files, so this cannot be undone.');
 
 							askConfirm({
 								title: s('deleteFile', 'Delete file'),
@@ -5306,10 +5570,27 @@
 		state.busy = 'save';
 		renderSaveBar();
 
+		/*
+		 * Taken before the request so a second save cannot send them twice, and only
+		 * acted on once the record removal has actually landed.
+		 */
+		var doomedFiles = state.pendingFileDeletes.slice();
+
+		state.pendingFileDeletes = [];
+
 		request('/families', { method: 'POST', body: { families: state.families } })
 			.then(function (next) {
 				applyState(next);
 				setStatus(s('saved', 'Fonts saved.'));
+
+				return doomedFiles.reduce(function (chain, name) {
+					return chain.then(function () {
+						return request('/files/delete', { method: 'POST', body: { filename: name } })
+							.then(applyState)
+							// A file already gone is not a failure worth stopping for.
+							.catch(function () {});
+					});
+				}, Promise.resolve());
 			})
 			.catch(fail)
 			.then(function () {
@@ -5319,6 +5600,9 @@
 	}
 
 	function reload() {
+		// Discard drops the queued deletions with everything else it discards.
+		state.pendingFileDeletes = [];
+
 		request('/state').then(function (next) {
 			applyState(next);
 			state.editing = null;
@@ -5784,7 +6068,7 @@
 
 		state.converting = file.name;
 		state.convertLog = [];
-		setStatus(s('converting', 'Converting…') + ' · ' + file.name, 'progress');
+		setStatus(s('converting', 'Converting to WOFF2…') + ' · ' + file.name, 'progress');
 		render();
 
 		var stored;
@@ -5914,7 +6198,7 @@
 				var converting = state.convert && converterAvailable() && convertible(file.name);
 
 				setStatus(
-					(converting ? s('converting', 'Converting…') : s('uploading', 'Uploading…')) +
+					(converting ? s('converting', 'Converting to WOFF2…') : s('uploading', 'Uploading…')) +
 					' ' + (done + 1) + '/' + files.length + ' · ' + file.name,
 					'progress'
 				);
@@ -5979,7 +6263,10 @@
 		// Deleting bytes is not reversible, so it is always confirmed.
 		askConfirm({
 			title: s('cleanupTitle', 'Unused files'),
-			message: s('cleanupConfirm', 'Delete these font files from the server?'),
+			// The same warning: this one deletes files too, and said so no more
+			// clearly than the single-file delete did.
+			message: s('cleanupConfirm', 'Delete these font files from the server?') + '\n' +
+				s('confirmPermanent', 'The Trash holds families, not files, so this cannot be undone.'),
 			list: unused.map(function (file) { return file.name; }),
 			confirm: s('deleteAction', 'Delete'),
 			danger: true

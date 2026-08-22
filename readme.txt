@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 0.28.0
+Stable tag: 0.29.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,18 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 0.29.0 =
+* Fixed: importing a configuration exported without the font files produced families that looked installed and loaded nothing. The stylesheet no longer writes rules for files that are not on the server, and any family missing its files now says so in the Library.
+* Fixed: the Google Fonts search dropped characters and threw the cursor backwards if you kept typing while it searched.
+* Fixed: the "None" button in Export did nothing. Deselecting the last family silently reselected them all.
+* Fixed: the cross in the clear button sat off centre in the Library filter and the Google Fonts search, and stayed dim when hovered.
+* Confirmation dialogs now match Etch's own, including the icon in the heading and two equal buttons across the foot.
+* A confirmation that lists file names now shows them as a list rather than as more sentences.
+* Unused files in Import & export are shown in a proper block instead of unstyled text.
+* The save bar says what is unsaved -- which family, and what changed about it -- instead of "Unsaved changes", and Discard no longer competes with Save fonts.
+* The family name in the type tester gets the same heading rule as every other heading.
+* Primary buttons hover to Etch's --e-base-light.
 
 = 0.28.0 =
 * The Width and Weight sliders in the type tester have been rebuilt to match Etch's own slider, and are no longer painted in the accent colour.

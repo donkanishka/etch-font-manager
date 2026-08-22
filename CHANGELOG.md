@@ -2,6 +2,96 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.29.0
+
+A fifth pass over the interface, and four bugs. Two of the four were reported as something looking wrong
+rather than as something being broken, which is how the loading fault and the search fault were found at all.
+
+### Added
+
+- **The save bar says what is unsaved.** "Unsaved changes" reported a state the bar's own presence already
+  announced, when the thing worth knowing before pressing either button is what is about to be saved or thrown
+  away. The panel now keeps a stringified copy of what the server last confirmed and diffs against it, which is
+  how Etch tracks its own unsaved state: every one of its stores holds a serialised snapshot and compares it
+  against the live object.
+
+  The diff reads in words: `Inter renamed to Inter Tight`, `Inter gained 1 variant`, `Roboto moved to trash`,
+  `Lora disabled`, `Sekuya added`. Two are named in the bar and the rest counted, with the whole list on the
+  label's tooltip. An empty diff falls back to the old wording, which is what `state.dirty` can still produce
+  after an edit is undone by hand.
+
+- **A family whose files are not on the server says so**, as a badge on its Library card naming the files and
+  what to do about them. `/state` gained a `missing` list for it.
+
+### Fixed
+
+- **A configuration loaded without its font files produced a family that looked installed and loaded nothing.**
+  `build_css()` wrote an `@font-face` for every mapped file without checking the file was there, and an export
+  with the files unbundled carries the mapping and none of the bytes. A rule pointing at a 404 is worse than no
+  rule: it declares the family, so the browser accepts `font-family` and then falls back silently, which looks
+  correct in a browser already holding the face and wrong in a clean profile, incognito included.
+  `preload_files()` had the same gap and emitted a `<link rel=preload>` at the same missing URL.
+
+  Both now go through one `file_present()` guard, on the existing `path_is_inside()` check.
+
+- **The Google Fonts search dropped characters and threw the caret backwards.** `state.query` was only assigned
+  inside the debounce, so it trailed the field, and every render rebuilds the input from `state.query`. A search
+  fires two renders, one for the skeleton and one for the results, so anything typed during the debounce or the
+  round trip was overwritten. Simulated on a realistic burst, typing `seku`, pausing, then typing `ya` while the
+  request is in flight, the field ended as **`seku`** with the caret pulled from 6 back to 4.
+
+  The read is now immediate and only the search is deferred. The Library filter and the preview text field had
+  the same shape and were brought into line. The debounce was also being rebuilt inside the handler on every
+  render, so a timer pending on a discarded input could still fire and race its replacement; there is now one
+  per concern for the session.
+
+- **"None" in Export did nothing.** `state.exportPick` started as `[]` and empty was read back as "every
+  family", so the button set the list empty and the next render turned that straight back into all of them.
+  Deselecting the last family by hand did the same. `null` now means "not chosen yet" and an empty array means
+  none. `exportConfig()` conflated the two as well, so even a held selection of nothing would have downloaded
+  everything; it now refuses, and the button is disabled in that state.
+
+- **The cross in a clear button sat off centre and never brightened**, in the Library filter and the Google
+  Fonts search but not the preview text field. `.efm-search svg` was a descendant selector, and the clear button
+  inside that wrapper carries an icon of its own, so the rule meant for the magnifier caught the cross too:
+  absolutely positioned 8px from the button's left edge, which is 5px off centre in a 20px box, with its colour
+  pinned to the muted token so the button's hover never reached it. Measured on a live builder, offset 8 against
+  the preview field's 3. All three now sit at 3 and reach `rgb(225,225,229)`.
+
+### Changed
+
+- **Confirmation dialogs are Etch's, properly.** Measured from `.confirm-dialog` in the builder bundle rather
+  than approximated from a screenshot: an 18px radius behind a 1px border, the icon beside a centred title, the
+  message centred at three quarters opacity, and two buttons of equal width filling the foot. The destructive
+  answer takes the danger colour at a fifth of an alpha behind a full-strength danger border, with near-white
+  words and only the glyph in danger, so the border and the icon carry the warning and the label stays readable.
+
+- **A dialog that lists file names shows them as a list.** The unused-files confirmation built its body by
+  concatenating the question, two newlines and the names, so every line came out as an identical centred
+  paragraph. `askConfirm()` takes a `list` separately now.
+
+- **Unused files in Import & export are in that same block.** They were a `ul.efm-files` whose classes carry no
+  CSS at all, so the one machine-written list in the panel was the only thing set as body copy. The report shown
+  after loading a configuration had the same fault. All three now use one `.efm-filewell`: monospace on the
+  sunken well, hugging its longest line, capped in height.
+
+- **Primary buttons hover to `--e-base-light`**, with a divider-coloured border so they keep their edges inside
+  a section box, which is filled with that same value, and a near-white label in place of the pane colour that
+  only reads on the accent.
+
+- **The family name in the type tester is a heading.** It was 13/500 with no rule, the only heading in the
+  manager without a band, so the designers and chips under it read as a continuation of the name.
+
+- **Discard is a ghost.** It and Save fonts were two boxes of near-equal mass, reading as a choice between
+  equals when one of them throws work away. The label takes the row so the pair sits together at the end.
+
+### Translators
+
+Thirteen new strings: eleven for the save bar's vocabulary (`moreLabel`, `changeAdded`, `changeRemoved`,
+`changeRenamed`, `changeEdited`, `changeEnabled`, `changeDisabled`, `changeTrashed`, `changeRestored`,
+`changeGained`, `changeLost`) and two for the missing-files badge (`missingLabel`, `missingNotice`). Nothing was
+removed or renamed.
+
 ## 0.28.0
 
 The type tester's variable axes rebuilt around Etch's own slider, and nine more faults found by pointing at the

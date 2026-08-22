@@ -1,10 +1,10 @@
 {
-  "version": "0.29.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.29.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.29.0",
+  "version": "0.30.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.30.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.30.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
   "date": "2026-08-22",
-  "notes": "Fixes a family loading nothing after a configuration is brought in without its font files, a Google Fonts search that dropped characters as you typed, and the None button in Export. Confirmation dialogs now match Etch’s own, and the save bar says which family changed instead of just “Unsaved changes”."
+  "notes": "Stops a font being converted to WOFF2 twice, and fixes a generated CSS preview that labelled every file as WOFF2 whatever it was. Deleting a family for good can now remove its font files too, the Fallback stack field is the panel’s own menu instead of the browser’s, and confirmations that delete files say plainly that the Trash holds families, not files."
 }

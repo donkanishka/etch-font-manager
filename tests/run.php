@@ -310,6 +310,25 @@ $efm_legacy = EFM_Fonts::sanitize_families( array( array( 'name' => 'Legacy', 'v
 efm_is( true, $efm_legacy[0]['enabled'], 'a family with no enabled flag defaults to enabled' );
 efm_is( false, $efm_legacy[0]['trashed'], 'a family with no trashed flag defaults to not trashed' );
 efm_ok( ! isset( $efm_legacy[0]['google'] ), 'no google block is added to a non-google family' );
+efm_is( 'upload', $efm_legacy[0]['source'], 'a family with no google block is recorded as an upload' );
+
+/* -------------------------------------------------------------------------
+ * Where a family came from.
+ * ---------------------------------------------------------------------- */
+
+efm_is( 'google', $efm_clean[0]['source'], 'a google block makes the family a google install' );
+
+$efm_stated = EFM_Fonts::sanitize_families(
+	array(
+		array( 'name' => 'Stated', 'variants' => array(), 'source' => 'upload' ),
+		array( 'name' => 'Bogus', 'variants' => array(), 'source' => 'sideloaded' ),
+	)
+);
+
+efm_is( 'upload', $efm_stated[0]['source'], 'an explicit origin survives' );
+efm_is( 'upload', $efm_stated[1]['source'], 'an origin the plugin does not know is derived instead' );
+efm_is( 'google', EFM_Fonts::derive_source( array( 'google' => array( 'subsets' => array( 'latin' ) ) ) ), 'a raw google block derives google' );
+efm_is( 'upload', EFM_Fonts::derive_source( array() ), 'a record with nothing to go on derives upload' );
 
 /* ---------------------------------------------------------------------- */
 

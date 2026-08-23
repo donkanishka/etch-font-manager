@@ -34,7 +34,7 @@
 		 * lets the save bar name which families changed instead of only saying that
 		 * something did.
 		 */
-		saved: JSON.stringify((cfg.state && cfg.state.families) || []),
+		saved: fingerprint((cfg.state && cfg.state.families) || []),
 		files: (cfg.state && cfg.state.files) || [],
 		settings: (cfg.state && cfg.state.settings) || {},
 		cssUrl: (cfg.state && cfg.state.cssUrl) || '',
@@ -63,7 +63,6 @@
 		importReport: null,
 		busy: '',
 		status: null,
-		dirty: false,
 		subsets: {},
 		cuts: {},
 		pruning: false,
@@ -436,6 +435,202 @@
 	}
 
 	/**
+	 * Where a family's font files came from.
+	 *
+	 * Mirrors EFM_Fonts::derive_source(), because a record the editor has only
+	 * held in memory has to fingerprint the same as the one the server sends
+	 * back. The Google block is the signal; nothing but the installer writes
+	 * one, and anything without it reached the fonts folder through the
+	 * uploader.
+	 *
+	 * @param {Object} family Family record.
+	 * @return {string} 'google' or 'upload'.
+	 */
+	function familySource(family) {
+		var source = family && family.source;
+
+		if ('google' === source || 'upload' === source) {
+			return source;
+		}
+
+		return family && family.google && Object.keys(family.google).length ? 'google' : 'upload';
+	}
+
+	/**
+	 * Whether a family's files can be downloaded from Google again.
+	 *
+	 * @param {Object} family Family record.
+	 * @return {boolean} True for a Google Fonts install.
+	 */
+	function fromGoogle(family) {
+		return 'google' === familySource(family);
+	}
+
+	/**
+	 * A value with its object keys in a fixed order.
+	 *
+	 * Two records that mean the same thing have to serialise the same way, and
+	 * raw JSON does not promise that: key order follows insertion, so a family
+	 * the server sent and the same family after the editor has rebuilt part of
+	 * it can differ by nothing but the order of the keys.
+	 *
+	 * @param {*} value Anything.
+	 * @return {*} The same value with every object key sorted.
+	 */
+	function canonical(value) {
+		if (Array.isArray(value)) {
+			return value.map(canonical);
+		}
+
+		if (value && 'object' === typeof value) {
+			return Object.keys(value).sort().reduce(function (out, key) {
+				if (undefined !== value[key]) {
+					out[key] = canonical(value[key]);
+				}
+
+				return out;
+			}, {});
+		}
+
+		return value;
+	}
+
+	/**
+	 * A family reduced to the shape the server stores it in.
+	 *
+	 * Absent is not the same as default in a stored record: a family saved
+	 * before `enabled` existed carries no such key, while anything the editor
+	 * has touched carries `enabled: true`. Both mean enabled, and comparing
+	 * them as they stand reads as an edit that never happened. The defaults
+	 * applied here mirror EFM_Fonts::sanitize_families(), so a record and its
+	 * round trip through the server compare equal.
+	 *
+	 * @param {Object} family Family record.
+	 * @return {Object} Canonical copy.
+	 */
+	function normalizeFamily(family) {
+		var source = family || {};
+		var out = canonical(source);
+
+		out.name = String(source.name || '');
+		out.source = familySource(source);
+		out.variants = (source.variants || []).map(function (variant) {
+			var cut = {
+				file: String(variant.file || ''),
+				style: 'italic' === variant.style ? 'italic' : 'normal',
+				weight: String(variant.weight || '400')
+			};
+
+			if (variant.subset) {
+				cut.subset = String(variant.subset);
+			}
+
+			if (variant.range) {
+				cut.range = String(variant.range);
+			}
+
+			return canonical(cut);
+		});
+		out.display = String(source.display || 'swap');
+		out.preload = !!source.preload;
+		out.fallback = String(source.fallback || '');
+		out.selector = String(source.selector || '');
+		out.force = !!source.force;
+		out.enabled = isEnabled(source);
+		out.trashed = !!source.trashed;
+
+		// The server drops an empty Google block rather than storing one.
+		if (!out.google || !Object.keys(out.google).length) {
+			delete out.google;
+		}
+
+		return canonical(out);
+	}
+
+	/**
+	 * The whole library as one comparable string.
+	 *
+	 * @param {Array} list Families.
+	 * @return {string} Canonical JSON.
+	 */
+	function fingerprint(list) {
+		return JSON.stringify((list || []).map(normalizeFamily));
+	}
+
+	/**
+	 * Whether anything is waiting to be saved.
+	 *
+	 * Derived, never stored. A boolean set at each of the twenty points that
+	 * edit a family could only ever be switched on: undo an edit by hand and
+	 * the flag stayed true, so the save bar sat lit over a diff that had
+	 * nothing in it. The snapshot already says what the server holds, so the
+	 * comparison is the answer and the flag was only ever a guess at it.
+	 *
+	 * @return {boolean} True when the buffer differs from the last save.
+	 */
+	function isDirty() {
+		if (state.pendingFileDeletes.length) {
+			return true;
+		}
+
+		return fingerprint(state.families) !== state.saved;
+	}
+
+	/**
+	 * Run something that rewrites the stored family list, without losing the buffer.
+	 *
+	 * The Google installer and the WOFF2 converter both work server-side from the
+	 * stored option rather than from what the panel is holding: install() reads
+	 * EFM_Fonts::families(), rewrites one family and saves the lot, and the
+	 * applyState() that follows replaces the buffer with the result. So an unsaved
+	 * edit anywhere in the panel is gone.
+	 *
+	 * The converter has asked about this since it was written. The installer never
+	 * did, which meant choosing a different set of weights on a family -- or any
+	 * install at all, since all three call sites share this -- discarded every
+	 * unsaved edit without saying so.
+	 *
+	 * Saving is offered alongside discarding because the two were never really
+	 * exclusive: the edits can go to the server first and the action can then run
+	 * on top of them.
+	 *
+	 * @param {string}   note   What the action is about to do.
+	 * @param {Function} action Runs once the buffer is safe.
+	 */
+	function withSavedBuffer(note, action) {
+		if (!isDirty()) {
+			action();
+
+			return;
+		}
+
+		/*
+		 * Two answers, not three. Abandoning the edits in order to install is a
+		 * combination almost nobody wants, and offering it here put a third button
+		 * on a dialog to serve it. Anyone who does want it discards on the save bar
+		 * first, which is one deliberate click in the place discard lives.
+		 */
+		askConfirm({
+			title: s('unsavedChanges', 'Unsaved changes'),
+			icon: 'undo',
+			message: note,
+			confirm: s('saveFirst', 'Save first')
+		}).then(function (answer) {
+			if ('confirm' !== answer) {
+				return;
+			}
+
+			// Only once the save has landed: running on top of a failed write would
+			// be the silent overwrite this exists to prevent.
+			saveFamilies().then(function (saved) {
+				if (saved) {
+					action();
+				}
+			});
+		});
+	}
+
+	/**
 	 * What differs from the last saved copy, family by family.
 	 *
 	 * Matched by name, so a rename reads as one gone and one arrived. When that
@@ -485,7 +680,7 @@
 				return;
 			}
 
-			if (JSON.stringify(prior) === JSON.stringify(family)) {
+			if (JSON.stringify(normalizeFamily(prior)) === JSON.stringify(normalizeFamily(family))) {
 				return;
 			}
 
@@ -710,7 +905,7 @@
 			return;
 		}
 		state.families = next.families || [];
-		state.saved = JSON.stringify(next.families || []);
+		state.saved = fingerprint(next.families || []);
 		state.files = next.files || [];
 		state.settings = next.settings || {};
 		state.cssUrl = next.cssUrl || state.cssUrl;
@@ -718,7 +913,6 @@
 		state.unused = next.unused || [];
 		state.missing = next.missing || [];
 		state.cssBuilt = next.cssBuilt || 0;
-		state.dirty = false;
 		refreshFontCss();
 	}
 
@@ -904,9 +1098,10 @@
 		contentEl = el('div', { class: 'efm-content' });
 
 		/*
-		 * The buffer is the whole panel's, not one pane's: nineteen different
-		 * edits set the dirty flag, across the family editor, the library cards
-		 * and the trash, and saving posts every family in one request. So this is
+		 * The buffer is the whole panel's, not one pane's: twenty different
+		 * edits change the family list, across the family editor, the library
+		 * cards and the trash, and saving posts every family in one request. So
+		 * this is
 		 * one bar for the panel, pinned at its foot where the work is, rather than
 		 * a button per section that would claim to save only that section.
 		 */
@@ -1064,6 +1259,30 @@
 			}
 		});
 
+		/*
+		 * The buffer lives as long as the page and no longer. Closing the panel keeps
+		 * it; reloading the builder, navigating away or closing the tab drops it, and
+		 * that happened without a word.
+		 *
+		 * Etch guards its own work exactly here -- one beforeunload checking five of
+		 * its stores -- and this panel is not one of them, so its unsaved changes had
+		 * no guard at all. Registered in build() rather than at boot, because the
+		 * panel has to have been opened for there to be anything to lose.
+		 *
+		 * Current browsers show their own wording and ignore the string; it is set
+		 * for the older ones that still read it.
+		 */
+		window.addEventListener('beforeunload', function (event) {
+			if (!isDirty()) {
+				return undefined;
+			}
+
+			event.preventDefault();
+			event.returnValue = s('confirmLeave', 'You have unsaved font changes.');
+
+			return event.returnValue;
+		});
+
 		document.body.appendChild(manager);
 	}
 
@@ -1153,26 +1372,20 @@
 	 * focus back, which is the case that actually needs it.
 	 */
 	function close(restoreFocus) {
-		if (state.dirty) {
-			askConfirm({
-				title: s('unsavedChanges', 'Unsaved changes'),
-				icon: 'undo',
-				message: s('confirmDiscard', 'You have unsaved font changes. Close and discard them?'),
-				confirm: s('discardAndClose', 'Discard and close'),
-				danger: true
-			}).then(function (yes) {
-				if (!yes) {
-					return;
-				}
-
-				state.dirty = false;
-				reload();
-				shutPanel(restoreFocus);
-			});
-
-			return;
-		}
-
+		/*
+		 * Closing is not destructive and never was. shutPanel() hides the DOM and
+		 * flips a flag; open() re-renders from the same state object without
+		 * re-fetching. So the buffer survives a close, the save bar is still lit
+		 * when the panel comes back, and there is nothing here to confirm.
+		 *
+		 * This used to ask, and the only way out it offered besides staying was to
+		 * throw the work away -- a destructive answer to a harmless question. The
+		 * real risk is leaving the page, which drops the buffer with it, so the
+		 * warning moved to the beforeunload in build(), where that actually happens.
+		 * Discard keeps its home on the save bar, where it sits beside the message
+		 * naming what changed and is chosen deliberately rather than offered as the
+		 * way out of a dialog.
+		 */
 		shutPanel(restoreFocus);
 	}
 
@@ -1200,7 +1413,7 @@
 	}
 
 	/**
-	 * Ask a yes or no question in a dialog of the panel's own.
+	 * Ask a question in a dialog of the panel's own.
 	 *
 	 * window.confirm() draws the browser's dialog: system chrome, system type,
 	 * the site's hostname above it, and no relation to the builder it interrupts.
@@ -1211,17 +1424,34 @@
 	 * Answering is asynchronous, unlike window.confirm, so callers take the
 	 * answer from the promise rather than from a return value.
 	 *
+	 * The answer is a name rather than a boolean. It costs nothing and it reads at
+	 * the call site: 'confirm' === answer says which way the question went, where a
+	 * bare truthy value only says that it went somewhere.
+	 *
 	 * @param {object} config
-	 *   title   Heading.
-	 *   message Body text. Blank lines split it into paragraphs.
-	 *   confirm Label for the affirmative button.
-	 *   danger  Whether that button destroys something.
-	 * @return {Promise<boolean>} True when confirmed.
+	 *   title    Heading.
+	 *   message  Body text. Blank lines split it into paragraphs.
+	 *   confirm  Label for the affirmative button.
+	 *   danger   Whether that button destroys something on the server.
+	 *   mark     Elements to flag as the target while the question is up.
+	 * @return {Promise<string>} 'confirm' or 'cancel'.
 	 */
 	function askConfirm(config) {
 		return new Promise(function (resolve) {
 			var previous = document.activeElement;
 			var overlay = el('div', { class: 'efm-dialog-overlay' });
+
+			/*
+			 * What the answer is about, marked behind the dialog for as long as it is
+			 * up. Etch's Asset Manager does this, and it is what makes a question
+			 * saying "this family" checkable rather than something to take on trust.
+			 * Cleared in finish(), whichever way the question goes.
+			 */
+			var marked = (config.mark || []).filter(Boolean);
+
+			marked.forEach(function (node) {
+				node.classList.add('efm-doomed');
+			});
 			var body = el('div', { class: 'efm-dialog__body' });
 
 			String(config.message || '').split('\n').forEach(function (line) {
@@ -1272,21 +1502,36 @@
 			 */
 			var glyph = config.icon || (config.danger ? 'trash' : null);
 
+			/*
+			 * The two levels Etch's own dialog has. Red is reserved for the four
+			 * questions that remove something from the server; everything else takes
+			 * the accent, which a dialog can afford because it holds exactly one
+			 * affirmative action.
+			 */
+			var tone = config.danger ? 'danger' : 'primary';
+
 			var cancel = el('button', {
 				type: 'button',
 				class: 'efm-dialog__btn efm-dialog__btn--cancel',
 				text: s('cancel', 'Cancel'),
-				onclick: function () { finish(false); }
+				onclick: function () { finish('cancel'); }
 			});
 
 			var accept = el('button', {
 				type: 'button',
-				class: 'efm-dialog__btn ' + (config.danger ? 'efm-dialog__btn--danger' : 'efm-dialog__btn--primary'),
-				onclick: function () { finish(true); }
+				class: 'efm-dialog__btn efm-dialog__btn--' + tone,
+				onclick: function () { finish('confirm'); }
 			}, [
-				config.danger && glyph ? icon(glyph, 'sm') : null,
+				'primary' !== tone && glyph ? icon(glyph, 'sm') : null,
 				el('span', { text: config.confirm || s('continue', 'Continue') })
 			]);
+
+			/*
+			 * Visual order, and the order Tab walks. Every dialog in the panel is two
+			 * answers, which is what Etch's own .confirm-dialog renders: a question with
+			 * three ways out is usually two questions wearing one coat.
+			 */
+			var answers = [cancel, accept];
 
 			var dialog = el('div', {
 				class: 'efm-dialog',
@@ -1295,13 +1540,13 @@
 				'aria-label': config.title || ''
 			}, [
 				el('div', {
-					class: 'efm-dialog__header' + (config.danger ? ' efm-dialog__header--danger' : '')
+					class: 'efm-dialog__header' + ('primary' === tone ? '' : ' efm-dialog__header--' + tone)
 				}, [
 					glyph ? icon(glyph, 'sm') : null,
 					el('h2', { class: 'efm-dialog__title', text: config.title || '' })
 				]),
 				body,
-				el('div', { class: 'efm-dialog__actions' }, [cancel, accept])
+				el('div', { class: 'efm-dialog__actions' }, answers)
 			]);
 
 			function onKey(event) {
@@ -1310,7 +1555,7 @@
 					// close the whole panel underneath the question.
 					event.stopPropagation();
 					event.preventDefault();
-					finish(false);
+					finish('cancel');
 					return;
 				}
 
@@ -1319,20 +1564,29 @@
 				}
 
 				/*
-				 * Two buttons, so the trap is just the pair of them. Stopped as well
-				 * as prevented: the panel keeps its own focus trap, and since the
-				 * dialog is the last thing in it, that trap would see focus land on
-				 * the final control and send it back to the panel's first one.
+				 * The buttons are the whole trap, walked in visual order and wrapping at
+				 * both ends. Stopped as well as prevented: the panel keeps its own focus
+				 * trap, and since the dialog is the last thing in it, that trap would see
+				 * focus land on the final control and send it back to the panel's first
+				 * one.
 				 */
 				event.preventDefault();
 				event.stopPropagation();
-				(document.activeElement === accept ? cancel : accept).focus();
+
+				var at = answers.indexOf(document.activeElement);
+				var step = event.shiftKey ? -1 : 1;
+
+				answers[(at + step + answers.length) % answers.length].focus();
 			}
 
 			function finish(answer) {
 				document.removeEventListener('keydown', onKey, true);
 				overlay.remove();
 				dialog.remove();
+
+				marked.forEach(function (node) {
+					node.classList.remove('efm-doomed');
+				});
 
 				if (previous && previous.focus) {
 					previous.focus({ preventScroll: true });
@@ -1341,7 +1595,7 @@
 				resolve(answer);
 			}
 
-			overlay.addEventListener('click', function () { finish(false); });
+			overlay.addEventListener('click', function () { finish('cancel'); });
 			document.addEventListener('keydown', onKey, true);
 
 			(manager || document.body).appendChild(overlay);
@@ -1777,7 +2031,7 @@
 	function renderSaveBar() {
 		saveBarEl.innerHTML = '';
 
-		if (!state.dirty) {
+		if (!isDirty()) {
 			saveBarEl.setAttribute('hidden', '');
 			return;
 		}
@@ -2376,30 +2630,83 @@
 	 */
 	function suggestField(config) {
 		var open = state.openMenu === config.key;
-		var focusKey = 'suggest-' + config.key;
+		var menuId = 'efm-suggest-' + config.key;
+
+		/*
+		 * Picking a suggestion puts the caret back in the field rather than on the
+		 * arrow. The field is where the work is -- a stack is often edited after a
+		 * suggestion rather than accepted whole -- and the caller has already given
+		 * the input a key for surviving the re-render, so reusing it means the two
+		 * cannot drift apart. The input sits before the menu in the wrapper, so it
+		 * is what the restore finds first.
+		 */
+		var focusKey = config.input.getAttribute('data-efm-focus') || 'suggest-' + config.key;
+
+		/*
+		 * Opening from the field never closes it again. Etch's combobox binds one
+		 * handler to the input for exactly this -- `open || setOpen(true)`, read
+		 * off the builder bundle -- and the reason is that a click inside free text
+		 * is usually aimed at the caret: toggling there would shut the list on the
+		 * second attempt to position it. The arrow keeps the toggle.
+		 *
+		 * @param {boolean} enter Move focus into the list rather than leaving it in
+		 *                        the field.
+		 */
+		function openSuggestions(enter) {
+			if (state.openMenu !== config.key) {
+				state.openMenu = config.key;
+				render();
+			}
+
+			revealMenu(config.key, !enter);
+		}
+
+		/*
+		 * The whole field is the trigger, so the input carries the combobox role
+		 * and the expanded state, and the arrow is a pointer affordance rather than
+		 * a second tab stop. That is the editable-combobox-with-button pattern, and
+		 * it is what Etch does: its arrow lives in a bare `all: unset` trigger while
+		 * the input holds role="combobox" and aria-autocomplete="list".
+		 */
+		config.input.setAttribute('role', 'combobox');
+		config.input.setAttribute('aria-expanded', open ? 'true' : 'false');
+		config.input.setAttribute('aria-controls', menuId);
+		config.input.setAttribute('aria-autocomplete', 'list');
+
+		config.input.addEventListener('click', function () {
+			openSuggestions(false);
+		});
+
+		config.input.addEventListener('keydown', function (event) {
+			if ('ArrowDown' !== event.key) {
+				return;
+			}
+
+			// The documented way into a combobox list from the keyboard, and the
+			// reason the arrow does not need to be tabbable.
+			event.preventDefault();
+			openSuggestions(true);
+		});
 
 		var toggle = el('button', {
 			type: 'button',
-			class: 'efm-combo__toggle' + (open ? ' is-open' : ''),
-			'aria-haspopup': 'listbox',
-			'aria-expanded': open ? 'true' : 'false',
+			class: 'efm-combo__toggle',
+			tabindex: '-1',
 			'aria-label': config.label,
-			'data-efm-focus': focusKey,
 			onclick: function () {
-				if (open) {
-					closeMenu(true);
+				if (state.openMenu === config.key) {
+					closeMenu(false);
 
 					return;
 				}
 
-				state.openMenu = config.key;
-				render();
-				revealMenu(config.key);
+				openSuggestions(false);
 			}
 		}, [icon('chevronDown', 'sm')]);
 
 		var menu = el('div', {
 			class: 'efm-popover efm-select__menu',
+			id: menuId,
 			role: 'listbox',
 			'aria-label': config.label,
 			'data-efm-menu': config.key,
@@ -2563,7 +2870,7 @@
 		}
 	}
 
-	function revealMenu(key) {
+	function revealMenu(key, keepFocus) {
 		var menu = manager.querySelector('[data-efm-menu="' + key + '"]');
 
 		if (!menu) {
@@ -2580,6 +2887,16 @@
 
 		if (box.bottom > pane.bottom && box.height < pane.height) {
 			menu.classList.add('is-above');
+		}
+
+		/*
+		 * A combobox opened by clicking its own field keeps the caret there: the
+		 * point of suggesting rather than constraining is that you can carry on
+		 * typing with the list up. Every other caller wants the list to take focus,
+		 * so that stays the default.
+		 */
+		if (keepFocus) {
+			return;
 		}
 
 		var target = menu.querySelector('.efm-select__option.is-on') || menu.querySelector('.efm-select__option');
@@ -2727,7 +3044,6 @@
 		var family = state.families[index];
 
 		family.enabled = enabled;
-		state.dirty = true;
 		render();
 	}
 
@@ -2742,7 +3058,6 @@
 
 		family.trashed = true;
 		state.editing = null;
-		state.dirty = true;
 		render();
 	}
 
@@ -2796,7 +3111,6 @@
 					state.families.forEach(function (family) {
 						family.trashed = false;
 					});
-					state.dirty = true;
 					render();
 				}
 			}, [icon('undo', 'sm'), el('span', { text: s('restoreAll', 'Restore all') + ' (' + inTrash.length + ')' })]),
@@ -2813,11 +3127,26 @@
 					});
 
 					var orphans = orphanedBy(doomed);
-					var also = { checked: false };
+
+					/*
+					 * Ticked for the user only when every family going is a Google
+					 * install, because that is the case where the files are a click
+					 * from coming back. One uploaded family in the selection and the
+					 * offer goes back to being off, since the buttons delete the
+					 * whole list either way.
+					 */
+					var recoverable = doomed.every(function (at) {
+						return fromGoogle(state.families[at]);
+					});
+					var also = { checked: orphans.length ? recoverable : false };
 
 					askConfirm({
+						// Every card in the trash view, which is the whole of what goes.
+						mark: Array.prototype.slice.call(contentEl.querySelectorAll('.efm-card')),
 						title: s('emptyTrash', 'Empty trash'),
-						message: s('confirmEmptyTrash', 'Delete every family in the trash for good? Their font files stay on the server and can be removed from Import & export.'),
+						message: recoverable
+							? s('confirmEmptyTrashGoogle', 'Delete every family in the trash for good? Their font files can be downloaded from Google Fonts again.')
+							: s('confirmEmptyTrash', 'Delete every family in the trash for good? Their font files stay on the server and can be removed from Import & export.'),
 						confirm: s('deleteAction', 'Delete'),
 						danger: true,
 						checkbox: orphans.length ? {
@@ -2826,8 +3155,8 @@
 								orphans.length + ' ' + plural(orphans.length, s('fileSingular', 'file'), s('filesLower', 'files')) +
 								' \u00b7 ' + formatSize(sizeOfFiles(orphans))
 						} : null
-					}).then(function (yes) {
-						if (!yes) {
+					}).then(function (answer) {
+						if ('confirm' !== answer) {
 							return;
 						}
 
@@ -2849,7 +3178,6 @@
 			return !isTrashed(family);
 		});
 		state.editing = null;
-		state.dirty = true;
 		render();
 	}
 
@@ -2872,7 +3200,6 @@
 							class: 'efm-btn efm-btn--outline efm-btn--sm',
 							onclick: function () {
 								family.trashed = false;
-								state.dirty = true;
 								render();
 							}
 						}, [icon('undo', 'sm'), el('span', { text: s('restoreFamily', 'Restore') })]),
@@ -2881,21 +3208,27 @@
 							class: 'efm-icon-btn efm-icon-btn--danger efm-tooltip efm-tooltip--end',
 							'aria-label': s('deleteFamily', 'Delete permanently'),
 							'data-efm-tooltip': s('deleteFamily', 'Delete permanently'),
-							onclick: function () {
+							onclick: function (event) {
 								var orphans = orphanedBy([index]);
-								var also = { checked: false };
+								var recoverable = fromGoogle(family);
+								var also = { checked: orphans.length ? recoverable : false };
 
 								askConfirm({
+									// Read off the event rather than captured, so the card
+									// this button actually sits in is the one marked.
+									mark: [event.currentTarget.closest('.efm-card')],
 									title: s('deleteFamily', 'Delete permanently'),
-									message: s('confirmDeleteFamily', 'Delete this family for good? Its font files stay on the server and can be removed from Import & export.'),
+									message: recoverable
+										? s('confirmDeleteFamilyGoogle', 'Delete this family for good? Its font files can be downloaded from Google Fonts again.')
+										: s('confirmDeleteFamily', 'Delete this family for good? Its font files stay on the server and can be removed from Import & export.'),
 									confirm: s('deleteAction', 'Delete'),
 									danger: true,
 									/*
-									 * Offered rather than implied, and off by default. A
-									 * Google file is a click away from being downloaded
-									 * again; an uploaded one is often the only copy there
-									 * is, and the record does not know which it holds.
-									 * Only files no surviving family maps are listed.
+									 * Offered rather than implied. A Google file is a
+									 * click away from being downloaded again, so that
+									 * one is ticked; an uploaded one is often the only
+									 * copy there is, so that one is not. Only files no
+									 * surviving family maps are listed either way.
 									 */
 									checkbox: orphans.length ? {
 										state: also,
@@ -2903,8 +3236,8 @@
 											orphans.length + ' ' + plural(orphans.length, s('fileSingular', 'file'), s('filesLower', 'files')) +
 											' \u00b7 ' + formatSize(sizeOfFiles(orphans))
 									} : null
-								}).then(function (yes) {
-									if (!yes) {
+								}).then(function (answer) {
+									if ('confirm' !== answer) {
 										return;
 									}
 
@@ -2914,7 +3247,6 @@
 
 									state.families.splice(index, 1);
 									state.editing = null;
-									state.dirty = true;
 									render();
 								});
 							}
@@ -2922,7 +3254,12 @@
 					])
 				]),
 				el('div', { class: 'efm-card__meta' }, [
-					el('span', { text: variants.length + ' ' + plural(variants.length, s('variant', 'variant'), s('variants', 'variants')) })
+					el('span', { text: variants.length + ' ' + plural(variants.length, s('variant', 'variant'), s('variants', 'variants')) }),
+					// The delete below offers to take the files with it, so the
+					// one fact that decides the answer belongs on the card.
+					el('span', {
+						text: fromGoogle(family) ? s('googleSource', 'Google Fonts') : s('sourceUpload', 'Uploaded')
+					})
 				])
 			]));
 		});
@@ -3130,7 +3467,6 @@
 						value: family.name,
 						oninput: function (event) {
 							state.families[index].name = event.target.value;
-							state.dirty = true;
 							renderSaveBar();
 						}
 					})
@@ -3205,7 +3541,6 @@
 						weight: next && next.weight ? next.weight : '400',
 						style: next && next.style ? next.style : 'normal'
 					});
-					state.dirty = true;
 					render();
 				}
 			}, [icon('plus', 'sm'), el('span', { text: s('addVariant', 'Add variant') })])
@@ -3458,15 +3793,40 @@
 		}));
 
 		if (!google.variable) {
+			var installed = installedCuts(family);
+			var picked = state.cuts[family.name] || [];
+
+			/*
+			 * There is nothing to fetch when the selection is already what is on
+			 * disk, which for a family Google publishes at one weight is every time:
+			 * the button sat live on a family whose only possible outcome was
+			 * re-downloading identical files. The converter already reads this way,
+			 * going disabled and naming the file that holds the result.
+			 */
+			var unchanged = picked.length === installed.length && picked.every(function (cut) {
+				return installed.indexOf(cut) !== -1;
+			});
+
 			rows.push(el('button', {
 				type: 'button',
 				class: 'efm-btn efm-btn--outline',
-				disabled: busy || !(state.cuts[family.name] || []).length,
+				disabled: busy || !picked.length || unchanged,
 				text: busy ? s('installing', 'Installing…') : s('applyCuts', 'Download selection'),
 				onclick: function () {
 					installGoogleFont(family.name, subsets, false, state.cuts[family.name] || []);
 				}
 			}));
+
+			if (unchanged && !busy) {
+				rows.push(el('p', {
+					class: 'efm-field__hint',
+					// Why it cannot be pressed, which is the only thing worth saying
+					// once it is disabled.
+					text: available.length === installed.length
+						? s('cutsAllInstalled', 'Every weight Google publishes for this family is installed.')
+						: s('cutsUnchanged', 'Change the weights to download a different selection.')
+				}));
+			}
 		}
 
 		return el('div', { class: 'efm-delivery' }, rows);
@@ -3495,7 +3855,6 @@
 			}),
 			onselect: function (value) {
 				state.families[index].display = value;
-				state.dirty = true;
 				renderSaveBar();
 			}
 		});
@@ -3509,7 +3868,6 @@
 			value: family.fallback || '',
 			oninput: function (event) {
 				state.families[index].fallback = event.target.value;
-				state.dirty = true;
 				renderSaveBar();
 			}
 		});
@@ -3521,7 +3879,6 @@
 			options: FALLBACK_STACKS,
 			onpick: function (value) {
 				state.families[index].fallback = value;
-				state.dirty = true;
 				render();
 			}
 		});
@@ -3532,7 +3889,6 @@
 			checked: !!family.preload,
 			onchange: function (event) {
 				state.families[index].preload = event.target.checked;
-				state.dirty = true;
 				renderSaveBar();
 			}
 		});
@@ -3561,7 +3917,6 @@
 						value: family.selector || '',
 						oninput: function (event) {
 							state.families[index].selector = event.target.value;
-							state.dirty = true;
 							renderSaveBar();
 						}
 					}),
@@ -3575,7 +3930,6 @@
 					checked: !!family.force,
 					onchange: function (event) {
 						state.families[index].force = event.target.checked;
-						state.dirty = true;
 						render();
 					}
 				}),
@@ -3620,8 +3974,6 @@
 					target.weight = picked.weight;
 					target.style = picked.style || 'normal';
 				}
-
-				state.dirty = true;
 			}
 		});
 
@@ -3645,7 +3997,6 @@
 			}),
 			onselect: function (value) {
 				state.families[familyIndex].variants[variantIndex].weight = value;
-				state.dirty = true;
 			}
 		});
 
@@ -3659,7 +4010,6 @@
 			],
 			onselect: function (value) {
 				state.families[familyIndex].variants[variantIndex].style = value;
-				state.dirty = true;
 			}
 		});
 
@@ -3674,7 +4024,6 @@
 				'data-efm-tooltip': s('removeVariant', 'Remove variant'),
 				onclick: function () {
 					state.families[familyIndex].variants.splice(variantIndex, 1);
-					state.dirty = true;
 					render();
 				}
 			}, [icon('trash')])
@@ -3823,7 +4172,7 @@
 						class: 'efm-icon-btn efm-icon-btn--danger efm-tooltip efm-tooltip--end',
 						'aria-label': s('deleteFile', 'Delete file'),
 						'data-efm-tooltip': s('deleteFile', 'Delete file'),
-						onclick: function () {
+						onclick: function (event) {
 							var users = fileUsedBy(file.name);
 							var message = s('confirmDelete', 'Delete this file from the fonts folder?');
 
@@ -3843,12 +4192,14 @@
 							message += '\n\n' + s('confirmPermanent', 'The Trash holds families, not files, so this cannot be undone.');
 
 							askConfirm({
+								// The row it is unlinking, marked behind the question.
+								mark: [event.currentTarget.closest('.efm-table__row')],
 								title: s('deleteFile', 'Delete file'),
 								message: message,
 								confirm: s('deleteAction', 'Delete'),
 								danger: true
-							}).then(function (yes) {
-								if (yes) {
+							}).then(function (answer) {
+								if ('confirm' === answer) {
 									deleteFile(file.name);
 								}
 							});
@@ -5560,9 +5911,8 @@
 	/* ------------------------------- Actions ----------------------------- */
 
 	function addFamily() {
-		state.families.push({ name: s('newFamily', 'New family'), variants: [], display: 'swap', preload: false, fallback: '' });
+		state.families.push({ name: s('newFamily', 'New family'), variants: [], source: 'upload', display: 'swap', preload: false, fallback: '' });
 		state.editing = state.families.length - 1;
-		state.dirty = true;
 		render();
 	}
 
@@ -5576,9 +5926,16 @@
 		 */
 		var doomedFiles = state.pendingFileDeletes.slice();
 
+		/*
+		 * Reported rather than assumed. "Save and close" has to know whether the save
+		 * actually landed: closing the panel on a failed request would put the edits
+		 * out of reach behind a toast nobody is looking at any more.
+		 */
+		var saved = true;
+
 		state.pendingFileDeletes = [];
 
-		request('/families', { method: 'POST', body: { families: state.families } })
+		return request('/families', { method: 'POST', body: { families: state.families } })
 			.then(function (next) {
 				applyState(next);
 				setStatus(s('saved', 'Fonts saved.'));
@@ -5592,10 +5949,15 @@
 					});
 				}, Promise.resolve());
 			})
-			.catch(fail)
+			.catch(function (error) {
+				saved = false;
+				fail(error);
+			})
 			.then(function () {
 				state.busy = '';
 				render();
+
+				return saved;
 			});
 	}
 
@@ -6046,22 +6408,17 @@
 		}
 
 		/*
-		 * Repointing variants writes the family list back to the server, which
-		 * would take the saved version and drop anything edited but not saved. The
-		 * question is asked first, and the conversion runs from its answer.
+		 * Repointing variants writes the family list back to the server from the
+		 * stored copy, so anything edited but not saved would go. Same question the
+		 * installer asks, and the same two ways out of it.
 		 */
-		if (state.dirty) {
-			askConfirm({
-				title: s('convertFile', 'Convert to WOFF2'),
-				icon: 'compress',
-				message: s('convertDirty', 'Converting saves the family mapping. Unsaved changes will be discarded. Continue?'),
-				confirm: s('continue', 'Continue')
-			}).then(function (yes) {
-				if (yes) {
-					state.dirty = false;
+		if (isDirty()) {
+			withSavedBuffer(
+				s('confirmConvertDirty', 'Converting writes the family mapping to the server, which replaces anything unsaved in the panel.'),
+				function () {
 					convertExisting(file);
 				}
-			});
+			);
 
 			return;
 		}
@@ -6161,7 +6518,7 @@
 			});
 
 			if (!target) {
-				target = { name: wanted, variants: [], display: 'swap', preload: false, fallback: '' };
+				target = { name: wanted, variants: [], source: 'upload', display: 'swap', preload: false, fallback: '' };
 				state.families.push(target);
 				report.families.push(wanted);
 			}
@@ -6191,7 +6548,7 @@
 		var done = 0;
 		var stored = [];
 		// Whether anything was already waiting to be saved before this upload.
-		var hadEdits = state.dirty;
+		var hadEdits = isDirty();
 
 		files.forEach(function (file) {
 			chain = chain.then(function () {
@@ -6229,7 +6586,6 @@
 				return;
 			}
 
-			state.dirty = true;
 
 			if (added.families.length) {
 				message += ' · ' + s('addedToLibrary', 'added to the library') + ': ' + added.families.join(', ');
@@ -6270,8 +6626,8 @@
 			list: unused.map(function (file) { return file.name; }),
 			confirm: s('deleteAction', 'Delete'),
 			danger: true
-		}).then(function (yes) {
-			if (yes) {
+		}).then(function (answer) {
+			if ('confirm' === answer) {
 				prune();
 			}
 		});
@@ -6428,7 +6784,28 @@
 		return Math.max(1, Math.ceil((state.total || 0) / GOOGLE_PAGE_SIZE));
 	}
 
+	/**
+	 * Install or re-install a Google family.
+	 *
+	 * Guarded here rather than at the three call sites -- the browse card, the
+	 * specimen detail and the family editor's weight picker -- so a fourth cannot
+	 * be added without it.
+	 *
+	 * @param {string}   family   Family name.
+	 * @param {string[]} subsets  Chosen subsets.
+	 * @param {boolean}  variable Install the variable file.
+	 * @param {string[]} cuts     Chosen weights, ignored for a variable install.
+	 */
 	function installGoogleFont(family, subsets, variable, cuts) {
+		withSavedBuffer(
+			s('confirmInstallDirty', 'Installing writes this family to the server, which replaces anything unsaved in the panel.'),
+			function () {
+				runInstall(family, subsets, variable, cuts);
+			}
+		);
+	}
+
+	function runInstall(family, subsets, variable, cuts) {
 		state.busy = 'install:' + family;
 		setStatus(s('installing', 'Installing…') + ' ' + family, 'progress');
 		render();

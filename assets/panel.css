@@ -45,6 +45,7 @@
 	--efm-accent: var(--e-primary, #deff38);
 	--efm-danger: var(--e-danger, #f26060);
 
+
 	/*
 	 * --efm-control-block is Etch's control height expressed the way Etch
 	 * derives it: one icon plus the input padding on each side. It resolves to
@@ -1770,6 +1771,16 @@
 	background: var(--efm-surface-raised);
 }
 
+/*
+ * A button in a section box keeps its natural width, the same way one placed
+ * directly in the content column does. The box is a flex column, so without
+ * this a button stretches the full width of the pane and reads as a bar across
+ * the section rather than as an action inside it.
+ */
+.efm-delivery > .efm-btn {
+	align-self: flex-start;
+}
+
 .efm-toggle {
 	display: flex;
 	align-items: flex-start;
@@ -1899,6 +1910,46 @@
  * system type, the site's hostname above it, and no relation at all to the
  * builder it interrupted.
  */
+/*
+ * The rows a confirmation is about to delete, marked while it is up.
+ *
+ * Etch does this in its Asset Manager and it is the detail that makes a dialog
+ * saying "this family" checkable: the answer is visible behind the question
+ * instead of taken on trust. Copied from .collection-list__item--delete-target
+ * rather than approximated -- hairlines at -45 degrees, the danger colour at 8%
+ * on a 2px/4px cycle, over a flat 20% of the same colour.
+ *
+ * No border: Etch's rule has none. What reads as one in a screenshot is the
+ * stripe pattern meeting the element's own corner radius, and the radius is left
+ * alone here for the same reason, since a card, a table row and a well item each
+ * already carry the right one.
+ */
+.efm-doomed {
+	position: relative;
+	color: var(--efm-danger);
+	background: color-mix(in srgb, var(--efm-danger) 20%, transparent);
+	background:
+		repeating-linear-gradient(
+			-45deg,
+			transparent,
+			transparent 2px,
+			oklch(from var(--efm-danger) l c h / .08) 2px,
+			oklch(from var(--efm-danger) l c h / .08) 4px
+		),
+		oklch(from var(--efm-danger) l c h / .2);
+}
+
+/*
+ * The text inside sets its own colour, so inheriting is not enough. Etch turns
+ * its row's label and badge the same way.
+ */
+.efm-doomed .efm-card__title,
+.efm-doomed .efm-file__name,
+.efm-doomed .efm-muted,
+.efm-doomed .efm-icon {
+	color: var(--efm-danger);
+}
+
 .efm-dialog-overlay {
 	position: fixed;
 	inset: 0;
@@ -2276,9 +2327,26 @@
 	transition-property: color;
 }
 
-.efm-combo__toggle:hover,
-.efm-combo__toggle:focus-visible,
-.efm-combo__toggle.is-open {
+/*
+ * The arrow follows the field, not the pointer. Etch's own combobox lights its
+ * arrow when the *input* is hovered, and pins it to full opacity for as long as
+ * the field holds a value at all:
+ *
+ *   .etch-combobox__native-input:not(:placeholder-shown) ~ .etch-combobox__arrow
+ *     { opacity: var(--etch-opacity-full); }
+ *
+ * Measured on the builder, that is 75% at rest against 100%. So on a field with
+ * something in it -- the usual state here, since the stack defaults to a value
+ * -- Etch's arrow does not react to being pointed at on its own at all.
+ *
+ * The whole field opens the list now, so an arrow that lit up by itself was
+ * advertising a control that is no longer the way in. It has no focus state
+ * either: it is not in the tab order, because the input carries the combobox
+ * role and Down Arrow is the documented way in from the keyboard.
+ */
+.efm-combo:hover .efm-combo__toggle,
+.efm-combo:focus-within .efm-combo__toggle,
+.efm-combo .efm-input:not(:placeholder-shown) ~ .efm-combo__toggle {
 	color: var(--efm-text-strong);
 }
 
@@ -2887,10 +2955,21 @@
  * keeps the hit test on purpose: it carries the tooltip that says why it cannot
  * be pressed, and pointer-events: none would swallow the explanation along with
  * the click. The disabled attribute still stops the press.
+ *
+ * The fade goes on the glyph rather than on the button, because the tooltip is
+ * a ::after on this element and opacity composites a parent together with
+ * everything inside it: at .3 the one sentence explaining why the button cannot
+ * be pressed came out at 30% as well, drawn over the next table row and legible
+ * through it. Opacity below 1 also makes a stacking context, which the ::after
+ * then cannot rise out of. A universal child selector does not match a
+ * pseudo-element, so the icon dims and the explanation does not.
  */
 .efm-icon-btn:disabled {
-	opacity: .3;
 	cursor: default;
+}
+
+.efm-icon-btn:disabled > * {
+	opacity: .3;
 }
 
 .efm-icon-btn:hover:not(:disabled) {

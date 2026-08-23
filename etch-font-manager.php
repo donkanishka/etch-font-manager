@@ -3,7 +3,7 @@
  * Plugin Name:       Etch Font Manager
  * Plugin URI:        https://github.com/donkanishka/etch-font-manager
  * Description:       Manage self-hosted custom fonts without leaving the Etch builder. Adds a native Fonts panel to the Etch Settings Bar for uploading font files, installing Google Fonts locally, mapping families and variants, and publishing each family as a reusable CSS variable.
- * Version:           0.30.0
+ * Version:           0.31.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            donkanishka
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'EFM_VERSION', '0.30.0' );
+define( 'EFM_VERSION', '0.31.0' );
 define( 'EFM_FILE', __FILE__ );
 define( 'EFM_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EFM_URL', plugin_dir_url( __FILE__ ) );

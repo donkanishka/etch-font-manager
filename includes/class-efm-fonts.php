@@ -55,6 +55,13 @@ class EFM_Fonts {
 	const DISPLAY_VALUES = array( 'auto', 'block', 'swap', 'fallback', 'optional' );
 
 	/**
+	 * Where a family's font files came from.
+	 *
+	 * @var string[]
+	 */
+	const SOURCES = array( 'google', 'upload' );
+
+	/**
 	 * Preloading more than a couple of files delays the rest of the page, so
 	 * the number of preload hints is capped regardless of how many families
 	 * ask for one.
@@ -310,7 +317,24 @@ class EFM_Fonts {
 	public static function families() {
 		$families = get_option( self::OPTION_FAMILIES, array() );
 
-		return is_array( $families ) ? $families : array();
+		if ( ! is_array( $families ) ) {
+			return array();
+		}
+
+		/*
+		 * Records stored before the origin existed are filled in here rather
+		 * than by a one-off upgrade routine. The answer is derived from what
+		 * the record already holds, so it is the same every time it is asked
+		 * and there is no migration flag to keep track of. The next save
+		 * writes it back.
+		 */
+		foreach ( $families as $index => $family ) {
+			if ( is_array( $family ) && empty( $family['source'] ) ) {
+				$families[ $index ]['source'] = self::derive_source( $family );
+			}
+		}
+
+		return $families;
 	}
 
 	/**
@@ -1079,9 +1103,12 @@ class EFM_Fonts {
 			 */
 			$enabled = array_key_exists( 'enabled', $family ) ? (bool) $family['enabled'] : true;
 
+			$google = self::sanitize_google_block( $family['google'] ?? array() );
+
 			$entry = array(
 				'name'     => $name,
 				'variants' => $variants,
+				'source'   => self::sanitize_source( $family, ! empty( $google ) ),
 				'display'  => in_array( $display, self::DISPLAY_VALUES, true ) ? $display : 'swap',
 				'preload'  => ! empty( $family['preload'] ),
 				'fallback' => self::sanitize_font_stack( $family['fallback'] ?? '' ),
@@ -1091,8 +1118,6 @@ class EFM_Fonts {
 				'trashed'  => ! empty( $family['trashed'] ),
 			);
 
-			$google = self::sanitize_google_block( $family['google'] ?? array() );
-
 			if ( ! empty( $google ) ) {
 				$entry['google'] = $google;
 			}
@@ -1101,6 +1126,52 @@ class EFM_Fonts {
 		}
 
 		return $clean;
+	}
+
+	/**
+	 * Sanitize the origin recorded on a family.
+	 *
+	 * An unrecognised value is discarded and derived instead, so a record can
+	 * never claim an origin the plugin does not know how to act on.
+	 *
+	 * @param array $family     Raw family.
+	 * @param bool  $has_google Whether the sanitized Google block is non-empty.
+	 * @return string One of self::SOURCES.
+	 */
+	public static function sanitize_source( $family, $has_google = false ) {
+		$source = strtolower( sanitize_key( $family['source'] ?? '' ) );
+
+		if ( in_array( $source, self::SOURCES, true ) ) {
+			return $source;
+		}
+
+		return self::derive_source( $family, $has_google );
+	}
+
+	/**
+	 * Work out where a family's files came from.
+	 *
+	 * The Google block is the reliable signal: the installer writes the chosen
+	 * subsets, the available cuts and the axis onto every family it downloads,
+	 * and nothing else ever writes one. An earlier note in this project said
+	 * origin could only be guessed from the file name, which is true only for
+	 * records older than that block.
+	 *
+	 * Everything else is treated as an upload, because the uploader and a
+	 * bundled import are the only other ways a file reaches the fonts folder.
+	 * That is also the conservative answer: "upload" is what leaves the offer
+	 * to delete the files switched off.
+	 *
+	 * @param array $family     Raw family.
+	 * @param bool  $has_google Whether the sanitized Google block is non-empty.
+	 * @return string One of self::SOURCES.
+	 */
+	public static function derive_source( $family, $has_google = false ) {
+		if ( $has_google || ! empty( $family['google'] ) ) {
+			return 'google';
+		}
+
+		return 'upload';
 	}
 
 	/**

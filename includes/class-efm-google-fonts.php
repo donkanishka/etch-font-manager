@@ -588,10 +588,12 @@ class EFM_Google_Fonts {
 			$families[] = array(
 				'name'     => $family,
 				'variants' => $installed,
+				'source'   => 'google',
 				'google'   => $google,
 			);
 		} else {
 			$families[ $index ]['variants'] = $installed;
+			$families[ $index ]['source']   = 'google';
 			$families[ $index ]['google']   = $google;
 		}
 

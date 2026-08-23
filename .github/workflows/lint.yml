@@ -85,5 +85,14 @@ jobs:
       - name: Check panel script parses
         run: node --check assets/panel.js
 
+      - name: Check the tooling parses
+        run: node --check tools/check-pot.js
+
+      # The translation template drifted for two dozen releases because it was
+      # kept by hand. This fails the build when a string is added, removed or
+      # moved without rebuilding it.
+      - name: Check the translation template is current
+        run: node tools/check-pot.js
+
       - name: Check the update manifest is valid JSON
         run: node -e "JSON.parse(require('fs').readFileSync('update.json','utf8')); console.log('update.json OK')"

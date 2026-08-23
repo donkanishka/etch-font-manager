@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 0.30.0
+Stable tag: 0.31.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,18 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
 
 == Changelog ==
+
+= 0.31.0 =
+* Fixed: installing a Google font quietly threw away every unsaved change in the panel. It now asks, and can save your work first instead of only offering to lose it.
+* Fixed: the save bar could stay lit after you undid an edit by hand. It compares against the last saved copy now rather than remembering that something once changed.
+* Fixed: the tooltip explaining why an already-converted file cannot be converted again was drawn at 30% and read through the row beneath it.
+* Fixed: Download selection was clickable on families where it could only re-download identical files. It says which reason applies instead.
+* Closing the panel no longer asks anything. Your changes are kept, and the warning moved to leaving the builder, which is where they were actually being lost.
+* Families now record whether they came from Google Fonts or an upload, so deleting one can offer to remove its files when they are a click from coming back.
+* A confirmation now marks the family, row or files it is about to delete, the way Etch's Asset Manager does.
+* The Fallback stack field opens its suggestions when you click anywhere in it, and the arrow is no longer a separate control.
+* Every dialog is down to two buttons.
+* A button inside a section box keeps its own width instead of stretching across the panel.
 
 = 0.30.0 =
 * Fixed: a font could be converted to WOFF2 again after it had already been converted, redoing the work to overwrite the file it produced last time. The button now names the file holding the result instead.

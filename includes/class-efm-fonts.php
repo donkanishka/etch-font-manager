@@ -1535,7 +1535,7 @@ class EFM_Fonts {
 
 			$twin = self::dir() . $file['name'];
 
-			if ( self::path_is_inside( $twin ) && $hash === (string) md5_file( $twin ) ) {
+			if ( self::path_is_inside( $twin ) && (string) md5_file( $twin ) === $hash ) {
 				return $file['name'];
 			}
 		}
@@ -1562,7 +1562,7 @@ class EFM_Fonts {
 	/**
 	 * The files this plugin can prove are its own.
 	 *
-	 * wp-content/fonts is shared on purpose -- Etch and the legacy Etch Custom
+	 * The fonts folder is shared on purpose -- Etch and the legacy Etch Custom
 	 * Fonts plugin both use it, which is what makes a legacy import work without
 	 * moving anything. So a full removal cannot simply empty the folder: it would
 	 * take another plugin's typography with it.

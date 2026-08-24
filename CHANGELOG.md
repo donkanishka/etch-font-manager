@@ -2,6 +2,109 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.32.0
+
+An eighth pass. Half of it came out of questions rather than reports, and the questions were better than the
+reports: two of them found a plugin working against itself.
+
+### Added
+
+- **Files can be selected.** The Uploaded files table, the Trash and the variants table each carry a checkbox per
+  row and a select-all that goes indeterminate when the selection is partial, which is what Etch's own bulk bar
+  does. Uploaded files can be converted or deleted together, trashed families restored or deleted, variants
+  removed.
+
+  Selections are held by name rather than by index, because a row moves underneath one constantly -- a delete
+  splices the list, an upload re-sorts it -- and an index would then point at whatever took its place. Variants
+  are the exception: they have no id, so the selection holds positions and carries the family they belong to,
+  and switching families abandons it rather than reinterpreting those positions against a different list.
+
+  The bulk delete asks `orphanedBy()` about the whole selection at once, which is what makes it correct: deleting
+  two families together frees only the files no surviving family maps, where one at a time would have offered a
+  file the other still needs.
+
+- **Font files already on the server can be taken into the library.** They were always listed on the Upload
+  screen and nothing ever offered to make families of them, so an empty library sitting on a full folder read as
+  a plugin that could not see its own fonts. That folder fills up on its own: Etch shares it, the legacy plugin
+  used it, and an uninstall now leaves files behind by design.
+
+  Offered from the library's empty state and from the Upload selection. Family names are guessed from file
+  names, so it lands in the buffer for review rather than being saved.
+
+- **Deleting the plugin no longer breaks the site's typography.** The uninstall routine kept the font files on
+  purpose -- "so sites do not lose typography on an accidental uninstall" -- and then deleted the stylesheet that
+  declared them, which is the same outcome as losing them. Everything in wp-content/fonts is left alone now, and
+  Import & export shows the one `@import` line that keeps it all loading without the plugin.
+
+  Settings > Removal carries the opt-out for a site that means it. It removes the stylesheet and the files the
+  stored families map, and nothing else: that folder is shared, so emptying it would take Etch's fonts too.
+
+- **A font already in the library cannot be uploaded again.** It used to land beside itself under a random
+  suffix, so uploading a folder twice doubled the library. Blocked in the browser before anything is sent, on
+  two tests: the same name at the same size, or a convertible file whose WOFF2 twin is already here. The server
+  compares contents as a backstop, size first and hash second, and reports a duplicate rather than failing so one
+  repeat in the middle of a folder does not abandon the rest.
+
+### Changed
+
+- **Icons.** Library, Google Fonts, Upload fonts, Trash, the convert action, Restore and the three statistics
+  each took a new mark. `icon()` grew with them: an entry may declare its own viewBox, and the stroke width is
+  derived from that grid rather than fixed at 1.5, so a glyph drawn on 256 or 512 keeps the panel's weight
+  without being rescaled.
+
+  Two glyphs were split rather than edited, because they had been carrying two meanings each: the library mark
+  is now separate from the statistics one, and restoring is separate from undoing. Editing one entry is what
+  keeps every place a glyph appears in step, so divergence has to be deliberate.
+
+- **The count badges are round.** They were three different widths -- "1" came out 16.57px against "2" at 18.78
+  -- because a proportional face lets the glyph set the box. The digits are monospaced now, which is what Etch's
+  own sidebar badge does, and a floor equal to the height makes a single digit a circle rather than nearly one.
+
+- **The preview scripts are the ones you have installed.** The chip row above every card was a fixed Latin,
+  Sinhala and Tamil -- the author's own two scripts rather than a general choice, so a reader in Athens or Osaka
+  got two writing systems they cannot read and none for their own. The panel carries samples for fourteen scripts
+  and already picks the right one per family, so the row is derived from the installed families now, each chip
+  labelled in its own script. A Latin-only library gets three chips; nothing offers a script the install does not
+  hold.
+
+  Google results count only while that screen is open. state.results is written by a search and never cleared, so
+  counting it everywhere would have put a script on the Library's row that the library does not contain -- and
+  opening Google Fonts runs a search, so it would have happened to anyone who looked at the screen once.
+
+- **The Fallback stack field matches the dropdowns beside it.** Its chevron was lifting on hover, on focus and
+  permanently once the field held a value; the nine dropdowns keep theirs flat and answer with the field's border
+  instead. This one does the same now.
+
+- **A converted file's source is named rather than deleted.** Converting leaves the original an orphan, and
+  nothing said so. Both file states are named in the list now -- `in use` against `unused` -- and the result says
+  which file it just made redundant. It is still not deleted automatically: there is no decoder here, so a WOFF2
+  cannot become a TTF again and the original is often the only copy.
+
+### Fixed
+
+- **A disabled family previewed in the wrong face.** Disabling removes a family from the generated stylesheet,
+  which is what disabling is for, but its card still labelled a specimen with the family name -- so the preview
+  fell through to the interface font and showed the wrong typeface under the right name. Those faces are loaded
+  into the panel's own font set now, which leaves the stylesheet and the site untouched.
+
+- **Reset axes never enabled.** Dragging a slider deliberately does not re-render -- that would destroy the input
+  mid-drag -- so the button was created disabled and nothing ever touched it again, however far the axes moved.
+  It also asked the wrong question: it tested whether an axis had been stored rather than whether one sits away
+  from its default, so it would have stayed live after dragging back.
+
+- **The Google Fonts count did not change with the page.** It counted the page rather than locating it, so every
+  page but the last read "24 of 1942". It is a range now.
+
+- **Reinstalling regenerated the kept stylesheet from nothing**, which would have destroyed the file that was
+  deliberately left behind. A missing families option and an empty one mean different things, and only the second
+  should produce an empty stylesheet.
+
+### Notes
+
+`icon()` keeps its support for filled icon sets even though nothing in the table uses it after the Aa went back
+to strokes. Phosphor is fill-only and this panel now draws from four icon sets, so it is a capability with a
+named use rather than machinery kept in case.
+
 ## 0.31.0
 
 A seventh pass. Three of the ten items came out of questions rather than bug reports, and one of those questions

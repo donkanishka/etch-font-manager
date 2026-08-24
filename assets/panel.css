@@ -423,13 +423,31 @@
  * Etch's sidebar badge, measured: a pill carrying the count, pushed to the end
  * of the row. On the active item it inverts to a light fill with dark text; on
  * the rest it is a raised fill with muted text.
+ *
+ * Two things keep it round. The digits are monospaced, which is what Etch's own
+ * .collection-list__badge does (font-family: var(--etch-font-code)) and the
+ * reason its badges are all the same width: in a proportional face the glyph's
+ * advance sets the box, so "1" came out 16.57px wide against "2" at 18.78px and
+ * the column read as three different shapes.
+ *
+ * And the box has a floor equal to its height, so a single digit is a circle
+ * rather than merely close to one -- 19px against 19px, where padding alone gave
+ * 18.78. Both are derived from the type size the way --efm-control-block is, so
+ * they cannot drift apart: the font size plus the 4px of block padding on each
+ * side. Two digits pass the floor and grow into the pill Etch draws.
  */
 .efm-nav__count {
 	margin-inline-start: auto;
-	padding: 4px 6px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-inline-size: calc(var(--e-font-size-s, 11px) + 8px);
+	block-size: calc(var(--e-font-size-s, 11px) + 8px);
+	padding-inline: 6px;
 	border-radius: 999px;
 	background: var(--efm-surface-raised);
 	color: var(--efm-muted);
+	font-family: var(--etch-font-code, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: var(--e-font-size-s, 11px);
 	font-weight: 500;
 	line-height: 1;
@@ -1707,6 +1725,24 @@
 	grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) 28px 28px;
 }
 
+/*
+ * The File column carries its checkbox as well as the name, so the selection
+ * lives in the cell rather than in a column of its own -- the files table and
+ * the variants table share a grid template, and adding a track to one would
+ * pull the other out of line.
+ */
+.efm-file__cell {
+	display: flex;
+	align-items: center;
+	gap: var(--e-space-s, 8px);
+	min-inline-size: 0;
+}
+
+/* Still the part that takes the squeeze when a name is long. */
+.efm-file__cell .efm-file__name {
+	min-inline-size: 0;
+}
+
 .efm-file__name {
 	overflow: hidden;
 	white-space: nowrap;
@@ -2304,9 +2340,12 @@
 }
 
 /*
- * Colour only on hover, no fill. That is what a bare control inside a field does
- * here: a 20px rounded square lighting up four pixels inside the border reads as
- * a tile pasted into a slot, which is why the clear button lost its wash.
+ * The chevron does not move, because the dropdown's does not:
+ * `.efm-select__trigger .efm-icon` is a flat --efm-muted and stays there while
+ * the trigger's border and label answer the hover. This is the same control in a
+ * different shell, so it gets the same treatment. It had been lifting on hover,
+ * on focus-within and permanently once the field held a value -- three states the
+ * nine dropdowns beside it do not have.
  */
 .efm-combo__toggle {
 	position: absolute;
@@ -2323,30 +2362,18 @@
 	background: none;
 	color: var(--efm-muted);
 	cursor: pointer;
-	transition: var(--efm-transition);
-	transition-property: color;
 }
 
 /*
- * The arrow follows the field, not the pointer. Etch's own combobox lights its
- * arrow when the *input* is hovered, and pins it to full opacity for as long as
- * the field holds a value at all:
- *
- *   .etch-combobox__native-input:not(:placeholder-shown) ~ .etch-combobox__arrow
- *     { opacity: var(--etch-opacity-full); }
- *
- * Measured on the builder, that is 75% at rest against 100%. So on a field with
- * something in it -- the usual state here, since the stack defaults to a value
- * -- Etch's arrow does not react to being pointed at on its own at all.
- *
- * The whole field opens the list now, so an arrow that lit up by itself was
- * advertising a control that is no longer the way in. It has no focus state
- * either: it is not in the tab order, because the input carries the combobox
- * role and Down Arrow is the documented way in from the keyboard.
+ * The field carries the response instead, exactly as .efm-select__trigger does:
+ * the border lifts to 30% of the foreground and the value goes near-white, on
+ * hover and for as long as the menu is open. That is the whole difference between
+ * a chooser at rest and a chooser being used, and putting it on the field rather
+ * than the chevron is what makes the two controls read as one family.
  */
-.efm-combo:hover .efm-combo__toggle,
-.efm-combo:focus-within .efm-combo__toggle,
-.efm-combo .efm-input:not(:placeholder-shown) ~ .efm-combo__toggle {
+.efm-combo:hover .efm-input,
+.efm-combo.is-open .efm-input {
+	border-color: color-mix(in srgb, var(--efm-text) 30%, transparent);
 	color: var(--efm-text-strong);
 }
 

@@ -47,6 +47,19 @@
 		openMenu: '',
 		// Transient: which collapsed chip rows the user has expanded. Not saved.
 		chipsOpen: {},
+		/*
+		 * Selections, by name rather than by index. A row can move underneath a
+		 * selection -- a delete splices the list, an upload re-sorts it -- and an
+		 * index would then point at whatever took its place.
+		 */
+		pickedFiles: [],
+		pickedTrash: [],
+		/*
+		 * Variants have no id to select by, so this holds positions -- and positions
+		 * only mean anything next to the family they came from. Carrying that family
+		 * with them is what stops a selection made in one editor acting on another.
+		 */
+		pickedVariants: { family: null, list: [] },
 		filter: '',
 		query: '',
 		results: [],
@@ -240,6 +253,34 @@
 	 * Google itself shows it in Latin. An empty primaryScript — 1,352 of the
 	 * 1,942 families — means Latin.
 	 */
+	/**
+	 * Each script named in itself.
+	 *
+	 * The preview chips used to be a fixed row of Latin, Sinhala and Tamil, which
+	 * were the author's own two scripts rather than a general choice: a reader in
+	 * Athens or Osaka got two writing systems they cannot read and none for their
+	 * own, on a row that sits above every card. The panel has samples for fourteen
+	 * scripts and picks the right one per family already, so the chips are derived
+	 * from what is actually installed now, and each is labelled in its own script
+	 * because that is the one label a reader of it can always recognise.
+	 */
+	var SCRIPT_LABEL = {
+		sinhala: 'සිංහල',
+		tamil: 'தமிழ்',
+		devanagari: 'देवनागरी',
+		arabic: 'العربية',
+		hebrew: 'עברית',
+		thai: 'ไทย',
+		greek: 'Ελληνικά',
+		cyrillic: 'Кириллица',
+		korean: '한국어',
+		japanese: '日本語',
+		chinese: '中文',
+		bengali: 'বাংলা',
+		armenian: 'Հայերեն',
+		georgian: 'ქართული'
+	};
+
 	var SCRIPT_SUBSET = {
 		Sinh: 'sinhala',
 		Taml: 'tamil',
@@ -365,18 +406,101 @@
 		filter: '<path d="M3.99961 3H19.9997C20.552 3 20.9997 3.44764 20.9997 3.99987L20.9999 5.58569C21 5.85097 20.8946 6.10538 20.707 6.29295L14.2925 12.7071C14.105 12.8946 13.9996 13.149 13.9996 13.4142L13.9996 19.7192C13.9996 20.3698 13.3882 20.8472 12.7571 20.6894L10.7571 20.1894C10.3119 20.0781 9.99961 19.6781 9.99961 19.2192L9.99961 13.4142C9.99961 13.149 9.89425 12.8946 9.70672 12.7071L3.2925 6.29289C3.10496 6.10536 2.99961 5.851 2.99961 5.58579V4C2.99961 3.44772 3.44732 3 3.99961 3Z"/>',
 		refresh: '<path d="M21.8883 13.5C21.1645 18.3113 17.013 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C16.1006 2 19.6248 4.46819 21.1679 8"/><path d="M17 8H21.4C21.7314 8 22 7.73137 22 7.4V3"/>',
 		undo: '<path d="M4.5 8C8.5 8 11 8 15 8C15 8 15 8 15 8C15 8 20 8 20 12.7059C20 18 15 18 15 18C11.5714 18 9.71429 18 6.28571 18"/><path d="M7.5 11.5C6.13317 10.1332 5.36683 9.36683 4 8C5.36683 6.63317 6.13317 5.86683 7.5 4.5"/>',
+		/*
+		 * Restoring, split from undo. They were one glyph doing two jobs: the Restore
+		 * buttons in the trash, and the header of the unsaved-changes question, where
+		 * a box with an arrow coming out of it would mean nothing. The arrow-loop
+		 * stays with the dialog; the trash gets a box you take something back out of.
+		 */
+		restore: '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h2"/><path d="M20 8v11a2 2 0 0 1-2 2h-2"/><path d="m9 15 3-3 3 3"/><path d="M12 12v9"/>',
 		edit: '<path d="M14.3632 5.65156L15.8431 4.17157C16.6242 3.39052 17.8905 3.39052 18.6716 4.17157L20.0858 5.58579C20.8668 6.36683 20.8668 7.63316 20.0858 8.41421L18.6058 9.8942M14.3632 5.65156L4.74749 15.2672C4.41542 15.5993 4.21079 16.0376 4.16947 16.5054L3.92738 19.2459C3.87261 19.8659 4.39148 20.3848 5.0115 20.33L7.75191 20.0879C8.21972 20.0466 8.65806 19.8419 8.99013 19.5099L18.6058 9.8942M14.3632 5.65156L18.6058 9.8942"/>',
-		trash: '<path d="M20 9L18.005 20.3463C17.8369 21.3026 17.0062 22 16.0353 22H7.96474C6.99379 22 6.1631 21.3026 5.99496 20.3463L4 9"/><path d="M21 6L15.375 6M3 6L8.625 6M8.625 6V4C8.625 2.89543 9.52043 2 10.625 2H13.375C14.4796 2 15.375 2.89543 15.375 4V6M8.625 6L15.375 6"/>',
-		library: '<path d="M21 3.6V20.4C21 20.7314 20.7314 21 20.4 21H3.6C3.26863 21 3 20.7314 3 20.4V3.6C3 3.26863 3.26863 3 3.6 3H20.4C20.7314 3 21 3.26863 21 3.6Z"/><path d="M7 9V7L17 7V9"/><path d="M12 7V17M12 17H10M12 17H14"/>',
-		upload: '<path d="M6 20L18 20"/><path d="M12 16V4M12 4L15.5 7.5M12 4L8.5 7.5"/>',
-		google: '<path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/><path d="M2.5 12.5L8 14.5L7 18L8 21"/><path d="M17 20.5L16.5 18L14 17V13.5L17 12.5L21.5 13"/><path d="M19 5.5L18.5 7L15 7.5V10.5L17.5 9.5H19.5L21.5 10.5"/><path d="M2.5 10.5L5 8.5L7.5 8L9.5 5L8.5 3"/>',
+		/*
+		 * Tabler's trash. Two ribs inside the bin, which is what tells it apart from
+		 * the plain tapered bucket at 14px -- the size it renders at in a card's
+		 * action row and in a table row.
+		 *
+		 * Tabler ships a full-bleed <path d="M0 0h24v24H0z"> in front of every icon
+		 * as a bounding box, carrying its own stroke="none" fill="none". Dropped
+		 * here: icon() sets stroke on the wrapper, so keeping that path without its
+		 * own stroke="none" would draw a square around every bin in the panel.
+		 */
+		trash: '<path d="M4 7l16 0"/><path d="M10 11l0 6"/><path d="M14 11l0 6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/>',
+		/*
+		 * Lucide's book-type: the same T, now set in a book rather than a plain
+		 * square. It says "a collection of typefaces" where the box only said
+		 * "type", and it stops the nav opening with two near-identical outlines now
+		 * that Google Fonts is a rounded square too.
+		 */
+		library: '<path d="M10 13h4"/><path d="M12 6v7"/><path d="M16 8V6H8v2"/><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/>',
+
+		/*
+		 * The stat row's copy of the families glyph, split from the nav's on purpose.
+		 * They were one entry, so filling the stat row would have filled the nav item
+		 * too and left one solid icon among five outlines. Two uses that want to look
+		 * different have to be two entries -- editing one is what keeps every place a
+		 * glyph appears in step, and this is the other case.
+		 */
+		statFamilies: '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12v-1h6v1"/><path d="M11 17h2"/><path d="M12 11v6"/>',
+		/*
+		 * Lucide's upload: the arrow now rises out of a tray rather than off a bare
+		 * rule. Same 24 grid and round caps as the Iconoir set around it, so it
+		 * inherits the panel's 1.5 stroke without redrawing.
+		 */
+		upload: '<path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>',
+		/*
+		 * A G in a rounded square rather than the globe this used to be. The globe
+		 * said "the internet"; the nav item means Google Fonts specifically, and at
+		 * 16px its five continent strokes turned to noise.
+		 *
+		 * Stripped of the stroke, stroke-width and cap attributes it arrived with:
+		 * icon() sets those on the wrapper, and a stroke of #ffffff baked into the
+		 * path would have ignored currentColor -- staying white while the nav item
+		 * around it goes muted, active or hovered.
+		 */
+		google: '<path d="M15.5475 8.30327C14.6407 7.49361 13.4329 7 12.1089 7C9.28696 7 7 9.23899 7 12C7 14.761 9.28696 17 12.1089 17C15.5781 17 16.86 14.4296 17 12.4167H12.841"/><path d="M21 8V16C21 18.7614 18.7614 21 16 21H8C5.23858 21 3 18.7614 3 16V8C3 5.23858 5.23858 3 8 3H16C18.7614 3 21 5.23858 21 8Z"/>',
 		settings: '<path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"/><path d="M19.6224 10.3954L18.5247 7.7448L20 6L18 4L16.2647 5.48295L13.5578 4.36974L12.9353 2H10.981L10.3491 4.40113L7.70441 5.51596L6 4L4 6L5.45337 7.78885L4.3725 10.4463L2 11V13L4.40111 13.6555L5.51575 16.2997L4 18L6 20L7.79116 18.5403L10.397 19.6123L11 22H13L13.6045 19.6132L16.2551 18.5155C16.6969 18.8313 18 20 18 20L20 18L18.5159 16.2494L19.6139 13.598L21.9999 12.9772L22 11L19.6224 10.3954Z"/>',
 		transfer: '<path d="M17 20V4M17 4L20 7M17 4L14 7"/><path d="M7 4V20M7 20L10 17M7 20L4 17"/>',
 		layoutRow: '<path d="M3 5H21"/><path d="M3 12H21"/><path d="M3 19H21"/>',
 		layoutGrid: '<path d="M14 20.4V14.6C14 14.2686 14.2686 14 14.6 14H20.4C20.7314 14 21 14.2686 21 14.6V20.4C21 20.7314 20.7314 21 20.4 21H14.6C14.2686 21 14 20.7314 14 20.4Z"/><path d="M3 20.4V14.6C3 14.2686 3.26863 14 3.6 14H9.4C9.73137 14 10 14.2686 10 14.6V20.4C10 20.7314 9.73137 21 9.4 21H3.6C3.26863 21 3 20.7314 3 20.4Z"/><path d="M14 9.4V3.6C14 3.26863 14.2686 3 14.6 3H20.4C20.7314 3 21 3.26863 21 3.6V9.4C21 9.73137 20.7314 10 20.4 10H14.6C14.2686 10 14 9.73137 14 9.4Z"/><path d="M3 9.4V3.6C3 3.26863 3.26863 3 3.6 3H9.4C9.73137 3 10 3.26863 10 3.6V9.4C10 9.73137 9.73137 10 9.4 10H3.6C3.26863 10 3 9.73137 3 9.4Z"/>',
-		textSize: '<path d="M3 7L3 5L17 5V7"/><path d="M10 5L10 19M10 19H12M10 19H8"/><path d="M13 14L13 12H21V14"/><path d="M17 12V19M17 19H15.5M17 19H18.5"/>',
-		page: '<path d="M4 21.4V2.6C4 2.26863 4.26863 2 4.6 2H16.2515C16.4106 2 16.5632 2.06321 16.6757 2.17574L19.8243 5.32426C19.9368 5.43679 20 5.5894 20 5.74853V21.4C20 21.7314 19.7314 22 19.4 22H4.6C4.26863 22 4 21.7314 4 21.4Z"/><path d="M8 10L16 10"/><path d="M8 18L16 18"/><path d="M8 14L12 14"/><path d="M16 2V5.4C16 5.73137 16.2686 6 16.6 6H20"/>',
-		compress: '<path d="M18 12L6 12"/><path d="M12 22V16M12 16L15 19M12 16L9 19"/><path d="M12 2V8M12 8L15 5M12 8L9 5"/>'
+		/*
+		 * Phosphor's text-aa, and the one entry in this table that is not a 24-grid
+		 * outline: it is filled and drawn on 256. Declared rather than redrawn,
+		 * because converting a filled silhouette into strokes is not a conversion,
+		 * it is a new icon. The Aa also echoes the Settings Bar control, which is
+		 * ph:text-aa-duotone.
+		 */
+		/*
+		 * The Aa, stroked, on a 512 grid. Declaring the box rather than rescaling the
+		 * path data keeps it byte-for-byte what was drawn; icon() derives the stroke
+		 * from the grid so it still carries the panel's weight.
+		 */
+		textSize: {
+			/*
+			 * Padded from 512 to 560, centred. The path data is untouched -- the box
+			 * around it grew, which insets the mark. Whatever drew this Aa ran it
+			 * edge to edge at 93.8% of its box, where the Lucide and Tabler glyphs
+			 * beside it sit at 65-73%, so it rendered wider and heavier than its
+			 * neighbours. At 560 it lands on 85.7%.
+			 */
+			box: '-24 -24 560 560',
+			d: '<path d="m32 415.5 120-320 120 320M230 303.5H74M326 239.5c12.19-28.69 41-48 74-48h0c46 0 80 32 80 80v144"/><path d="M320 358.5c0 36 26.86 58 60 58 54 0 100-27 100-106v-15c-20 0-58 1-92 5-32.77 3.86-68 19-68 58"/>'
+		},
+		/*
+		 * Tabler's file-typography: a page with a T set in it rather than three ruled
+		 * lines, so the Files count reads as font files specifically. Tabler's leading
+		 * <path d="M0 0h24v24H0z"> bounding box is dropped, as with the bin -- it is
+		 * invisible only because of its own stroke="none", which does not survive
+		 * being stripped.
+		 */
+		page: '<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2"/><path d="M11 18h2"/><path d="M12 18v-7"/><path d="M9 12v-1h6v1"/>',
+		/*
+		 * Tabler's arrows-exchange: two arrows swapping places, which is what a
+		 * format conversion is. The old glyph was arrows converging on a line -- a
+		 * compress mark, and WOFF2 is a container change rather than a squeeze.
+		 * Tabler's leading bounding-box path is dropped, as with the bin and the
+		 * file: it is invisible only because of its own stroke="none".
+		 */
+		compress: '<path d="M7 10h14l-4 -4"/><path d="M17 14h-14l4 4"/>'
 	};
 
 	var ICON_SIZES = { sm: 14, md: 16, lg: 32 };
@@ -390,7 +514,18 @@
 	 */
 	function icon(name, size) {
 		var variant = ICON_SIZES[size] ? size : 'md';
-		var markup = PATHS[name];
+		var entry = PATHS[name];
+
+		/*
+		 * An entry is normally just its paths, drawn on the 24 grid this panel and
+		 * Etch both use. Some sets do not work that way -- Phosphor is filled and
+		 * drawn on 256 -- so an entry may instead name its own box and say it is
+		 * filled. Either way the colour comes from currentColor, which is what lets
+		 * one glyph go muted in the nav and danger-red in a delete button.
+		 */
+		var markup = typeof entry === 'string' ? entry : (entry && entry.d) || '';
+		var box = (entry && entry.box) || '0 0 24 24';
+		var filled = !!(entry && entry.fill);
 		var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 
 		if (!markup && window.console && window.console.warn) {
@@ -398,14 +533,27 @@
 		}
 
 		svg.setAttribute('class', variant === 'md' ? 'efm-icon' : 'efm-icon efm-icon--' + variant);
-		svg.setAttribute('viewBox', '0 0 24 24');
+		svg.setAttribute('viewBox', box);
 		svg.setAttribute('width', ICON_SIZES[variant]);
 		svg.setAttribute('height', ICON_SIZES[variant]);
-		svg.setAttribute('fill', 'none');
-		svg.setAttribute('stroke', 'currentColor');
-		svg.setAttribute('stroke-width', '1.5');
-		svg.setAttribute('stroke-linecap', 'round');
-		svg.setAttribute('stroke-linejoin', 'round');
+		svg.setAttribute('fill', filled ? 'currentColor' : 'none');
+		svg.setAttribute('stroke', filled ? 'none' : 'currentColor');
+
+		if (!filled) {
+			/*
+			 * 1.5 is the weight on a 24 box, and what matters is the ratio, not the
+			 * number: the same stroke on a 512 box is a hairline. Scaling it with the
+			 * grid means an icon from any set keeps the panel's weight without being
+			 * redrawn -- and it lands on 32 for a 512 box, which is the width these
+			 * icons ship with anyway.
+			 */
+			var span = parseFloat(String(box).split(/\s+/)[2]) || 24;
+
+			svg.setAttribute('stroke-width', String(1.5 * span / 24));
+			svg.setAttribute('stroke-linecap', 'round');
+			svg.setAttribute('stroke-linejoin', 'round');
+		}
+
 		svg.setAttribute('aria-hidden', 'true');
 		svg.setAttribute('focusable', 'false');
 		svg.innerHTML = markup || '';
@@ -914,6 +1062,7 @@
 		state.missing = next.missing || [];
 		state.cssBuilt = next.cssBuilt || 0;
 		refreshFontCss();
+		loadPreviewFaces();
 	}
 
 	/* --------------------------------------------------------------------- */
@@ -943,6 +1092,65 @@
 	 * link element it owns is only ever updated in place (href only) and is
 	 * never replaced or renamed.
 	 */
+	/*
+	 * Faces the generated stylesheet deliberately leaves out, loaded for the panel
+	 * alone.
+	 *
+	 * build_css() runs over active_families(), so a disabled family has no
+	 * @font-face anywhere -- which is exactly what disabling is for. Its card in
+	 * the library still labels a specimen with the family name though, so the
+	 * preview fell through to the interface font and showed the wrong face under
+	 * the right name, with nothing saying so. The one screen whose job is to show
+	 * you your fonts was the screen not showing one.
+	 *
+	 * These go into the document's own font set rather than into the stylesheet,
+	 * so nothing about what the site loads changes and build_css() keeps its single
+	 * definition of what ships. Adding a face re-renders the text already using it,
+	 * so no render() is needed here. Each is loaded once; a file that will not
+	 * parse is the missing-files case, which the card already reports.
+	 */
+	var previewFaces = {};
+
+	function loadPreviewFaces() {
+		if (!window.FontFace || !document.fonts) {
+			return;
+		}
+
+		state.families.forEach(function (family) {
+			// Enabled families are already declared, and trash draws no specimen.
+			if (isTrashed(family) || isEnabled(family) || !family.name) {
+				return;
+			}
+
+			(family.variants || []).forEach(function (variant) {
+				var file = (state.files || []).filter(function (entry) {
+					return entry.name === variant.file;
+				})[0];
+
+				if (!file || !file.url) {
+					return;
+				}
+
+				var key = family.name + '|' + file.name;
+
+				if (previewFaces[key]) {
+					return;
+				}
+
+				previewFaces[key] = true;
+
+				var face = new FontFace(family.name, 'url("' + file.url + '")', {
+					weight: String(variant.weight || '400'),
+					style: 'italic' === variant.style ? 'italic' : 'normal'
+				});
+
+				face.load().then(function (loaded) {
+					document.fonts.add(loaded);
+				}).catch(function () {});
+			});
+		});
+	}
+
 	function refreshFontCss() {
 		if (!state.cssUrl) {
 			return;
@@ -1325,6 +1533,7 @@
 
 		render();
 		refreshFontCss();
+		loadPreviewFaces();
 
 		var focusable = manager.querySelector('.efm-nav__item');
 		if (focusable) {
@@ -2021,7 +2230,7 @@
 
 		navEl.appendChild(
 			el('div', { class: 'efm-nav__meta' }, [
-				stat(live.length, plural(live.length, s('familyLabel', 'family'), s('familiesLabel', 'families')), 'library'),
+				stat(live.length, plural(live.length, s('familyLabel', 'family'), s('familiesLabel', 'families')), 'statFamilies'),
 				stat(variantCount, plural(variantCount, s('variant', 'variant'), s('variants', 'variants')), 'textSize'),
 				stat(state.files.length, plural(state.files.length, s('fileLabel', 'file'), s('filesLabel', 'files')), 'page')
 			])
@@ -2118,14 +2327,70 @@
 	 * sampleFor(), so a mixed result set previews every family in its own script
 	 * rather than forcing one script onto all of them.
 	 */
+	/**
+	 * The non-Latin scripts present in whatever is on screen.
+	 *
+	 * Read from the families in the library and from any Google results being
+	 * browsed, so the row answers to this install rather than to a list decided in
+	 * advance. A subset the panel has no sample for contributes nothing, since a
+	 * chip that previews the fallback face teaches the reader nothing.
+	 *
+	 * @return {string[]} Sample keys, in the order SCRIPT_LABEL declares them.
+	 */
+	function scriptsOnScreen() {
+		var seen = {};
+
+		function note(subset) {
+			if (subset && subset !== 'latin' && subset !== 'latin-ext' && SAMPLES[subset]) {
+				seen[subset] = true;
+			}
+		}
+
+		(state.families || []).forEach(function (family) {
+			if (isTrashed(family)) {
+				return;
+			}
+
+			(family.variants || []).forEach(function (variant) {
+				note(variant.subset);
+			});
+
+			// A Google install records every subset it was given, which covers a
+			// family whose variants predate that record.
+			((family.google && family.google.subsets) || []).forEach(note);
+		});
+
+		/*
+		 * Results only count while they are on screen. state.results is written by a
+		 * search and never cleared when you leave the Google view, so counting it
+		 * everywhere would put a script on the Library's row that the library does
+		 * not contain -- and browsing Google opens with a search, so that would
+		 * happen to anyone who so much as looked at the screen.
+		 */
+		if ('google' === state.view) {
+			(state.results || []).forEach(function (font) {
+				(font.subsets || []).forEach(note);
+			});
+		}
+
+		return Object.keys(SCRIPT_LABEL).filter(function (key) {
+			return seen[key];
+		});
+	}
+
 	function previewPresets() {
-		return [
+		var presets = [
 			{ id: 'auto', label: s('sampleAuto', 'Auto'), text: '' },
-			{ id: 'latin', label: s('sampleLatin', 'Latin'), text: s('preview', 'The quick brown fox') },
-			{ id: 'sinhala', label: 'සිංහල', text: SAMPLES.sinhala },
-			{ id: 'tamil', label: 'தமிழ்', text: SAMPLES.tamil },
-			{ id: 'numerals', label: s('sampleNumerals', '123'), text: NUMERALS }
+			{ id: 'latin', label: s('sampleLatin', 'Latin'), text: s('preview', 'The quick brown fox') }
 		];
+
+		scriptsOnScreen().forEach(function (key) {
+			presets.push({ id: key, label: SCRIPT_LABEL[key], text: SAMPLES[key] });
+		});
+
+		presets.push({ id: 'numerals', label: s('sampleNumerals', '123'), text: NUMERALS });
+
+		return presets;
 	}
 
 	/**
@@ -2735,7 +3000,8 @@
 			]);
 		}));
 
-		return el('div', { class: 'efm-select efm-combo' }, [config.input, toggle, menu]);
+		// is-open drives the field's border the way it drives .efm-select__trigger's.
+		return el('div', { class: 'efm-select efm-combo' + (open ? ' is-open' : '') }, [config.input, toggle, menu]);
 	}
 
 	function dropdown(config) {
@@ -3103,6 +3369,25 @@
 			text: s('trashHint', 'These families are not loaded on the site. Their font files are still on the server, so restoring one brings it back exactly as it was.')
 		}));
 
+		var everyTrashed = inTrash.map(function (family) { return family.name; });
+
+		contentEl.appendChild(el('div', { class: 'efm-resultbar' }, [
+			el('div', { class: 'efm-bulk' }, [
+				pickAll(state.pickedTrash, everyTrashed, s('selectAllTrash', 'Select every family in the trash'))
+			]),
+			bulkBar(state.pickedTrash, [
+				{
+					label: s('restoreSelected', 'Restore selected'),
+					onclick: restorePickedTrash
+				},
+				{
+					label: s('deleteSelected', 'Delete selected'),
+					variant: 'danger',
+					onclick: deletePickedTrash
+				}
+			])
+		]));
+
 		contentEl.appendChild(el('div', { class: 'efm-card__actions' }, [
 			el('button', {
 				type: 'button',
@@ -3113,7 +3398,7 @@
 					});
 					render();
 				}
-			}, [icon('undo', 'sm'), el('span', { text: s('restoreAll', 'Restore all') + ' (' + inTrash.length + ')' })]),
+			}, [icon('restore', 'sm'), el('span', { text: s('restoreAll', 'Restore all') + ' (' + inTrash.length + ')' })]),
 			el('button', {
 				type: 'button',
 				class: 'efm-btn efm-btn--outline efm-btn--sm',
@@ -3173,6 +3458,119 @@
 		renderTrashGrid();
 	}
 
+	/**
+	 * Indexes of the trashed families a selection names.
+	 *
+	 * Resolved at the moment of acting rather than held, because a restore or a
+	 * delete renumbers everything after it.
+	 *
+	 * @return {number[]} Indexes into state.families.
+	 */
+	/**
+	 * Remove the selected variants from a family.
+	 *
+	 * No confirmation, matching the single remove beside each row: this edits the
+	 * buffer rather than the server, so Discard on the save bar undoes it and the
+	 * font files are untouched either way.
+	 *
+	 * @param {number} familyIndex Family being edited.
+	 */
+	function removePickedVariants(familyIndex) {
+		var family = state.families[familyIndex];
+		var picks = variantPicks(familyIndex);
+
+		if (!family || !picks.length) {
+			return;
+		}
+
+		// Highest first, so removing one cannot shift the next.
+		picks.map(Number).sort(function (a, b) { return b - a; }).forEach(function (at) {
+			(family.variants || []).splice(at, 1);
+		});
+
+		state.pickedVariants = { family: familyIndex, list: [] };
+		render();
+	}
+
+	function pickedTrashIndexes() {
+		var out = [];
+
+		state.families.forEach(function (family, at) {
+			if (isTrashed(family) && state.pickedTrash.indexOf(family.name) !== -1) {
+				out.push(at);
+			}
+		});
+
+		return out;
+	}
+
+	function restorePickedTrash() {
+		pickedTrashIndexes().forEach(function (at) {
+			state.families[at].trashed = false;
+		});
+
+		state.pickedTrash = [];
+		render();
+	}
+
+	/**
+	 * Delete a selection of trashed families for good.
+	 *
+	 * The same question the single delete asks, over a list: the files offered are
+	 * the ones no surviving family maps once the whole selection is gone, which is
+	 * why orphanedBy() takes the indexes together rather than one at a time.
+	 */
+	function deletePickedTrash() {
+		var doomed = pickedTrashIndexes();
+
+		if (!doomed.length) {
+			return;
+		}
+
+		var names = doomed.map(function (at) { return state.families[at].name; });
+		var orphans = orphanedBy(doomed);
+		var recoverable = doomed.every(function (at) { return fromGoogle(state.families[at]); });
+		var also = { checked: orphans.length ? recoverable : false };
+
+		askConfirm({
+			mark: Array.prototype.slice.call(contentEl.querySelectorAll('.efm-card')).filter(function (card) {
+				var title = card.querySelector('.efm-card__title');
+
+				return title && names.indexOf(title.textContent) !== -1;
+			}),
+			title: s('deleteFamilies', 'Delete permanently'),
+			message: recoverable
+				? s('confirmDeleteFamiliesGoogle', 'Delete these families for good? Their font files can be downloaded from Google Fonts again.')
+				: s('confirmDeleteFamilies', 'Delete these families for good? Their font files stay on the server and can be removed from Import & export.'),
+			list: names,
+			confirm: s('deleteAction', 'Delete'),
+			danger: true,
+			checkbox: orphans.length ? {
+				state: also,
+				label: s('alsoDeleteFiles', 'Also delete its font files') + ' \u00b7 ' +
+					orphans.length + ' ' + plural(orphans.length, s('fileSingular', 'file'), s('filesLower', 'files')) +
+					' \u00b7 ' + formatSize(sizeOfFiles(orphans))
+			} : null
+		}).then(function (answer) {
+			if ('confirm' !== answer) {
+				return;
+			}
+
+			if (also.checked) {
+				state.pendingFileDeletes = state.pendingFileDeletes.concat(orphans);
+			}
+
+			// Highest index first, so removing one cannot shift the next.
+			doomed.slice().sort(function (a, b) { return b - a; }).forEach(function (at) {
+				state.families.splice(at, 1);
+			});
+
+			state.pickedTrash = [];
+			state.editing = null;
+			render();
+		});
+	}
+
 	function emptyTrash() {
 		state.families = state.families.filter(function (family) {
 			return !isTrashed(family);
@@ -3193,6 +3591,17 @@
 
 			grid.appendChild(el('article', { class: 'efm-card' }, [
 				el('div', { class: 'efm-card__head' }, [
+					el('label', { class: 'efm-card__pick' }, [
+						el('input', {
+							type: 'checkbox',
+							class: 'efm-checkbox',
+							checked: state.pickedTrash.indexOf(family.name) !== -1,
+							'aria-label': s('selectFamily', 'Select') + ' ' + family.name,
+							onchange: function () {
+								togglePicked(state.pickedTrash, family.name);
+							}
+						})
+					]),
 					el('h2', { class: 'efm-card__title', text: family.name }),
 					el('div', { class: 'efm-card__actions' }, [
 						el('button', {
@@ -3202,7 +3611,7 @@
 								family.trashed = false;
 								render();
 							}
-						}, [icon('undo', 'sm'), el('span', { text: s('restoreFamily', 'Restore') })]),
+						}, [icon('restore', 'sm'), el('span', { text: s('restoreFamily', 'Restore') })]),
 						el('button', {
 							type: 'button',
 							class: 'efm-icon-btn efm-icon-btn--danger efm-tooltip efm-tooltip--end',
@@ -3305,13 +3714,32 @@
 			 * "Upload a font file or install one from Google Fonts" over a single
 			 * Google Fonts button, leaving the reader to find the other one.
 			 */
+			/*
+			 * Font files can already be sitting in wp-content/fonts before this plugin
+			 * ever runs -- Etch shares that folder, the legacy plugin used it, and a
+			 * reinstall leaves its own behind. They show on the Upload screen as
+			 * unused, but nothing had ever offered to make families of them, so an
+			 * empty library on a full folder read as a plugin that could not see them.
+			 */
+			var waiting = unmappedFiles();
+			var routes = [
+				{ label: s('googleFonts', 'Google Fonts'), onclick: function () { go('google'); } },
+				{ label: s('upload', 'Upload font files'), onclick: function () { go('upload'); } }
+			];
+
+			if (waiting.length) {
+				routes.unshift({
+					label: s('adoptFiles', 'Add the files already here') + ' (' + waiting.length + ')',
+					onclick: function () { adoptFiles(waiting); }
+				});
+			}
+
 			contentEl.appendChild(emptyState(
 				s('noFamilies', 'No font families yet.'),
-				s('noFamiliesHint', 'Upload a font file or install one from Google Fonts.'),
-				[
-					{ label: s('googleFonts', 'Google Fonts'), onclick: function () { go('google'); } },
-					{ label: s('upload', 'Upload font files'), onclick: function () { go('upload'); } }
-				]
+				waiting.length
+					? s('noFamiliesFound', 'There are font files on the server that no family uses yet. They can be taken into the library, or start fresh from Google Fonts.')
+					: s('noFamiliesHint', 'Upload a font file or install one from Google Fonts.'),
+				routes
 			));
 			return;
 		}
@@ -3510,9 +3938,28 @@
 		if (!variants.length) {
 			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('noVariants', 'No variants mapped yet.') }));
 		} else {
+			var picks = variantPicks(index);
+			var everyVariant = variants.map(function (variant, vi) { return String(vi); });
+
+			if (picks.length) {
+				contentEl.appendChild(el('div', { class: 'efm-resultbar' }, [
+					el('span', {}),
+					bulkBar(picks, [
+						{
+							label: s('removeSelected', 'Remove selected'),
+							variant: 'danger',
+							onclick: function () { removePickedVariants(index); }
+						}
+					])
+				]));
+			}
+
 			var table = el('div', { class: 'efm-table' }, [
 				el('div', { class: 'efm-table__head' }, [
-					el('span', { text: s('file', 'File') }),
+					el('span', { class: 'efm-file__cell' }, [
+						pickAll(picks, everyVariant, s('selectAllVariants', 'Select every variant')),
+						el('span', { text: s('file', 'File') })
+					]),
 					el('span', { text: s('weight', 'Weight') }),
 					el('span', { text: s('style', 'Style') }),
 					el('span', { text: '' })
@@ -4014,7 +4461,20 @@
 		});
 
 		return el('div', { class: 'efm-table__row' }, [
-			fileSelect,
+			el('span', { class: 'efm-file__cell' }, [
+				el('label', { class: 'efm-card__pick' }, [
+					el('input', {
+						type: 'checkbox',
+						class: 'efm-checkbox',
+						checked: variantPicks(familyIndex).indexOf(String(variantIndex)) !== -1,
+						'aria-label': s('selectVariant', 'Select variant') + ' ' + (variantIndex + 1),
+						onchange: function () {
+							togglePicked(variantPicks(familyIndex), String(variantIndex));
+						}
+					})
+				]),
+				fileSelect
+			]),
 			weightSelect,
 			styleSelect,
 			el('button', {
@@ -4118,14 +4578,68 @@
 
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('files', 'Uploaded files') }));
 
+		if (state.files.length && state.pickedFiles.length) {
+			/*
+			 * Only what the selection can actually do. Converting offers itself for
+			 * the files that are convertible and not already converted, which is the
+			 * same test the per-row button runs; with none of those chosen the button
+			 * would be a promise the selection cannot keep.
+			 */
+			var convertable = state.pickedFiles.filter(function (name) {
+				return convertible(name) && converterAvailable() && !state.files.some(function (entry) {
+					return entry.name === woff2Name(name) && entry.name !== name;
+				});
+			});
+
+			// Only the ones no family maps yet; adopting a mapped file would be a
+			// second variant pointing at the same bytes.
+			var addable = state.pickedFiles.filter(function (name) {
+				return !fileUsedBy(name).length;
+			});
+
+			contentEl.appendChild(el('div', { class: 'efm-resultbar' }, [
+				el('span', {}),
+				bulkBar(state.pickedFiles, [
+					{
+						label: s('convertSelected', 'Convert selected') + ' (' + convertable.length + ')',
+						disabled: !convertable.length || !!state.converting,
+						onclick: function () { convertPicked(convertable); }
+					},
+					{
+						label: s('addSelected', 'Add to library') + ' (' + addable.length + ')',
+						disabled: !addable.length,
+						onclick: function () {
+							var names = addable.slice();
+
+							state.pickedFiles = [];
+							adoptFiles(names);
+						}
+					},
+					{
+						label: s('deleteSelected', 'Delete selected'),
+						variant: 'danger',
+						disabled: !!state.converting,
+						onclick: deletePickedFiles
+					}
+				])
+			]));
+		}
+
 		if (!state.files.length) {
 			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('noFiles', 'No files uploaded yet.') }));
 			return;
 		}
 
+		var everyFile = state.files.map(function (entry) { return entry.name; });
+
 		var table = el('div', { class: 'efm-table efm-table--files' }, [
 			el('div', { class: 'efm-table__head' }, [
-				el('span', { text: s('file', 'File') }),
+				// Inside the File cell rather than in a column of its own, so the
+				// grid template the two tables share does not have to change.
+				el('span', { class: 'efm-file__cell' }, [
+					pickAll(state.pickedFiles, everyFile, s('selectAllFiles', 'Select every file')),
+					el('span', { text: s('file', 'File') })
+				]),
 				el('span', { text: s('type', 'Type') }),
 				el('span', { text: s('size', 'Size') }),
 				el('span', { text: '' }),
@@ -4146,9 +4660,33 @@
 
 			table.appendChild(
 				el('div', { class: 'efm-table__row' }, [
-					el('span', { class: 'efm-file__name', text: file.name, title: file.name }),
+					el('span', { class: 'efm-file__cell' }, [
+						el('label', { class: 'efm-card__pick' }, [
+							el('input', {
+								type: 'checkbox',
+								class: 'efm-checkbox',
+								checked: state.pickedFiles.indexOf(file.name) !== -1,
+								'aria-label': s('selectFile', 'Select') + ' ' + file.name,
+								onchange: function () {
+									togglePicked(state.pickedFiles, file.name);
+								}
+							})
+						]),
+						el('span', { class: 'efm-file__name', text: file.name, title: file.name })
+					]),
 					el('span', { class: 'efm-muted', text: (file.ext || '').toUpperCase() + ' · ' + (file.weight || '400') + (file.style === 'italic' ? ' ' + s('italic', 'Italic') : '') }),
-					el('span', { class: 'efm-muted', text: formatSize(file.size) + (fileUsedBy(file.name).length ? ' · ' + s('inUse', 'in use') : '') }),
+					/*
+					 * Both states named. "in use" against a blank meant the reader had
+					 * to know that blank was a state at all -- and the file it applies
+					 * to most often is a source left behind by a conversion, which is
+					 * exactly the one worth noticing.
+					 */
+					el('span', {
+						class: 'efm-muted',
+						text: formatSize(file.size) + ' \u00b7 ' + (fileUsedBy(file.name).length
+							? s('inUse', 'in use')
+							: s('unusedLabel', 'unused'))
+					}),
 					convertible(file.name) && converterAvailable()
 						? el('button', {
 							type: 'button',
@@ -4351,6 +4889,26 @@
 		return held[axis.tag] === undefined ? axis.def : held[axis.tag];
 	}
 
+	/**
+	 * Whether any axis on this family sits away from its default.
+	 *
+	 * Compared rather than remembered. Asking whether the family had an entry at
+	 * all answered a different question -- dragging a slider back to where it
+	 * started left the entry behind, so the reset stayed live with nothing to
+	 * undo. The same mistake the save bar's dirty flag used to make.
+	 *
+	 * @param {Object} font Family record from the catalogue.
+	 * @param {Array}  axes Axis definitions.
+	 * @return {boolean} True when a reset would change something.
+	 */
+	function axesMoved(font, axes) {
+		var held = state.axisValues[font.family] || {};
+
+		return (axes || []).some(function (axis) {
+			return held[axis.tag] !== undefined && held[axis.tag] !== axis.def;
+		});
+	}
+
 	function variationSettings(font) {
 		var axes = (font.axes || []);
 
@@ -4453,8 +5011,7 @@
 				class: 'efm-btn efm-btn--ghost efm-btn--sm',
 				// Inert until an axis has actually moved, so the control reports
 				// whether there is anything to undo rather than always offering it.
-				disabled: !state.axisValues[font.family] ||
-					!Object.keys(state.axisValues[font.family]).length,
+				disabled: !axesMoved(font, axes),
 				onclick: function () {
 					delete state.axisValues[font.family];
 					render();
@@ -4482,6 +5039,14 @@
 						valueLabel.textContent = event.target.value;
 						syncRange(event.target);
 						repaint();
+
+						/*
+						 * Updated in place rather than through render(). Dragging a
+						 * slider cannot rebuild the pane -- that would destroy the input
+						 * mid-drag -- which is why this button was created disabled and
+						 * stayed that way however far the axes were moved.
+						 */
+						resetAxes.disabled = !axesMoved(font, axes);
 					}
 				});
 
@@ -4827,7 +5392,7 @@
 		contentEl.appendChild(el('div', { class: 'efm-resultbar' }, [
 			el('p', {
 				class: 'efm-muted',
-				text: state.results.length + ' ' + s('ofLabel', 'of') + ' ' + state.total + ' ' + s('familiesLabel', 'families')
+				text: googleSummary()
 			}),
 			state.picked.length ? el('div', { class: 'efm-bulk' }, [
 				el('span', {
@@ -5051,6 +5616,117 @@
 	 * and writes them, and firing a dozen of those concurrently is a good way to
 	 * get rate limited or to time the request out on shared hosting.
 	 */
+	/**
+	 * The variant selection, if it still belongs to the family on screen.
+	 *
+	 * Switching families abandons it rather than reinterpreting its positions
+	 * against a different list of variants.
+	 *
+	 * @param {number} familyIndex Family being edited.
+	 * @return {string[]} Selected positions, as strings.
+	 */
+	function variantPicks(familyIndex) {
+		var held = state.pickedVariants;
+
+		if (held.family !== familyIndex) {
+			state.pickedVariants = { family: familyIndex, list: [] };
+		}
+
+		return state.pickedVariants.list;
+	}
+
+	/**
+	 * Add or remove a name from a selection, in place.
+	 *
+	 * @param {string[]} list Selection array from state.
+	 * @param {string}   name What was clicked.
+	 */
+	function togglePicked(list, name) {
+		var at = list.indexOf(name);
+
+		if (at === -1) {
+			list.push(name);
+		} else {
+			list.splice(at, 1);
+		}
+
+		render();
+	}
+
+	/**
+	 * A select-all box for a table head or a grid header.
+	 *
+	 * Tri-state in the way that matters: indeterminate while some but not all are
+	 * chosen, which is what Etch's own .bulk-bar__select-all does and what stops
+	 * the box claiming the list is empty when it is half-picked.
+	 *
+	 * @param {string[]} list  Selection array from state.
+	 * @param {string[]} all   Every selectable name currently on screen.
+	 * @param {string}   label Accessible name.
+	 * @return {Element}
+	 */
+	function pickAll(list, all, label) {
+		var box = el('input', {
+			type: 'checkbox',
+			class: 'efm-checkbox',
+			'aria-label': label,
+			checked: all.length > 0 && list.length >= all.length,
+			onchange: function (event) {
+				if (event.target.checked) {
+					all.forEach(function (name) {
+						if (list.indexOf(name) === -1) {
+							list.push(name);
+						}
+					});
+				} else {
+					list.length = 0;
+				}
+
+				render();
+			}
+		});
+
+		box.indeterminate = list.length > 0 && list.length < all.length;
+
+		return el('label', { class: 'efm-card__pick' }, [box]);
+	}
+
+	/**
+	 * The bar that appears once something is selected.
+	 *
+	 * @param {string[]} list    Selection array from state.
+	 * @param {Array}    actions Buttons, each { label, variant, disabled, onclick }.
+	 * @return {Element|null} Null when nothing is selected.
+	 */
+	function bulkBar(list, actions) {
+		if (!list.length) {
+			return null;
+		}
+
+		return el('div', { class: 'efm-bulk' }, [
+			el('span', {
+				class: 'efm-bulk__count',
+				text: list.length + ' ' + s('selected', 'selected')
+			}),
+			el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--ghost efm-btn--sm',
+				onclick: function () {
+					list.length = 0;
+					render();
+				}
+			}, [icon('close', 'sm'), el('span', { text: s('clearSelection', 'Clear') })])
+		].concat((actions || []).map(function (action) {
+			return el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--' + (action.variant || 'outline') + ' efm-btn--sm',
+				disabled: !!action.disabled,
+				text: action.label,
+				onclick: action.onclick
+			});
+		})));
+	}
+
 	function installPicked() {
 		var queue = state.picked.slice();
 		var done = 0;
@@ -5423,6 +6099,30 @@
 		contentEl.appendChild(section(s('stylesheet', 'Stylesheet'), [stylesheetStatus, inlineToggle, regenerate]));
 		contentEl.appendChild(section(s('privacy', 'Privacy'), [blockGoogle]));
 
+		/*
+		 * The other half of what happens when the plugin goes. By default an
+		 * uninstall leaves wp-content/fonts alone, so a site that deletes the plugin
+		 * by accident still has its typography; this is how a site that means it
+		 * gets a clean removal instead.
+		 */
+		var purgeFiles =
+			el('label', { class: 'efm-toggle' }, [
+				el('input', {
+					type: 'checkbox',
+					class: 'efm-checkbox',
+					checked: !!state.settings.purge_files,
+					onchange: function (event) {
+						state.settings.purge_files = event.target.checked;
+					}
+				}),
+				el('span', { class: 'efm-toggle__text' }, [
+					el('span', { class: 'efm-toggle__label', text: s('purgeFiles', 'Delete the font files when the plugin is deleted') }),
+					el('span', { class: 'efm-field__hint', text: s('purgeFilesHint', 'Off by default, so deleting the plugin by mistake leaves your typography standing. On, deleting the plugin from Plugins also removes the generated stylesheet and every font file your families map. Files nothing maps are left alone, and so is anything else in wp-content/fonts, because Etch shares that folder. Deactivating never deletes anything.') })
+				])
+			]);
+
+		contentEl.appendChild(section(s('removal', 'Removal'), [purgeFiles]));
+
 		// Saving covers both boxes, so it belongs to the screen rather than to
 		// either one of them.
 		contentEl.appendChild(
@@ -5437,6 +6137,45 @@
 	}
 
 	/* -------------------------------- Tools ------------------------------ */
+
+	/**
+	 * The one line that carries the typography if the plugin goes.
+	 *
+	 * Deactivating or deleting stops anything enqueueing the stylesheet, so every
+	 * family falls back even though the files are still on disk. The stylesheet
+	 * itself survives an uninstall and references its files relatively, so it works
+	 * from where it sits: one @import in a theme or in Automatic.css is the whole
+	 * migration.
+	 *
+	 * @return {Element|null} The section, or null with no stylesheet to point at.
+	 */
+	function keepWithoutPlugin() {
+		if (!state.cssUrl) {
+			return null;
+		}
+
+		var line = '@import url("' + state.cssUrl + '");';
+
+		return el('div', {}, [
+			el('h3', { class: 'efm-section-title', text: s('keepTitle', 'Keeping these fonts without the plugin') }),
+			el('p', {
+				class: 'efm-muted',
+				text: s('keepHint', 'Deactivating or deleting the plugin stops this stylesheet being loaded, so every family falls back to its stack. The font files and the stylesheet are both left in wp-content/fonts, so this line keeps them working from a theme or from Automatic.css. It has to be the first rule in whichever stylesheet you paste it into.')
+			}),
+			el('div', { class: 'efm-token' }, [
+				el('code', { class: 'efm-token__value', text: line }),
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--ghost efm-btn--sm efm-btn--icon efm-tooltip efm-tooltip--end',
+					'aria-label': s('copy', 'Copy'),
+					'data-efm-tooltip': s('copy', 'Copy'),
+					onclick: function () {
+						copyText(line);
+					}
+				}, [icon('copy', 'sm')])
+			])
+		]);
+	}
 
 	function renderTools() {
 		var unused = state.unused || [];
@@ -5687,7 +6426,13 @@
 			contentEl.appendChild(el('div', { class: 'efm-report' }, lines));
 		}
 
-		// Three unrelated tools on one pane; the headings mark where each ends.
+		var keeping = keepWithoutPlugin();
+
+		if (keeping) {
+			contentEl.appendChild(keeping);
+		}
+
+		// Unrelated tools on one pane; the headings mark where each ends.
 		groupSections(contentEl);
 	}
 
@@ -6371,6 +7116,20 @@
 		});
 	}
 
+	/**
+	 * A line in the upload report that is not a conversion.
+	 *
+	 * The report is the only part of an upload that stays on screen: the toast
+	 * counts down and goes. So anything the user picked and did not get belongs
+	 * here, beside the files that did convert, naming the file it was picked as.
+	 *
+	 * @param {string} name What the user picked.
+	 * @param {string} note What happened to it.
+	 */
+	function logNote(name, note) {
+		state.convertLog.push({ name: name, note: note, from: 0, to: 0, saved: 0, error: '' });
+	}
+
 	function convertReport() {
 		var list = el('ul', { class: 'efm-convert-log' });
 
@@ -6381,7 +7140,9 @@
 					class: 'efm-muted',
 					text: entry.error
 						? entry.error
-						: formatSize(entry.from) + ' → ' + formatSize(entry.to) + ' · ' + entry.saved + '% ' + s('smaller', 'smaller')
+						: entry.note
+							? entry.note
+							: formatSize(entry.from) + ' \u2192 ' + formatSize(entry.to) + ' \u00b7 ' + entry.saved + '% ' + s('smaller', 'smaller')
 				})
 			]));
 		});
@@ -6402,9 +7163,19 @@
 	 *
 	 * @param {Object} file Entry from state.files.
 	 */
+	/**
+	 * Convert one file already on the server.
+	 *
+	 * Returns its promise so a selection can be run in order. It resolves either
+	 * way: a file that will not convert is logged and the rest of the queue still
+	 * runs, which is the same rule the uploader follows.
+	 *
+	 * @param {Object} file Entry from state.files.
+	 * @return {Promise} Settles when this file is done with.
+	 */
 	function convertExisting(file) {
 		if (state.converting) {
-			return;
+			return Promise.resolve();
 		}
 
 		/*
@@ -6420,7 +7191,7 @@
 				}
 			);
 
-			return;
+			return Promise.resolve();
 		}
 
 		state.converting = file.name;
@@ -6430,7 +7201,7 @@
 
 		var stored;
 
-		fetch(file.url, { credentials: 'same-origin' }).then(function (response) {
+		return fetch(file.url, { credentials: 'same-origin' }).then(function (response) {
 			if (!response.ok) {
 				throw new Error(s('convertNoRead', 'Could not read the file from the fonts folder.'));
 			}
@@ -6476,7 +7247,16 @@
 					applyState(next);
 				});
 		}).then(function () {
-			setStatus(s('converted', 'Converted') + ' · ' + formatSize(stored.from) + ' → ' + formatSize(stored.to));
+			/*
+			 * Naming the source, because the conversion is what made it an orphan.
+			 * It is deliberately not deleted -- there is no decoder here, so a WOFF2
+			 * cannot become a TTF again and the original may be the only copy. It is
+			 * removed on purpose from Import & export instead.
+			 */
+			setStatus(
+				s('converted', 'Converted') + ' \u00b7 ' + formatSize(stored.from) + ' \u2192 ' + formatSize(stored.to) +
+				' \u00b7 ' + file.name + ' ' + s('nowUnused', 'is now unused')
+			);
 		}).catch(fail).then(function () {
 			state.converting = '';
 			render();
@@ -6498,6 +7278,50 @@
 	 * @param {string[]} names File names as stored on the server.
 	 * @return {object} What was created: families named, and variants added.
 	 */
+	/**
+	 * Files on the server that no family in the buffer maps.
+	 *
+	 * Read from the buffer rather than from state.unused, which is the server's
+	 * answer and predates whatever is waiting to be saved.
+	 *
+	 * @return {string[]} File names.
+	 */
+	function unmappedFiles() {
+		return (state.files || []).filter(function (file) {
+			return !fileUsedBy(file.name).length;
+		}).map(function (file) {
+			return file.name;
+		});
+	}
+
+	/**
+	 * Take a set of files into the library, and say what that did.
+	 *
+	 * @param {string[]} names Files to adopt.
+	 */
+	function adoptFiles(names) {
+		var added = adoptUploads(names);
+
+		if (!added.variants) {
+			setStatus(s('nothingToAdd', 'Those files are already in the library.'), 'warning');
+			render();
+
+			return;
+		}
+
+		/*
+		 * Left in the buffer rather than saved. They are the user's to look over --
+		 * the family names are guessed from file names -- and the save bar already
+		 * says which families arrived.
+		 */
+		setStatus(
+			s('addedToLibrary', 'added to the library') + ' \u00b7 ' + added.variants + ' ' +
+			plural(added.variants, s('variant', 'variant'), s('variants', 'variants')) +
+			(added.families.length ? ' \u00b7 ' + added.families.join(', ') : '')
+		);
+		render();
+	}
+
 	function adoptUploads(names) {
 		var report = { families: [], variants: 0 };
 
@@ -6536,9 +7360,48 @@
 		return report;
 	}
 
+	/**
+	 * A file the library already holds, checked before anything is sent.
+	 *
+	 * The server refuses an identical file too, but that is the backstop: it costs
+	 * an upload to find out, and on a slow connection a re-picked folder spends
+	 * minutes uploading fonts that will all be turned away. This answers the same
+	 * question from what the panel already knows.
+	 *
+	 * Two ways of being the same font. The obvious one is the same name at the same
+	 * size. The other is a convertible file whose WOFF2 twin is already here -- the
+	 * library keeps a TTF as the WOFF2 it was converted into, so picking that TTF
+	 * again is picking a font it already has, which is what the Upload table means
+	 * when it says "Already converted to WOFF2".
+	 *
+	 * @param {File} file Picked file.
+	 * @return {string} The file already held, or ''.
+	 */
+	function alreadyHeld(file) {
+		var held = state.files || [];
+		var same = held.filter(function (entry) {
+			return entry.name === file.name && entry.size === file.size;
+		})[0];
+
+		if (same) {
+			return same.name;
+		}
+
+		if (!convertible(file.name)) {
+			return '';
+		}
+
+		var twin = woff2Name(file.name);
+		var converted = held.filter(function (entry) {
+			return entry.name === twin;
+		})[0];
+
+		return converted ? converted.name : '';
+	}
+
 	function uploadFiles(fileList) {
-		var files = Array.prototype.slice.call(fileList || []);
-		if (!files.length) {
+		var picked = Array.prototype.slice.call(fileList || []);
+		if (!picked.length) {
 			return;
 		}
 
@@ -6547,8 +7410,39 @@
 		var chain = Promise.resolve();
 		var done = 0;
 		var stored = [];
+		// Files the library already holds. Reported, never sent.
+		var skipped = [];
 		// Whether anything was already waiting to be saved before this upload.
 		var hadEdits = isDirty();
+
+		/*
+		 * Sorted before the first byte leaves the browser, so a font already in the
+		 * library is not uploaded at all rather than uploaded and turned away.
+		 */
+		var files = picked.filter(function (file) {
+			var twin = alreadyHeld(file);
+
+			if (!twin) {
+				return true;
+			}
+
+			skipped.push(twin);
+			logNote(file.name, twin === file.name
+				? s('duplicateSkipped', 'Already installed')
+				: s('duplicateSkippedAs', 'Already installed as') + ' ' + twin);
+
+			return false;
+		});
+
+		if (!files.length) {
+			render();
+			setStatus(
+				skipped.length + ' ' + s('alreadyInstalled', 'already installed') + ': ' + skipped.join(', '),
+				'warning'
+			);
+
+			return;
+		}
 
 		files.forEach(function (file) {
 			chain = chain.then(function () {
@@ -6571,6 +7465,25 @@
 
 				return request('/upload', { method: 'POST', body: form }).then(function (result) {
 					applyState(result && result.state);
+
+					/*
+					 * A duplicate comes back as the file already holding those bytes
+					 * rather than as an error, so one repeat in the middle of a folder
+					 * does not abandon the rest of it. It is not adopted either: the
+					 * family that maps the original still maps it.
+					 */
+					if (result && result.file && result.file.duplicate) {
+						skipped.push(result.file.name);
+
+						// Naming the twin only helps when it is a different name; the
+						// usual case is the same file picked twice.
+						logNote(file.name, result.file.name === item.filename
+							? s('duplicateSkipped', 'Already installed')
+							: s('duplicateSkippedAs', 'Already installed as') + ' ' + result.file.name);
+
+						return;
+					}
+
 					stored.push(item.filename);
 					done++;
 				});
@@ -6579,10 +7492,22 @@
 
 		chain.then(function () {
 			var added = adoptUploads(stored);
-			var message = s('uploaded', 'Uploaded') + ' · ' + done;
+			var message = s('uploaded', 'Uploaded') + ' \u00b7 ' + done;
+
+			if (skipped.length) {
+				message += ' \u00b7 ' + skipped.length + ' ' +
+					s('alreadyInstalled', 'already installed') + ': ' + skipped.join(', ');
+			}
+
+			/*
+			 * A skip makes the whole message a warning, which is the level that has no
+			 * countdown. You asked for files and got fewer, and the sentence saying so
+			 * should not expire while you are still reading the list it refers to.
+			 */
+			var level = skipped.length ? 'warning' : null;
 
 			if (!added.variants) {
-				setStatus(message);
+				setStatus(message, level);
 				return;
 			}
 
@@ -6604,9 +7529,93 @@
 				return;
 			}
 
-			setStatus(message);
+			// Carries the level too, so a mixed batch -- some new, some already there
+			// -- keeps the warning rather than fading on a success countdown.
+			setStatus(message, level);
 			saveFamilies();
 		}).catch(fail).then(render);
+	}
+
+	/**
+	 * Convert a selection, one file at a time.
+	 *
+	 * Sequential on purpose: the converter is a single worker and the panel shows
+	 * one progress line, so running them in parallel would race the status and the
+	 * family mapping each conversion writes.
+	 *
+	 * @param {string[]} names Files to convert.
+	 */
+	function convertPicked(names) {
+		var queue = names.slice();
+
+		queue.reduce(function (chain, name) {
+			return chain.then(function () {
+				var file = (state.files || []).filter(function (entry) {
+					return entry.name === name;
+				})[0];
+
+				return file ? convertExisting(file) : null;
+			});
+		}, Promise.resolve()).then(function () {
+			state.pickedFiles = [];
+			setStatus(s('convertedCount', 'Converted') + ' \u00b7 ' + queue.length);
+			render();
+		});
+	}
+
+	/**
+	 * Delete a selection of files, after one question about the lot.
+	 */
+	function deletePickedFiles() {
+		var names = state.pickedFiles.slice();
+
+		if (!names.length) {
+			return;
+		}
+
+		// Which of them a family still maps, so the question can say so once
+		// rather than a family name appearing beside each file.
+		var mapped = names.filter(function (name) {
+			return fileUsedBy(name).length;
+		});
+
+		var message = s('confirmDeleteFiles', 'Delete these files from the fonts folder?');
+
+		if (mapped.length) {
+			message += '\n\n' + mapped.length + ' ' +
+				s('confirmDeleteFilesUsed', 'of them are mapped by a family, and those variants will be removed too.');
+		}
+
+		message += '\n\n' + s('confirmPermanent', 'The Trash holds families, not files, so this cannot be undone.');
+
+		askConfirm({
+			// The rows themselves, so the list in the dialog can be checked against
+			// the table behind it.
+			mark: Array.prototype.slice.call(contentEl.querySelectorAll('.efm-table__row')).filter(function (row) {
+				var label = row.querySelector('.efm-file__name');
+
+				return label && names.indexOf(label.textContent) !== -1;
+			}),
+			title: s('deleteFiles', 'Delete files'),
+			message: message,
+			list: names,
+			confirm: s('deleteAction', 'Delete'),
+			danger: true
+		}).then(function (answer) {
+			if ('confirm' !== answer) {
+				return;
+			}
+
+			names.reduce(function (chain, name) {
+				return chain.then(function () {
+					return deleteFile(name);
+				});
+			}, Promise.resolve()).then(function () {
+				state.pickedFiles = [];
+				setStatus(s('deletedCount', 'Deleted') + ' \u00b7 ' + names.length);
+				render();
+			});
+		});
 	}
 
 	function pruneFiles() {
@@ -6650,8 +7659,17 @@
 			});
 	}
 
+	/**
+	 * Unlink one file from the fonts folder.
+	 *
+	 * Returns its promise so a selection can be deleted in order, and resolves
+	 * either way so one refusal does not strand the rest of the queue.
+	 *
+	 * @param {string} filename File to remove.
+	 * @return {Promise}
+	 */
 	function deleteFile(filename) {
-		request('/files/delete', { method: 'POST', body: { filename: filename } })
+		return request('/files/delete', { method: 'POST', body: { filename: filename } })
 			.then(function (next) {
 				applyState(next);
 				render();
@@ -6785,6 +7803,33 @@
 	}
 
 	/**
+	 * Which slice of the catalogue is on screen.
+	 *
+	 * state.results holds one page, so counting it read "24 of 1942" on every page
+	 * but the last -- the page size and the total, and your position in neither.
+	 * Paging changed the grid and left the sentence above it saying the same thing,
+	 * which is what made it look broken. A range answers the question the sentence
+	 * was already asking.
+	 *
+	 * One page has nothing to locate, so that case just counts. The total falls
+	 * back to what is on screen, since a range is only honest if it has an end.
+	 *
+	 * @return {string} "1921-1942 of 1942 families", or a plain count.
+	 */
+	function googleSummary() {
+		var total = state.total || state.results.length;
+		var from = state.page * GOOGLE_PAGE_SIZE + 1;
+		var to = from + state.results.length - 1;
+
+		if (googlePageCount() < 2) {
+			return total + ' ' + plural(total, s('familyLabel', 'family'), s('familiesLabel', 'families'));
+		}
+
+		return from + '\u2013' + to + ' ' + s('ofLabel', 'of') + ' ' +
+			total + ' ' + s('familiesLabel', 'families');
+	}
+
+	/**
 	 * Install or re-install a Google family.
 	 *
 	 * Guarded here rather than at the three call sites -- the browse card, the
@@ -6858,7 +7903,8 @@
 			method: 'POST',
 			body: {
 				inline_css: !!state.settings.inline_css,
-				block_google: !!state.settings.block_google
+				block_google: !!state.settings.block_google,
+				purge_files: !!state.settings.purge_files
 			}
 		})
 			.then(function (next) {

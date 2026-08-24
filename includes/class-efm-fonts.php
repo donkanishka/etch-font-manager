@@ -104,6 +104,39 @@ class EFM_Fonts {
 	}
 
 	/**
+	 * Whether this site has ever stored a library.
+	 *
+	 * A missing option and an empty one mean different things. A site that deleted
+	 * its last family holds an empty array, and its stylesheet should be rewritten
+	 * empty to match. A site with no option at all has either never had one or has
+	 * just had it removed by an uninstall -- and in that second case a stylesheet
+	 * from the previous install may still be on disk doing its job.
+	 *
+	 * @return bool True when a library exists, however empty.
+	 */
+	protected static function has_library() {
+		return null !== get_option( self::OPTION_FAMILIES, null );
+	}
+
+	/**
+	 * Write the stylesheet unless doing so would destroy a better one.
+	 *
+	 * Deleting the plugin without ticking "Delete the font files too" leaves the
+	 * stylesheet in place on purpose, so the site keeps its typography. Reinstalling
+	 * then arrived with no library and regenerated that file from nothing, which is
+	 * exactly what keeping it was meant to prevent.
+	 *
+	 * A fresh install still gets its file, since there is nothing there to lose.
+	 *
+	 * @return void
+	 */
+	public static function write_css_unless_kept() {
+		if ( self::has_library() || ! file_exists( self::css_path() ) ) {
+			self::write_css_file();
+		}
+	}
+
+	/**
 	 * Regenerate the stylesheet after a plugin update.
 	 */
 	public static function maybe_upgrade() {
@@ -111,7 +144,7 @@ class EFM_Fonts {
 			return;
 		}
 
-		self::write_css_file();
+		self::write_css_unless_kept();
 
 		// Cached remote data may predate the current index shape.
 		delete_transient( EFM_Google_Fonts::TRANSIENT );
@@ -368,6 +401,13 @@ class EFM_Fonts {
 		$defaults = array(
 			'inline_css'   => false,
 			'block_google' => false,
+
+			/*
+			 * Off, because the opposite of this setting is unrecoverable and the
+			 * safe default for an accidental delete is to leave the typography
+			 * standing. A site that wants a clean removal opts into it.
+			 */
+			'purge_files'  => false,
 		);
 
 		$settings = get_option( self::OPTION_SETTINGS, array() );
@@ -388,6 +428,7 @@ class EFM_Fonts {
 		$clean = array(
 			'inline_css'   => ! empty( $input['inline_css'] ?? $current['inline_css'] ),
 			'block_google' => ! empty( $input['block_google'] ?? $current['block_google'] ),
+			'purge_files'  => ! empty( $input['purge_files'] ?? $current['purge_files'] ),
 		);
 
 		update_option( self::OPTION_SETTINGS, $clean, false );
@@ -1390,9 +1431,34 @@ class EFM_Fonts {
 
 		self::ensure_dir();
 
+		/*
+		 * A font already on disk is not uploaded again. The same file used to land
+		 * beside itself under a random suffix, so uploading a folder twice doubled
+		 * the library and left the Upload screen listing several names for one face
+		 * with no way to tell which a family was mapped to.
+		 *
+		 * Matched on contents rather than on file name, because the name is the part
+		 * that varies: the same face arrives as Inter-Regular.woff2 from one source
+		 * and inter-regular.woff2 from another, and a converted TTF is renamed by the
+		 * converter before it ever gets here.
+		 */
+		$twin = self::file_with_contents( $file['tmp_name'], (int) $file['size'] );
+
+		if ( '' !== $twin ) {
+			$existing = self::describe_file( $twin );
+
+			$existing['duplicate'] = true;
+
+			return $existing;
+		}
+
 		$filename    = sanitize_file_name( $file['name'] );
 		$destination = self::dir() . $filename;
 
+		/*
+		 * A different font under a name already taken still gets the suffix. Only an
+		 * identical file is refused, and that case has already returned above.
+		 */
 		if ( file_exists( $destination ) ) {
 			$filename    = pathinfo( $filename, PATHINFO_FILENAME ) . '-' . substr( wp_generate_uuid4(), 0, 8 ) . '.' . $ext;
 			$destination = self::dir() . $filename;
@@ -1430,6 +1496,104 @@ class EFM_Fonts {
 			'weight' => $guess['weight'],
 			'style'  => $guess['style'],
 		);
+	}
+
+	/**
+	 * A file already in the fonts folder holding exactly these bytes.
+	 *
+	 * Size first, hash second: fonts are hundreds of kilobytes and a library can
+	 * hold a hundred of them, so reading every one on every upload would be work
+	 * done to answer a question the file size settles for nearly all of them.
+	 * Only same-size candidates are hashed, and a hash match on equal sizes is the
+	 * duplicate.
+	 *
+	 * @param string $path Path to the incoming file.
+	 * @param int    $size Its size in bytes.
+	 * @return string Existing file name, or '' when there is no twin.
+	 */
+	protected static function file_with_contents( $path, $size ) {
+		if ( ! is_readable( $path ) || $size <= 0 ) {
+			return '';
+		}
+
+		$hash = '';
+
+		foreach ( self::files() as $file ) {
+			if ( (int) $file['size'] !== $size ) {
+				continue;
+			}
+
+			// Deferred until a candidate exists, so a library of unique sizes never
+			// hashes the incoming file at all.
+			if ( '' === $hash ) {
+				$hash = (string) md5_file( $path );
+
+				if ( '' === $hash ) {
+					return '';
+				}
+			}
+
+			$twin = self::dir() . $file['name'];
+
+			if ( self::path_is_inside( $twin ) && $hash === (string) md5_file( $twin ) ) {
+				return $file['name'];
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * One file described the way files() describes it.
+	 *
+	 * @param string $filename File name, already known to be in the folder.
+	 * @return array<string,mixed> Entry, or an empty array when it is gone.
+	 */
+	public static function describe_file( $filename ) {
+		foreach ( self::files() as $file ) {
+			if ( $file['name'] === $filename ) {
+				return $file;
+			}
+		}
+
+		return array();
+	}
+
+	/**
+	 * The files this plugin can prove are its own.
+	 *
+	 * wp-content/fonts is shared on purpose -- Etch and the legacy Etch Custom
+	 * Fonts plugin both use it, which is what makes a legacy import work without
+	 * moving anything. So a full removal cannot simply empty the folder: it would
+	 * take another plugin's typography with it.
+	 *
+	 * What can be proved is what the stored families map. Anything else in there
+	 * may be ours, may be Etch's, and there is no way to tell from the outside, so
+	 * it stays. Unused uploads are cleared from Import & export instead, where the
+	 * list is on screen and the choice is deliberate.
+	 *
+	 * @return string[] Absolute paths, the generated stylesheet included.
+	 */
+	public static function owned_files() {
+		$paths = array( self::css_path() );
+
+		foreach ( self::families() as $family ) {
+			foreach ( (array) ( $family['variants'] ?? array() ) as $variant ) {
+				$name = sanitize_file_name( $variant['file'] ?? '' );
+
+				if ( '' === $name ) {
+					continue;
+				}
+
+				$path = self::dir() . $name;
+
+				if ( self::path_is_inside( $path ) && ! in_array( $path, $paths, true ) ) {
+					$paths[] = $path;
+				}
+			}
+		}
+
+		return $paths;
 	}
 
 	/**

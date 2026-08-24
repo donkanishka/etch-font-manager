@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 0.31.0
+Stable tag: 0.32.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -43,9 +43,27 @@ Yes. Google Fonts are downloaded to your own fonts directory on install, so the 
 
 = What happens if I uninstall? =
 
-Plugin options and the generated stylesheet are removed. Your uploaded font files are kept.
+Plugin options are removed. Everything in wp-content/fonts is left alone by default — your font files and the stylesheet that declares them — so the site keeps its typography if the plugin is deleted by mistake. Import & export shows the one @import line that keeps them loading without the plugin.
+
+Settings > Removal has the opt-out. Tick "Delete the font files when the plugin is deleted" and deleting the plugin also removes the stylesheet and every font file your families map. Files nothing maps are left, and so is anything else in that folder, because Etch shares it. Deactivating never deletes anything.
+
+Reinstalling leaves the kept stylesheet in place rather than regenerating over it, so the site carries on loading its fonts. The library itself starts empty — restore it from Import & export.
 
 == Changelog ==
+
+= 0.32.0 =
+* Fixed: deleting the plugin used to keep your font files but delete the stylesheet that declares them, which broke the site's typography anyway. Everything in wp-content/fonts is left alone now, and Import & export shows the one line that keeps it loading without the plugin.
+* Fixed: a disabled family previewed in the wrong typeface, because disabling removes it from the stylesheet the preview reads from.
+* Fixed: Reset axes never became clickable, however far the sliders were moved.
+* Fixed: the Google Fonts count read "24 of 1942" on every page but the last. It shows the range you are looking at now.
+* Fixed: reinstalling the plugin regenerated the kept stylesheet from nothing.
+* You cannot upload the same font twice. It used to land beside itself under a random suffix.
+* Uploaded files, the Trash and the variants table can all be multi-selected, for converting, deleting, restoring or removing together.
+* Font files already sitting on the server can be taken into the library in one click, from the library's empty state or from the Upload screen.
+* Settings has a Removal option: deleting the plugin can also delete the font files your families use. Off by default, and it never touches files it did not put there.
+* Converting a file now says which original it left unused, and the file list names both states rather than only "in use".
+* New icons throughout, count badges are properly round, and the Fallback stack field behaves like the dropdowns beside it.
+* The preview script buttons now follow the fonts you have installed, each labelled in its own script, instead of a fixed Latin/Sinhala/Tamil row.
 
 = 0.31.0 =
 * Fixed: installing a Google font quietly threw away every unsaved change in the panel. It now asks, and can save your work first instead of only offering to lose it.

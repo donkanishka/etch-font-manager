@@ -332,6 +332,7 @@ class EFM_Rest {
 			array(
 				'inline_css'   => (bool) $request->get_param( 'inline_css' ),
 				'block_google' => (bool) $request->get_param( 'block_google' ),
+				'purge_files'  => (bool) $request->get_param( 'purge_files' ),
 			)
 		);
 

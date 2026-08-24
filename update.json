@@ -1,10 +1,10 @@
 {
-  "version": "0.31.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.31.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.31.0",
+  "version": "0.32.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.32.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.32.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
-  "date": "2026-08-23",
-  "notes": "Installing a Google font no longer throws away unsaved changes in the panel, and leaving the builder with unsaved font changes now warns you. Closing the panel stopped asking, because it was never losing anything. The save bar no longer stays lit after you undo an edit by hand, families record whether they came from Google or an upload, and a confirmation marks what it is about to delete."
+  "date": "2026-08-24",
+  "notes": "Deleting the plugin no longer breaks the site’s typography: the font files and the stylesheet that declares them are both left in place, with an opt-in purge in Settings for a clean removal. Uploaded files, the Trash and the variants table can be multi-selected. Fonts already on the server can be taken into the library, the same font cannot be uploaded twice, and the preview script buttons follow the fonts you actually have."
 }

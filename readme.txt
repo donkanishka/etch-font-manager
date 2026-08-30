@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 0.32.0
+Stable tag: 0.33.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,18 @@ Settings > Removal has the opt-out. Tick "Delete the font files when the plugin 
 Reinstalling leaves the kept stylesheet in place rather than regenerating over it, so the site carries on loading its fonts. The library itself starts empty — restore it from Import & export.
 
 == Changelog ==
+
+= 0.33.0 =
+* Added: a variable font keeps the instance you tune. Installing records the family's axes, the family editor offers the same sliders the type tester does, and the tuning is written to the stylesheet instead of having to be copied out by hand.
+* Added: converting shows what it did, original beside result, in the same shape Etch's Asset Manager reports a compression.
+* Added: Settings has a Conversion option to delete the original once a font has been converted. Off by default, and it never deletes a file another family still uses.
+* Fixed: exporting included families you had put in the Trash, and did so by default.
+* Fixed: delete buttons looked like any other button. Every delete in the panel now matches the confirmation dialog's own Delete.
+* Fixed: selecting a family in the Trash showed nothing but a ticked checkbox.
+* Fixed: the preview script chips crowded the toolbar on the Google Fonts screen. They collapse past six now, and the preview field and size slider keep the first row.
+* Fixed: the import preview ran together as one block of text.
+* Fixed: a long name in a dropdown pushed the value out of the menu instead of shortening.
+* The size slider is labelled, actions that free disk say how much they would free, and toolbar controls are all one height.
 
 = 0.32.0 =
 * Fixed: deleting the plugin used to keep your font files but delete the stylesheet that declares them, which broke the site's typography anyway. Everything in wp-content/fonts is left alone now, and Import & export shows the one line that keeps it loading without the plugin.

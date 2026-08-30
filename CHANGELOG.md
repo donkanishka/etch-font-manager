@@ -2,6 +2,114 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.33.0
+
+A ninth pass, driven a screenshot at a time. Its spine is that the panel should show its work: a delete should
+look like one, an action that frees disk should say how much, and a font tuned in the type tester should still
+be tuned after it is installed.
+
+Three of the twelve items turned out to be rules that had never once applied. All three were the same mistake --
+a modifier declared above the base class it modifies, tying on specificity and losing on source order -- and a
+sweep of all 281 rules afterwards found no fourth.
+
+### Added
+
+- **A variable family keeps the instance you tuned.** The type tester has always let you drag a font's axes and
+  shown you the `font-variation-settings` line it produced, and that line died the moment you left the Google
+  Fonts view: the axes lived only in the search results, so your only way to keep the tuning was to paste the
+  declaration into a stylesheet by hand.
+
+  Installing now records the family's whole axis list, and the family editor offers the same sliders afterwards.
+  The instance is written to the stylesheet as `font-variation-settings` on the family's own selector, and as a
+  `--efm-family-{slug}-variation` custom property beside the existing font-stack token, so it can be applied
+  anywhere the family already is.
+
+  It is deliberately not written into the `@font-face` rule, which is where it looks like it belongs. Measured in
+  Chrome against a real variable face: a rule carrying `font-variation-settings: "wght" 900` rendered identically
+  to one carrying none, both at 229.29px, where genuine weight 900 measured 240.05px. Declaring it there would
+  have shipped a line that does nothing. Leaving `@font-face` alone also keeps its weight range intact, so
+  `font-weight` still works everywhere the family is used.
+
+  An axis sitting on its default is left out, so a family nobody has tuned writes nothing, and dragging a slider
+  back where it started undoes the edit properly.
+
+  Google installs only. An uploaded font's axes would have to be read back out of the file, and the converter
+  writes WOFF2 without being able to read it.
+
+- **Converting reports what it did, the way Etch's Asset Manager does.** Original on the left, result on the
+  right, over a wash that deepens toward the result. The component is Etch's own `.results`, taken from the
+  builder bundle rather than judged from a screenshot: its padding, its 0.05em label tracking, its 16px
+  monospaced value and all four of its gradient stops.
+
+- **Settings > Conversion decides what happens to the original.** Off by default, because converting is one-way
+  here -- there is an encoder and no decoder -- and for an uploaded font the original may be the only copy on the
+  site. On, the source is deleted once the conversion has been remapped. A source another family still maps is
+  never deleted either way, which matters because the server answers a duplicate upload with the twin it already
+  holds.
+
+  A setting rather than a question at each conversion: whether the original is worth keeping is a fact about how
+  a site is run, not a judgement to make again for every file.
+
+### Fixed
+
+- **Exporting carried the Trash with it.** The export list was built from every family rather than the live ones,
+  so a family you had deleted was offered, pre-selected, alongside the rest -- and because the panel sends no
+  filter when everything is picked, the default export took the trash to whatever site you imported it on. Fixed
+  in the panel and in `export_payload()`, the second being the half that actually guarantees it. Disabled
+  families still export: those are kept on purpose.
+
+- **Icon-only delete buttons were indistinguishable from any other icon button.** A danger rule existed and had
+  never applied: at (0,2,0) it lost to the generic `:hover:not(:disabled)` above it. Measured on a live builder,
+  hovering a delete gave the ordinary near-white icon hover and not one pixel of danger. Every delete in the
+  panel now stands on the same ladder as the confirmation dialog's own Delete button -- the danger colour at a
+  fifth of an alpha inside a full-strength border, deepening to twice the alpha on hover.
+
+- **Labelled deletes were dressed as ordinary buttons.** `.efm-btn--danger` sat six hundred lines above the base
+  `.efm-btn`, tied it on specificity and lost on order, so all three of its properties were overwritten and every
+  "Delete selected" rendered neutral. Empty trash and Delete unused files were wearing the outline variant and
+  now wear this one.
+
+- **Nothing marked a selected card in the Trash.** `.efm-card` reserves a transparent border for exactly this and
+  `.is-picked` colours it; the trash card simply never asked for the class.
+
+- **The preset chip row crowded the toolbar.** On the Google Fonts view it reached fifteen chips and 823px,
+  sharing a row with the preview field and the size slider. It now collapses past six behind the same dashed +N
+  disclosure the install cards use, and a selected chip stays visible whatever its position.
+
+- **A `flex-wrap: nowrap` on that row had never applied either**, losing to `.efm-chips` six hundred lines below.
+  It is removed rather than put into force: the chips no longer share a group with the preview field, so they can
+  only fold onto their own line instead of taking width from the controls beside them.
+
+- **The import preview ran together as one block of text.** Its container carried a class with no rule, and
+  everything inside it is a `.efm-muted` paragraph, which zeroes its own margins.
+
+- **A long name in a dropdown pushed the value out of the menu** instead of ellipsing.
+
+### Changed
+
+- **The toolbar is two rows when the chips need it.** The preview field and the size slider hold the first row's
+  right corner and are not moved by anything else on it; past four presets the chips drop to a row of their own.
+  Decided on how many presets exist rather than how many are showing, so opening the collapsed set cannot move
+  the controls.
+
+- **The size slider says what it is.** It carried an `aria-label` and nothing a sighted reader could see, on all
+  four screens this toolbar appears on, and it was the only bare slider in the panel. It takes the split from
+  Etch's own slider heading: a quiet name, a full-strength value. The readout is tabular now, so it stops
+  twitching mid-drag.
+
+- **Actions that free disk say how much.** "Delete unused files (7)" is the count and the size, and the Uploaded
+  files heading carries the folder's total.
+
+- **Toolbar controls are one height.** The Google Fonts Filters button was 24px against its neighbours' 28, and
+  the layout toggle was 26 in both panels -- a number matching nothing, since Etch has no segmented control.
+
+- **The Variants stat takes Tabler's text-resize**, replacing an Aa that was the one glyph in the table not drawn
+  on the 24 grid and needed a padded 512 box to stop out-weighing its neighbours.
+
+- **`.efm-icon-btn` resets its user-agent padding.** Chrome's `1px 6px` left a content box exactly as wide as the
+  icon, which held only by coincidence: this site applies `max-inline-size: 100%` to svg, so adding a border
+  squeezed a 16x16 glyph to 14x16 rather than overflowing.
+
 ## 0.32.0
 
 An eighth pass. Half of it came out of questions rather than reports, and the questions were better than the

@@ -1,10 +1,10 @@
 {
-  "version": "0.32.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.32.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.32.0",
+  "version": "0.33.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.33.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.33.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
-  "date": "2026-08-24",
-  "notes": "Deleting the plugin no longer breaks the site’s typography: the font files and the stylesheet that declares them are both left in place, with an opt-in purge in Settings for a clean removal. Uploaded files, the Trash and the variants table can be multi-selected. Fonts already on the server can be taken into the library, the same font cannot be uploaded twice, and the preview script buttons follow the fonts you actually have."
+  "date": "2026-08-30",
+  "notes": "Every delete in the panel now looks like one, matching the confirmation dialog. A variable font keeps the instance you tune in the type tester, written into the stylesheet instead of copied out by hand. Converting shows the original beside the result, and Settings can delete the original once it has. Exporting no longer carries families you put in the Trash, actions that free disk say how much they would free, and the preview script chips no longer crowd the toolbar."
 }

@@ -642,6 +642,21 @@
 	color: var(--efm-muted);
 }
 
+/*
+ * What an import would do, and what one did. The block has carried this class
+ * since it was written and never had a rule, which mattered because everything
+ * inside it is a .efm-muted paragraph and that class zeroes its margins: the
+ * lines had nothing holding them apart and ran together as one slab of text.
+ *
+ * A column with the section gap, so each finding reads as its own line, and the
+ * actions that sometimes sit among them keep their distance too.
+ */
+.efm-report {
+	display: flex;
+	flex-direction: column;
+	gap: var(--e-space-s, 8px);
+}
+
 /* ------------------------------- Popover ------------------------------- */
 
 /*
@@ -787,6 +802,33 @@
 	gap: 8px;
 }
 
+/*
+ * The preview field and the size slider hold the first row's right corner and
+ * are not moved by anything else on the row. The auto margin eats the free
+ * space before justify-content can distribute it, which is what keeps the pair
+ * pinned right whether the chips are riding along beside them, sitting on a row
+ * of their own below, or absent entirely on the family detail view.
+ */
+.efm-toolbar__preview {
+	margin-inline-start: auto;
+}
+
+/*
+ * A chip set too long to share the row takes one of its own, underneath. Two
+ * declarations do it and both are needed: the basis makes the set demand a
+ * whole line, and the order sends it after the two groups that were declared
+ * before it, so the line it takes is the second one rather than a break driven
+ * between the lead and the preview.
+ *
+ * The gap on .efm-toolbar is what separates the rows -- it is a flex gap, so it
+ * spaces them the same way it spaces the items along a row, and no margin is
+ * involved.
+ */
+.efm-chips--presets.is-own-row {
+	order: 1;
+	flex-basis: 100%;
+}
+
 /* The measure belongs to the wrapper now, and the field fills it. */
 .efm-toolbar__preview .efm-input-wrap {
 	inline-size: 220px;
@@ -867,10 +909,35 @@
 	appearance: none;
 }
 
+/*
+ * The slider's name, taking the quiet half of Etch's own slider heading: it
+ * sets .compression-control__control-label to 0.75 opacity and leaves the value
+ * at full strength, so the word identifies the control and the number is what
+ * gets read. shrink-0 because a name that wraps or squeezes is worse than none.
+ */
+.efm-toolbar__label {
+	flex: 0 0 auto;
+	font-size: var(--e-font-size-s, 11px);
+	color: var(--efm-muted);
+	white-space: nowrap;
+}
+
+/*
+ * The other half of that pair, and the reason this is no longer muted: with a
+ * muted name now sitting in front of the track, a muted value behind it left
+ * the whole group one flat grey and nothing to look at.
+ *
+ * Tabular digits for the same reason .efm-axis__value and .efm-nav__count take
+ * them: this number is rewritten on every frame of a drag, and proportional
+ * digits change its width as it counts, so the readout twitches while the
+ * thumb moves. The 36px floor above was holding the column against that; the
+ * digits now hold themselves.
+ */
 .efm-toolbar__size {
 	min-inline-size: 36px;
 	font-size: var(--e-font-size-s, 11px);
-	color: var(--efm-muted);
+	font-variant-numeric: tabular-nums;
+	color: var(--efm-text);
 }
 
 /*
@@ -1041,8 +1108,24 @@
 
 /* ------------------------- Segmented control --------------------------- */
 
+/*
+ * A toolbar row is one row of controls, so they are one height: the same
+ * --efm-control-block the search field beside it takes, which is Etch's own
+ * control height derived as one icon plus the input padding per side.
+ *
+ * The track used to have no height of its own and inherit one from a 20px
+ * item, which with 2px of padding and a hairline each side settled at 26
+ * against the 28 of everything around it -- close enough to read as a mistake
+ * rather than as a difference. Etch has no segmented control to copy here, so
+ * there was nothing being matched by the old number.
+ *
+ * The items carry no height now and stretch to whatever the track's content
+ * box leaves them, so the padding or the border can change without a second
+ * number having to be found and followed.
+ */
 .efm-segmented {
 	display: inline-flex;
+	block-size: var(--efm-control-block);
 	padding: 2px;
 	border: 1px solid var(--efm-line);
 	border-radius: var(--efm-radius);
@@ -1054,7 +1137,6 @@
 	align-items: center;
 	gap: 4px;
 	padding-inline: 8px;
-	block-size: 20px;
 	border: 0;
 	border-radius: calc(var(--efm-radius) - 2px);
 	background: transparent;
@@ -1132,10 +1214,19 @@
 	color: var(--efm-muted);
 }
 
-/* Preset chips sit next to the preview input and must not push it to a new row. */
-.efm-chips--presets {
-	flex-wrap: nowrap;
-}
+/*
+ * The preset row's base class carries no rule; only its .is-own-row modifier
+ * does, further down with the toolbar. It used to declare flex-wrap: nowrap
+ * here, to stop the chips pushing the preview input onto a new row, and that
+ * declaration never once took effect: at (0,1,0) it tied .efm-chips six hundred
+ * lines below and lost on order, so the row has always wrapped. Measured on a
+ * live builder: computed flex-wrap "wrap".
+ *
+ * Nothing replaces it, because the chips no longer share a group with the
+ * preview field: the field and the slider are pinned to the row's right corner
+ * on their own, so wrapping chips can only fold onto their own line and never
+ * take width from the controls beside them.
+ */
 
 /* ---------------------------- Family detail ---------------------------- */
 
@@ -1577,6 +1668,16 @@
 	color: var(--efm-muted);
 	font: inherit;
 	font-size: var(--e-font-size-s, 11px);
+}
+
+/*
+ * The display above outranks the user agent's [hidden], so a collapsed preset
+ * chip would keep its place in the row and the disclosure would hide nothing.
+ * The same guard the save bar, the status line, the popover and the field's
+ * clear button each need for the same reason.
+ */
+.efm-chip[hidden] {
+	display: none;
 }
 
 /*
@@ -2165,18 +2266,6 @@
 	color: var(--efm-text-strong);
 }
 
-.efm-btn--danger {
-	background: color-mix(in srgb, var(--efm-danger) 16%, transparent);
-	border-color: color-mix(in srgb, var(--efm-danger) 45%, transparent);
-	color: var(--efm-danger);
-}
-
-.efm-btn--danger:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--efm-danger) 26%, transparent);
-	border-color: var(--efm-danger);
-	color: var(--efm-danger);
-}
-
 /* ----------------------------- Pagination ------------------------------ */
 
 /*
@@ -2391,6 +2480,20 @@
 .efm-select__menu.is-above {
 	inset-block-start: auto;
 	inset-block-end: calc(100% + 4px);
+}
+
+/*
+ * The option's own words, against whatever the option shows after them. Also
+ * carried a class with no rule: the row below is space-between with nowrap, so
+ * a long family or file name had nothing telling it to give way and pushed the
+ * trailing value out of the menu instead of ellipsing. min-inline-size: 0 is
+ * the part that does the work -- a flex item refuses to shrink below its
+ * content without it, and text-overflow never gets a chance to apply.
+ */
+.efm-select__option-label {
+	min-inline-size: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .efm-select__option {
@@ -2697,11 +2800,95 @@
 }
 
 .efm-convert-log__item {
-	display: grid;
-	grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-	align-items: center;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px;
+}
+
+/*
+ * What the conversion did, in the shape Etch's own Asset Manager reports a
+ * compression: two columns, the original on the left and the result on the
+ * right, over a wash that deepens toward the result.
+ *
+ * Copied from .results in the builder bundle rather than judged from a
+ * screenshot -- the padding, the 0.05em label tracking, the 16px monospaced
+ * value and all four gradient stops are Etch's own numbers. Two of its tokens
+ * are not published to our scope, so they take the panel's equivalents: the
+ * label colour, which Etch leaves to inherit from a --etch-neutral-semi--light
+ * that resolves to nothing here, and the code face.
+ *
+ * The accent is text, never the fill, which is the rule everywhere else in this
+ * panel and what Etch does here too.
+ */
+.efm-results {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--e-space-m, 12px);
+	padding: 10px 12px;
+	border-radius: var(--efm-radius);
+	background: linear-gradient(
+		90deg,
+		rgb(40 67 53 / 0) 25%,
+		rgb(40 67 53 / .3) 85%,
+		rgb(40 67 53 / .6) 97%,
+		var(--e-success-dark, #32433a) 100%
+	);
+}
+
+.efm-results__col {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-inline-size: 0;
+}
+
+.efm-results__label {
+	font-size: 10px;
+	font-weight: 400;
+	text-transform: uppercase;
+	letter-spacing: .05em;
+	color: var(--efm-muted);
+}
+
+.efm-results__value {
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 16px;
+	font-weight: 500;
+	color: var(--efm-text-strong);
+}
+
+/* The result side: right-aligned, and the only thing here wearing the accent. */
+.efm-results__col--out {
+	align-items: flex-end;
+	text-align: end;
+}
+
+.efm-results__col--out .efm-results__label,
+.efm-results__col--out .efm-results__value {
+	color: var(--efm-accent);
+}
+
+/* The file's own line: what it is called, and what it saved. */
+.efm-convert-log__head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
 	gap: 8px;
-	padding: 6px 8px;
+}
+
+/*
+ * A file that did not convert has no second column to show, so the row keeps
+ * the plain sentence it always had rather than an empty band.
+ */
+.efm-convert-log__note {
+	flex: 0 0 auto;
+	font-size: var(--e-font-size-s, 11px);
+	color: var(--efm-muted);
+}
+
+.efm-convert-log__item.is-error .efm-convert-log__note {
+	color: var(--efm-danger);
 }
 
 .efm-convert-log__item + .efm-convert-log__item {
@@ -2927,6 +3114,41 @@
 	color: var(--efm-text);
 }
 
+/*
+ * The destructive variant, standing on the same ladder as the danger button in
+ * the confirmation dialog and the icon-only deletes: Etch's own
+ * --etch-danger-trans-20 behind a full-strength danger border, deepening to
+ * twice the alpha on hover while the border holds. Every delete in the panel
+ * now reads the same whether it is a glyph, a word, or both.
+ *
+ * The words stay near-white and only the glyph takes the danger colour, which
+ * is what the dialog button does and why its label is legible at a glance. The
+ * icon-only deletes coloured their glyph instead, because there the glyph is
+ * the whole control.
+ *
+ * This rule used to sit six hundred lines up, stranded in the dialog section
+ * directly after .efm-dialog__btn--primary, where it was pure decoration: at
+ * (0,1,0) it tied the base .efm-btn below it and lost on order, so the base
+ * overwrote all three of its properties and every "Delete selected" rendered
+ * as an ordinary neutral button. Its hover lost the same way. Living with the
+ * other variants is what makes it apply at all.
+ */
+.efm-btn--danger {
+	border-color: var(--efm-danger);
+	background: color-mix(in srgb, var(--efm-danger) 20%, transparent);
+	background: oklch(from var(--efm-danger) l c h / .2);
+	color: var(--efm-text-strong);
+}
+
+.efm-btn--danger .efm-icon {
+	color: var(--efm-danger);
+}
+
+.efm-btn--danger:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--efm-danger) 40%, transparent);
+	background: oklch(from var(--efm-danger) l c h / .4);
+}
+
 .efm-btn--sm {
 	block-size: 24px;
 	padding-inline: var(--efm-pad-inline);
@@ -2960,6 +3182,18 @@
 /*
  * Etch's icon variant: no fill, a 10% tint of its own colour on hover, and a
  * box measuring one icon plus --e-icon-padding on each side.
+ *
+ * The padding reset matters more than it looks. This rule cleared the button's
+ * user-agent border but never its user-agent padding, which in Chrome is
+ * 1px 6px, so the box spent 12px of its 28 on padding and left a content box
+ * exactly 16px wide -- the icon's own width, by coincidence rather than by
+ * design. Nothing showed while that held, but a global max-inline-size: 100%
+ * applies to svg on this site, so the moment anything else claimed horizontal
+ * room the glyph was clamped instead of overflowing: adding the danger border
+ * below took the content box to 14px and squeezed a 16x16 icon to 14x16,
+ * measured on a live builder. With the padding gone the size comes only from
+ * the box above, and the glyph keeps its own dimensions whatever is drawn
+ * around it.
  */
 .efm-icon-btn {
 	display: inline-flex;
@@ -2968,6 +3202,7 @@
 	inline-size: calc(var(--e-icon-size-l, 16px) + var(--e-icon-padding, 6px) * 2);
 	block-size: calc(var(--e-icon-size-l, 16px) + var(--e-icon-padding, 6px) * 2);
 	flex: 0 0 auto;
+	padding: 0;
 	border: 0;
 	border-radius: var(--efm-radius);
 	background: transparent;
@@ -3004,8 +3239,45 @@
 	color: var(--efm-text);
 }
 
-.efm-icon-btn--danger:hover {
-	background: var(--e-danger-ultra-light, color-mix(in srgb, #f26060 10%, transparent));
+/*
+ * The same ladder the danger button in the confirmation dialog stands on,
+ * which is Etch's own --etch-danger-trans-20 hovering to 0.4: the danger colour
+ * at a fifth of an alpha behind a danger-coloured glyph, deepening to twice the
+ * alpha on hover so the fill changes without the button changing identity.
+ *
+ * The dialog keeps its words near-white and lets the border and the glyph carry
+ * the warning between them. This button has no words, so the glyph takes the
+ * danger colour as well.
+ *
+ * .efm-icon-btn sizes itself to one icon plus --e-icon-padding on each side
+ * inside a border-box, so the hairline here is drawn within the existing 28px
+ * rather than added to it: measured live, the button stays 28x28, keeps its x
+ * and keeps the 4px gap to the control beside it. The border is full strength
+ * in both states and is deliberately absent from the hover rule -- only the
+ * fill answers the pointer, which is what the dialog button does.
+ *
+ * These buttons used to be indistinguishable from any other icon button at
+ * rest -- .efm-icon-btn paints every one of them --efm-muted, and nothing here
+ * overrode it -- so the only thing marking a delete was its tooltip.
+ *
+ * The hover rule carries :not(:disabled) for specificity, not for behaviour.
+ * Without it this selector scored (0,2,0) against the (0,3,0) of the generic
+ * .efm-icon-btn:hover:not(:disabled) above, so the generic won on every
+ * enabled button and this rule never applied at all: measured on a live
+ * builder, hovering a delete button gave rgb(225,225,229) on a near-white 10%
+ * tint -- the ordinary icon hover -- and not one pixel of danger. Matching the
+ * count makes the two rules tie, and this one is later, so it wins.
+ */
+.efm-icon-btn--danger {
+	border: 1px solid var(--efm-danger);
+	background: color-mix(in srgb, var(--efm-danger) 20%, transparent);
+	background: oklch(from var(--efm-danger) l c h / .2);
+	color: var(--efm-danger);
+}
+
+.efm-icon-btn--danger:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--efm-danger) 40%, transparent);
+	background: oklch(from var(--efm-danger) l c h / .4);
 	color: var(--efm-danger);
 }
 

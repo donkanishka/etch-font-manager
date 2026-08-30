@@ -408,6 +408,15 @@ class EFM_Fonts {
 			 * standing. A site that wants a clean removal opts into it.
 			 */
 			'purge_files'  => false,
+
+			/*
+			 * Off for a related reason. Converting to WOFF2 is one-way here: this
+			 * plugin carries an encoder and no decoder, so the file it converted
+			 * from cannot be rebuilt from the result, and for an uploaded font it
+			 * may be the only copy on the site. Keeping it costs disk and nothing
+			 * else, and the Upload screen marks it unused, so the site decides.
+			 */
+			'delete_source_on_convert' => false,
 		);
 
 		$settings = get_option( self::OPTION_SETTINGS, array() );
@@ -429,6 +438,7 @@ class EFM_Fonts {
 			'inline_css'   => ! empty( $input['inline_css'] ?? $current['inline_css'] ),
 			'block_google' => ! empty( $input['block_google'] ?? $current['block_google'] ),
 			'purge_files'  => ! empty( $input['purge_files'] ?? $current['purge_files'] ),
+			'delete_source_on_convert' => ! empty( $input['delete_source_on_convert'] ?? $current['delete_source_on_convert'] ),
 		);
 
 		update_option( self::OPTION_SETTINGS, $clean, false );
@@ -451,6 +461,25 @@ class EFM_Fonts {
 	public static function export_payload( $names = array(), $bundle = false ) {
 		$families = self::families();
 		$names    = array_filter( array_map( 'strval', (array) $names ) );
+
+		/*
+		 * A family in the trash is one the site has deleted, so it has no business
+		 * travelling to another site. It used to: the filter below only narrows the
+		 * list when names are given, and the panel omits the names entirely when
+		 * every family is picked -- which is the default -- so a plain export
+		 * carried the trash with it and importing it recreated the records.
+		 *
+		 * Trashed only, not active_families(), because a disabled family is one the
+		 * site is keeping on purpose and has every reason to take along.
+		 */
+		$families = array_values(
+			array_filter(
+				$families,
+				static function ( $family ) {
+					return empty( $family['trashed'] );
+				}
+			)
+		);
 
 		if ( ! empty( $names ) ) {
 			$wanted = array_map( 'strtolower', $names );
@@ -1157,6 +1186,7 @@ class EFM_Fonts {
 				'force'    => ! empty( $family['force'] ),
 				'enabled'  => $enabled,
 				'trashed'  => ! empty( $family['trashed'] ),
+				'variation' => self::sanitize_variation( $family['variation'] ?? '' ),
 			);
 
 			if ( ! empty( $google ) ) {
@@ -1255,6 +1285,55 @@ class EFM_Fonts {
 	 * @param mixed $google Raw block.
 	 * @return array
 	 */
+	/**
+	 * Sanitize a font-variation-settings value.
+	 *
+	 * Rebuilt from what is recognised rather than filtered, because this string is
+	 * printed into a stylesheet: anything not matching a quoted four-character tag
+	 * followed by a number is dropped rather than escaped, so no brace, semicolon
+	 * or comment marker can reach the file through it.
+	 *
+	 * @param mixed $value Raw value.
+	 * @return string Normalised value, or an empty string.
+	 */
+	protected static function sanitize_variation( $value ) {
+		$value = trim( (string) $value );
+
+		if ( '' === $value ) {
+			return '';
+		}
+
+		$parts = array();
+		$seen  = array();
+
+		foreach ( explode( ',', $value ) as $piece ) {
+			if ( ! preg_match( '/^\s*"([A-Za-z0-9]{4})"\s+(-?\d+(?:\.\d+)?)\s*$/', $piece, $found ) ) {
+				continue;
+			}
+
+			$tag = $found[1];
+
+			if ( isset( $seen[ $tag ] ) ) {
+				continue;
+			}
+
+			$number = $found[2];
+
+			/*
+			 * Trailing zeros go only when there is a decimal point to lose them
+			 * after. Trimming unconditionally turns 100 into 1.
+			 */
+			if ( false !== strpos( $number, '.' ) ) {
+				$number = rtrim( rtrim( $number, '0' ), '.' );
+			}
+
+			$seen[ $tag ] = true;
+			$parts[]      = '"' . $tag . '" ' . $number;
+		}
+
+		return implode( ', ', $parts );
+	}
+
 	protected static function sanitize_google_block( $google ) {
 		if ( ! is_array( $google ) || empty( $google ) ) {
 			return array();
@@ -1285,6 +1364,38 @@ class EFM_Fonts {
 			'cuts'     => $cuts,
 			'variable' => ! empty( $google['variable'] ),
 		);
+
+		/*
+		 * The family's variation axes, kept so the panel can offer the same sliders
+		 * after an install that the type tester offered before one. 'axis' below
+		 * records only the weight range, which is what the cut list needs; a face
+		 * can also carry optical size, slant, width and anything else its designer
+		 * drew, and none of that survived the install.
+		 *
+		 * Only Google installs can fill this. An uploaded font would have to be read
+		 * back off disk to find its fvar table, and the panel converts to WOFF2
+		 * without being able to convert back, so an installed file is closed to it.
+		 */
+		$axes = array();
+
+		foreach ( (array) ( $google['axes'] ?? array() ) as $axis ) {
+			$tag = preg_replace( '/[^A-Za-z0-9]/', '', (string) ( $axis['tag'] ?? '' ) );
+
+			if ( 4 !== strlen( (string) $tag ) ) {
+				continue;
+			}
+
+			$axes[] = array(
+				'tag' => $tag,
+				'min' => (float) ( $axis['min'] ?? 0 ),
+				'max' => (float) ( $axis['max'] ?? 0 ),
+				'def' => (float) ( $axis['def'] ?? 0 ),
+			);
+		}
+
+		if ( ! empty( $axes ) ) {
+			$clean['axes'] = $axes;
+		}
 
 		$min = (int) ( $google['axis']['min'] ?? 0 );
 		$max = (int) ( $google['axis']['max'] ?? 0 );
@@ -1819,6 +1930,18 @@ class EFM_Fonts {
 
 			$seen[ $slug ] = true;
 			$tokens       .= "\t--efm-family-{$slug}: " . self::family_stack( $family ) . ";\n";
+
+			/*
+			 * A second token beside the stack, so an instance can be applied wherever
+			 * the family already is. Without it the tuning would only reach the
+			 * family's own selector, and every site using var(--efm-family-slug) in a
+			 * rule of its own would silently get the default instance instead.
+			 */
+			$variation = self::sanitize_variation( $family['variation'] ?? '' );
+
+			if ( '' !== $variation ) {
+				$tokens .= "\t--efm-family-{$slug}-variation: {$variation};\n";
+			}
 		}
 
 		if ( '' !== $tokens ) {
@@ -1841,7 +1964,23 @@ class EFM_Fonts {
 			// An escape hatch, so a rule does not lose to a theme silently.
 			$important = empty( $family['force'] ) ? '' : ' !important';
 
-			$applied .= $selector . " {\n\tfont-family: " . self::family_stack( $family ) . $important . ";\n}\n\n";
+			$applied .= $selector . " {\n\tfont-family: " . self::family_stack( $family ) . $important . ";\n";
+
+			/*
+			 * Here rather than in the @font-face rule above, which is where it looks
+			 * like it belongs and where it does nothing. Measured in Chrome against a
+			 * real variable face: a @font-face carrying font-variation-settings
+			 * "wght" 900 rendered identically to one carrying none, at the same
+			 * 229.29px, while genuine weight 900 measured 240.05px. Declared on the
+			 * element the instance actually applies.
+			 */
+			$variation = self::sanitize_variation( $family['variation'] ?? '' );
+
+			if ( '' !== $variation ) {
+				$applied .= "\tfont-variation-settings: {$variation}{$important};\n";
+			}
+
+			$applied .= "}\n\n";
 		}
 
 		if ( '' !== $applied ) {

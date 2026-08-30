@@ -149,6 +149,16 @@
 	 */
 	var CHIP_LIMIT = 6;
 
+	/*
+	 * How many preset chips will share the toolbar's first row before the whole
+	 * set drops to a second one. Three is the floor -- Auto, Latin and 123 are
+	 * always there -- so a library holding nothing but Latin keeps its one-row
+	 * toolbar, and a fourth script is the point at which the row is carrying a
+	 * search field, a button, a layout toggle, the preview field and the size
+	 * slider as well.
+	 */
+	var ROW_CHIP_LIMIT = 4;
+
 	/* How many families the catalogue asks for at a time, and so a page. */
 	var GOOGLE_PAGE_SIZE = 24;
 
@@ -463,28 +473,26 @@
 		layoutRow: '<path d="M3 5H21"/><path d="M3 12H21"/><path d="M3 19H21"/>',
 		layoutGrid: '<path d="M14 20.4V14.6C14 14.2686 14.2686 14 14.6 14H20.4C20.7314 14 21 14.2686 21 14.6V20.4C21 20.7314 20.7314 21 20.4 21H14.6C14.2686 21 14 20.7314 14 20.4Z"/><path d="M3 20.4V14.6C3 14.2686 3.26863 14 3.6 14H9.4C9.73137 14 10 14.2686 10 14.6V20.4C10 20.7314 9.73137 21 9.4 21H3.6C3.26863 21 3 20.7314 3 20.4Z"/><path d="M14 9.4V3.6C14 3.26863 14.2686 3 14.6 3H20.4C20.7314 3 21 3.26863 21 3.6V9.4C21 9.73137 20.7314 10 20.4 10H14.6C14.2686 10 14 9.73137 14 9.4Z"/><path d="M3 9.4V3.6C3 3.26863 3.26863 3 3.6 3H9.4C9.73137 3 10 3.26863 10 3.6V9.4C10 9.73137 9.73137 10 9.4 10H3.6C3.26863 10 3 9.73137 3 9.4Z"/>',
 		/*
-		 * Phosphor's text-aa, and the one entry in this table that is not a 24-grid
-		 * outline: it is filled and drawn on 256. Declared rather than redrawn,
-		 * because converting a filled silhouette into strokes is not a conversion,
-		 * it is a new icon. The Aa also echoes the Settings Bar control, which is
-		 * ph:text-aa-duotone.
+		 * Tabler's text-resize: a bounded block with a handle at each corner, which
+		 * says the size of the type rather than merely letters.
+		 *
+		 * It replaces an Aa that was the one entry here not drawn on the 24 grid.
+		 * That one needed a declared 512 box, then padding out to 560 to stop it
+		 * rendering wider and heavier than the Lucide and Tabler glyphs beside it.
+		 * This is Tabler's own 24, so none of that applies: no box, no padding, and
+		 * icon() derives exactly the 1.5 stroke the source ships with.
+		 *
+		 * Tabler's leading <path d="M0 0h24v24H0z"> bounding box is dropped, as with
+		 * file-typography and arrows-exchange below -- it is invisible only because
+		 * of its own stroke="none", which does not survive being stripped. The
+		 * stroke, width, cap and join attributes go with it: icon() sets those on
+		 * the wrapper, and the #ffffff this arrived with would have ignored
+		 * currentColor and stayed white while the stat row around it goes muted.
+		 *
+		 * The Settings Bar control keeps its own ph:text-aa-duotone, so the stat and
+		 * the control no longer echo one another.
 		 */
-		/*
-		 * The Aa, stroked, on a 512 grid. Declaring the box rather than rescaling the
-		 * path data keeps it byte-for-byte what was drawn; icon() derives the stroke
-		 * from the grid so it still carries the panel's weight.
-		 */
-		textSize: {
-			/*
-			 * Padded from 512 to 560, centred. The path data is untouched -- the box
-			 * around it grew, which insets the mark. Whatever drew this Aa ran it
-			 * edge to edge at 93.8% of its box, where the Lucide and Tabler glyphs
-			 * beside it sit at 65-73%, so it rendered wider and heavier than its
-			 * neighbours. At 560 it lands on 85.7%.
-			 */
-			box: '-24 -24 560 560',
-			d: '<path d="m32 415.5 120-320 120 320M230 303.5H74M326 239.5c12.19-28.69 41-48 74-48h0c46 0 80 32 80 80v144"/><path d="M320 358.5c0 36 26.86 58 60 58 54 0 100-27 100-106v-15c-20 0-58 1-92 5-32.77 3.86-68 19-68 58"/>'
-		},
+		textSize: '<path d="M3 5a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M17 5a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M3 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M17 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M5 7v10"/><path d="M7 5h10"/><path d="M7 19h10"/><path d="M19 7v10"/><path d="M10 10h4"/><path d="M12 14v-4"/>',
 		/*
 		 * Tabler's file-typography: a page with a T set in it rather than three ruled
 		 * lines, so the Files count reads as font files specifically. Tabler's leading
@@ -1003,6 +1011,20 @@
 	function sizeOfFiles(names) {
 		return (state.files || []).reduce(function (total, file) {
 			return names.indexOf(file.name) === -1 ? total : total + (file.size || 0);
+		}, 0);
+	}
+
+	/*
+	 * The same total for a list of the records themselves, which is what
+	 * state.files and state.unused already hold. Kept separate from sizeOfFiles
+	 * above rather than folded into it with a type check: one takes names and has
+	 * to look them up, this one is handed the sizes, and a helper that guessed
+	 * which it had been given would be wrong silently the first time a list came
+	 * in empty.
+	 */
+	function sizeOfRecords(files) {
+		return (files || []).reduce(function (total, file) {
+			return total + (file.size || 0);
 		}, 0);
 	}
 
@@ -2432,6 +2454,26 @@
 	function previewToolbar(lead) {
 		var sizeLabel = el('span', { class: 'efm-toolbar__size', text: state.previewSize + 'px' });
 
+		/*
+		 * The slider carried an aria-label and nothing a sighted reader could see:
+		 * a bare track and a number, on all four screens this toolbar appears on.
+		 * The axis sliders in the type tester were never in doubt -- each of those
+		 * names itself, and its tag, and its range -- so this was the one control
+		 * in the panel a reader had to drag to identify.
+		 *
+		 * Etch does not leave its own slider bare either. .compression-control
+		 * heads it with the name, an em dash and the value, and puts the name at
+		 * 0.75 opacity against a full-strength value, so the word says what the
+		 * control is and the number stays the thing being read. The same split is
+		 * kept here, with the track standing in for the dash: a muted name before
+		 * it, the value after it lifted out of muted so the pair does not read as
+		 * one grey smear.
+		 *
+		 * The string is the one the aria-label already uses, so the visible name
+		 * and the spoken one cannot drift and no new translation is introduced.
+		 */
+		var sizeName = el('span', { class: 'efm-toolbar__label', text: s('previewSize', 'Preview size') });
+
 		// syncPresetChips is a declaration further down, so it is already hoisted.
 		var queuePreview = debounce(function () {
 			savePrefs();
@@ -2471,7 +2513,30 @@
 		});
 		var clearText = textField.querySelector('.efm-input__clear');
 
-		var chips = el('div', { class: 'efm-chips efm-chips--presets' }, previewPresets().map(function (preset) {
+		/*
+		 * The strip is at its worst on the Google view. scriptsOnScreen() reports
+		 * the subsets of everything on screen, and one page of Google results
+		 * reaches across most of the catalogue's writing systems, so Auto, Latin
+		 * and 123 arrive with a dozen or more scripts between them: measured on a
+		 * live builder, fifteen chips running 823px along a row it shares with the
+		 * preview field, the size slider and its readout.
+		 *
+		 * So it collapses behind the same disclosure the install cards use -- the
+		 * same CHIP_LIMIT, the same dashed +N, the same "Show fewer" -- and a
+		 * collapsed row of chips reads identically wherever it appears.
+		 *
+		 * chipWall is not called here despite owning that behaviour: it returns a
+		 * labelled two-column shell built for a card, and it re-renders the pane to
+		 * open. Both are wrong for a toolbar. Every chip is built and stays in the
+		 * DOM, and the collapse only decides which are shown, which is what lets
+		 * syncPresetChips keep working against a stable row and lets a click cost a
+		 * repaint rather than a render -- on the Google view a render rebuilds a
+		 * grid of two dozen cards, and this is a control people click through to
+		 * compare scripts.
+		 */
+		var presets = previewPresets();
+
+		var presetButtons = presets.map(function (preset) {
 			return el('button', {
 				type: 'button',
 				class: 'efm-chip efm-chip--toggle',
@@ -2488,17 +2553,74 @@
 					syncPresetChips();
 				}
 			});
-		}));
+		});
 
+		/*
+		 * Opening and closing is the row's own business, so it does not re-render:
+		 * the chips are all present already and only their visibility changes.
+		 */
+		var moreChip = el('button', {
+			type: 'button',
+			class: 'efm-chip efm-chip--more efm-tooltip',
+			onclick: function () {
+				state.chipsOpen.preview = !state.chipsOpen.preview;
+				syncPresetChips();
+			}
+		});
+
+		/*
+		 * Past the limit the chips take a row of their own and the preview field and
+		 * the size slider keep the first row's right corner to themselves. Under it
+		 * -- a Latin-only library, where the set is just Auto, Latin and 123 -- they
+		 * ride along on the first row and the toolbar stays one line deep.
+		 *
+		 * Decided on how many presets exist rather than how many are showing, so
+		 * opening the collapsed set cannot move the field and the slider: the row
+		 * the chips live on is settled before the disclosure is read.
+		 */
+		var chips = el('div', {
+			class: 'efm-chips efm-chips--presets' +
+				(presets.length > ROW_CHIP_LIMIT ? ' is-own-row' : '')
+		}, presetButtons.concat([moreChip]));
+
+		/*
+		 * One pass over the row: which chip is on, and which ones the collapse
+		 * leaves standing. A chip that is on stays visible whatever its position,
+		 * the way chipWall keeps a selected one, so picking a script and then
+		 * collapsing can never hide the choice that is actually in force.
+		 *
+		 * The presets are captured once above rather than recomputed here, so the
+		 * buttons and the records they describe cannot drift out of step.
+		 */
 		function syncPresetChips() {
-			var presets = previewPresets();
+			var open = !!state.chipsOpen.preview;
+			var collapsible = presets.length > CHIP_LIMIT;
+			var buried = 0;
 
-			Array.prototype.forEach.call(chips.querySelectorAll('[data-efm-preset]'), function (node, i) {
+			presetButtons.forEach(function (node, i) {
 				var on = state.previewCustom === presets[i].text;
+				var show = open || i < CHIP_LIMIT || on;
 
 				node.setAttribute('aria-pressed', on ? 'true' : 'false');
 				node.classList.toggle('is-on', on);
+				node.hidden = !show;
+
+				if (!show) {
+					buried += 1;
+				}
 			});
+
+			// "+3" says how many are hidden, not what pressing it does, so the name
+			// and the tooltip say that instead.
+			var label = buried
+				? s('showAll', 'Show all') + ' (' + presets.length + ')'
+				: s('showFewer', 'Show fewer');
+
+			moreChip.hidden = !collapsible;
+			moreChip.textContent = buried ? '+' + buried : s('showFewer', 'Show fewer');
+			moreChip.setAttribute('aria-expanded', buried ? 'false' : 'true');
+			moreChip.setAttribute('aria-label', label);
+			moreChip.setAttribute('data-efm-tooltip', label);
 		}
 
 		syncPresetChips();
@@ -2522,9 +2644,16 @@
 
 		syncRange(size);
 
+		/*
+		 * Three items on one wrapping row rather than the chips being buried in the
+		 * preview group. They used to sit between the preview field and the size
+		 * slider, which is what tied all three together and made a long chip set
+		 * push the slider along the row ahead of it.
+		 */
 		return el('div', { class: 'efm-toolbar' }, [
 			lead || null,
-			el('div', { class: 'efm-toolbar__preview' }, [textField, chips, size, sizeLabel])
+			chips,
+			el('div', { class: 'efm-toolbar__preview' }, [textField, sizeName, size, sizeLabel])
 		]);
 	}
 
@@ -2807,7 +2936,15 @@
 
 		var trigger = el('button', {
 			type: 'button',
-			class: 'efm-btn efm-btn--outline efm-btn--sm',
+			/*
+			 * Full height rather than --sm. This is the middle control of the Google
+			 * Fonts toolbar, and the Library's New family button is the same control
+			 * in the same slot of the same row at the full 28: a small button here
+			 * made the one row four pixels shorter than the other for no reason the
+			 * reader could see. --sm belongs to buttons inside cards, dialogs and
+			 * popovers, which is where the other sixteen uses of it are.
+			 */
+			class: 'efm-btn efm-btn--outline',
 			'aria-expanded': open ? 'true' : 'false',
 			'aria-controls': 'efm-filters',
 			onclick: function () {
@@ -3401,7 +3538,11 @@
 			}, [icon('restore', 'sm'), el('span', { text: s('restoreAll', 'Restore all') + ' (' + inTrash.length + ')' })]),
 			el('button', {
 				type: 'button',
-				class: 'efm-btn efm-btn--outline efm-btn--sm',
+				// Empties the trash for good, so it wears the same danger variant as
+				// every other delete. Restore all beside it stays outline: it is the
+				// recovering answer, and two identical buttons either side of that
+				// difference is how a trash gets emptied by accident.
+				class: 'efm-btn efm-btn--danger efm-btn--sm',
 				onclick: function () {
 					var doomed = [];
 
@@ -3588,14 +3729,27 @@
 			}
 
 			var variants = family.variants || [];
+			/*
+			 * Read once and used twice, so the border and the checkbox cannot
+			 * disagree about whether this card is selected.
+			 */
+			var picked = state.pickedTrash.indexOf(family.name) !== -1;
 
-			grid.appendChild(el('article', { class: 'efm-card' }, [
+			/*
+			 * The same accent edge the Google Fonts grid draws on a selected card.
+			 * .efm-card already carries a transparent 1px border for exactly this --
+			 * the rule says so -- and .efm-card.is-picked already colours it, so the
+			 * only thing missing here was the card asking for the class. Selecting in
+			 * the trash moved nothing but a checkbox, which is the one place in the
+			 * panel where the selection decides whether families are destroyed.
+			 */
+			grid.appendChild(el('article', { class: 'efm-card' + (picked ? ' is-picked' : '') }, [
 				el('div', { class: 'efm-card__head' }, [
 					el('label', { class: 'efm-card__pick' }, [
 						el('input', {
 							type: 'checkbox',
 							class: 'efm-checkbox',
-							checked: state.pickedTrash.indexOf(family.name) !== -1,
+							checked: picked,
 							'aria-label': s('selectFamily', 'Select') + ' ' + family.name,
 							onchange: function () {
 								togglePicked(state.pickedTrash, family.name);
@@ -3928,6 +4082,24 @@
 			contentEl.appendChild(googleSection(index));
 		}
 
+		/*
+		 * The tuning the type tester offers before an install, offered again after
+		 * one. The axes used to live only in the search results, so an instance died
+		 * the moment you left the Google view: you could dial a face to exactly the
+		 * weight you wanted, read the declaration off the screen, and your only way
+		 * to keep it was to paste it into a stylesheet by hand.
+		 *
+		 * Google installs only. An uploaded font's axes would have to be read back
+		 * out of the file, and the panel converts to WOFF2 with no way back, so it
+		 * cannot open one it has written.
+		 */
+		var tunable = (family.google && family.google.axes) || [];
+
+		if (tunable.length) {
+			contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('axesTitle', 'Variable axes') }));
+			contentEl.appendChild(familyAxes(index, tunable));
+		}
+
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('cssPreview', 'Generated CSS') }));
 		contentEl.appendChild(el('pre', { class: 'efm-code', text: previewCss(family) }));
 
@@ -4058,12 +4230,24 @@
 			return rule + '}';
 		});
 
+		/*
+		 * Still mirroring build_css(): the instance is declared where it applies,
+		 * on the token and on the family's own selector, and never inside the
+		 * @font-face rules above -- measured in Chrome, a face carrying
+		 * font-variation-settings renders identically to one that does not.
+		 */
+		var variation = String(family.variation || '');
+
 		if (family.slug) {
-			blocks.push(':root {\n\t--efm-family-' + family.slug + ': ' + familyStack(name) + ';\n}');
+			blocks.push(':root {\n\t--efm-family-' + family.slug + ': ' + familyStack(name) + ';\n' +
+				(variation ? '\t--efm-family-' + family.slug + '-variation: ' + variation + ';\n' : '') + '}');
 		}
 
 		if (family.selector) {
-			blocks.push(family.selector + ' {\n\tfont-family: ' + familyStack(name) + (family.force ? ' !important' : '') + ';\n}');
+			var important = family.force ? ' !important' : '';
+
+			blocks.push(family.selector + ' {\n\tfont-family: ' + familyStack(name) + important + ';\n' +
+				(variation ? '\tfont-variation-settings: ' + variation + important + ';\n' : '') + '}');
 		}
 
 		return blocks.length
@@ -4183,6 +4367,58 @@
 	 * @param {number} index Family index.
 	 * @return {HTMLElement}
 	 */
+	/**
+	 * The variable-axis editor for an installed family.
+	 *
+	 * @param {number} index Family index.
+	 * @param {Array}  axes  Axis records from the family's Google block.
+	 * @return {HTMLElement}
+	 */
+	function familyAxes(index, axes) {
+		var family = state.families[index];
+		var map = variationMap(family);
+
+		var reset = el('button', {
+			type: 'button',
+			class: 'efm-btn efm-btn--outline efm-btn--sm',
+			disabled: '' === String(family.variation || ''),
+			onclick: function () {
+				family.variation = '';
+				render();
+			}
+		}, [icon('refresh', 'sm'), el('span', { text: s('resetAxes', 'Reset axes') })]);
+
+		var rows = axes.map(function (axis) {
+			var current = map[axis.tag] === undefined ? axis.def : map[axis.tag];
+
+			return axisRow(axis, current, function (value) {
+				map[axis.tag] = value;
+				family.variation = variationString(axes, map);
+
+				/*
+				 * Everything below is updated in place, because a render mid-drag
+				 * would take the slider out from under the pointer. The save bar is
+				 * the one thing that has to be told, since it is derived from a diff
+				 * that nothing else here recomputes.
+				 */
+				repaintSpecimens();
+				reset.disabled = '' === family.variation;
+
+				// Looked up now, not captured: the Generated CSS block is appended
+				// after this section, so at build time there is nothing to hold.
+				var preview = contentEl.querySelector('.efm-code');
+
+				if (preview) {
+					preview.textContent = previewCss(family);
+				}
+
+				renderSaveBar();
+			});
+		});
+
+		return el('div', { class: 'efm-axes' }, rows.concat([reset]));
+	}
+
 	function googleSection(index) {
 		var family = state.families[index];
 		var google = family.google || {};
@@ -4576,7 +4812,17 @@
 			contentEl.appendChild(convertReport());
 		}
 
-		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('files', 'Uploaded files') }));
+		/*
+		 * The heading carries what the folder costs. The table lists a size per row
+		 * and never totalled them, so the one question a font folder raises -- how
+		 * much is this -- took adding up twelve lines by hand.
+		 */
+		contentEl.appendChild(el('h3', {
+			class: 'efm-section-title',
+			text: s('files', 'Uploaded files') + (state.files.length
+				? ' \u00b7 ' + formatSize(sizeOfRecords(state.files))
+				: '')
+		}));
 
 		if (state.files.length && state.pickedFiles.length) {
 			/*
@@ -4890,6 +5136,118 @@
 	}
 
 	/**
+	 * One variable axis: its name, its tag, the live value, the track and the
+	 * range under it.
+	 *
+	 * Shared by the Google Fonts type tester and the family editor rather than
+	 * written twice. previewCss() and build_css() are this codebase's standing
+	 * lesson in what two copies of one rule do to each other -- they drifted twice
+	 * -- and these two would have carried the same step, the same default
+	 * graduation and the same aria-label between them.
+	 *
+	 * @param {Object}   axis    Axis record: tag, min, max and def.
+	 * @param {number}   current Value to open on.
+	 * @param {Function} onmove  Given the new value on every input event.
+	 * @return {HTMLElement} The row.
+	 */
+	function axisRow(axis, current, onmove) {
+		var meta = state.axisNames[axis.tag] || {};
+		var step = Math.pow(10, meta.precision || 0);
+		var span = axis.max - axis.min;
+		var valueLabel = el('span', { class: 'efm-axis__value', text: trimNumber(current) });
+
+		var slider = el('input', {
+			type: 'range',
+			class: 'efm-range',
+			min: trimNumber(axis.min),
+			max: trimNumber(axis.max),
+			step: trimNumber(step),
+			value: trimNumber(current),
+			'aria-label': (meta.name || axis.tag) + ' (' + axis.tag + ')',
+			/*
+			 * Updated in place rather than through render(). Dragging a slider
+			 * cannot rebuild the pane -- that would destroy the input mid-drag --
+			 * so the caller is handed the value and repaints whatever it owns.
+			 */
+			oninput: function (event) {
+				valueLabel.textContent = event.target.value;
+				syncRange(event.target);
+				onmove(parseFloat(event.target.value));
+			}
+		});
+
+		syncRange(slider);
+
+		return el('label', { class: 'efm-axis' }, [
+			el('span', { class: 'efm-axis__label' }, [
+				el('span', { class: 'efm-axis__name', text: meta.name || axis.tag }),
+				el('span', { class: 'efm-axis__tag', text: axis.tag }),
+				valueLabel
+			]),
+			/*
+			 * The wrapper carries where the default sits on this axis, which
+			 * panel.css draws as a single graduation under the track. That replaces
+			 * the "default 400" that used to trail every slider on a third line, and
+			 * puts the fact where it means something.
+			 */
+			el('div', {
+				class: 'efm-axis__track',
+				style: { '--efm-axis-default': String(span > 0 ? (axis.def - axis.min) / span : 0) }
+			}, [slider]),
+			el('span', { class: 'efm-axis__scale' }, [
+				el('span', { text: trimNumber(axis.min) }),
+				el('span', { text: trimNumber(axis.max) })
+			])
+		]);
+	}
+
+	/**
+	 * A family's stored instance, read back into a map of tag to value.
+	 *
+	 * @param {Object} family Family record.
+	 * @return {Object} Values by axis tag.
+	 */
+	function variationMap(family) {
+		var out = {};
+
+		String((family && family.variation) || '').split(',').forEach(function (piece) {
+			var found = /^\s*"([A-Za-z0-9]{4})"\s+(-?\d+(?:\.\d+)?)\s*$/.exec(piece);
+
+			if (found) {
+				out[found[1]] = parseFloat(found[2]);
+			}
+		});
+
+		return out;
+	}
+
+	/**
+	 * The same map written back out as a font-variation-settings value.
+	 *
+	 * An axis sitting on its default is left out, so a family nobody has tuned
+	 * stores an empty string and the stylesheet says nothing about it. That also
+	 * makes dragging a slider back where it started undo the edit properly, the
+	 * way the type tester's own reset does.
+	 *
+	 * @param {Array}  axes Axis records.
+	 * @param {Object} map  Values by tag.
+	 * @return {string} Declaration value, or an empty string.
+	 */
+	function variationString(axes, map) {
+		var parts = [];
+
+		axes.forEach(function (axis) {
+			var value = map[axis.tag];
+
+			if (value !== undefined && value !== axis.def) {
+				parts.push('"' + axis.tag + '" ' + trimNumber(value));
+			}
+		});
+
+		return parts.join(', ');
+	}
+
+	/**
 	 * Whether any axis on this family sits away from its default.
 	 *
 	 * Compared rather than remembered. Asking whether the family had an entry at
@@ -5019,62 +5377,11 @@
 			}, [icon('refresh', 'sm'), el('span', { text: s('resetAxes', 'Reset axes') })]);
 
 			contentEl.appendChild(el('div', { class: 'efm-axes' }, axes.map(function (axis) {
-				var meta = state.axisNames[axis.tag] || {};
-				var step = Math.pow(10, meta.precision || 0);
-				var span = axis.max - axis.min;
-				var valueLabel = el('span', {
-					class: 'efm-axis__value',
-					text: trimNumber(axisValue(font, axis))
+				return axisRow(axis, axisValue(font, axis), function (value) {
+					axisState(font.family)[axis.tag] = value;
+					repaint();
+					resetAxes.disabled = !axesMoved(font, axes);
 				});
-				var slider = el('input', {
-					type: 'range',
-					class: 'efm-range',
-					min: trimNumber(axis.min),
-					max: trimNumber(axis.max),
-					step: trimNumber(step),
-					value: trimNumber(axisValue(font, axis)),
-					'aria-label': (meta.name || axis.tag) + ' (' + axis.tag + ')',
-					oninput: function (event) {
-						axisState(font.family)[axis.tag] = parseFloat(event.target.value);
-						valueLabel.textContent = event.target.value;
-						syncRange(event.target);
-						repaint();
-
-						/*
-						 * Updated in place rather than through render(). Dragging a
-						 * slider cannot rebuild the pane -- that would destroy the input
-						 * mid-drag -- which is why this button was created disabled and
-						 * stayed that way however far the axes were moved.
-						 */
-						resetAxes.disabled = !axesMoved(font, axes);
-					}
-				});
-
-				syncRange(slider);
-
-				return el('label', { class: 'efm-axis' }, [
-					el('span', { class: 'efm-axis__label' }, [
-						el('span', { class: 'efm-axis__name', text: meta.name || axis.tag }),
-						el('span', { class: 'efm-axis__tag', text: axis.tag }),
-						valueLabel
-					]),
-					/*
-					 * The wrapper carries where the default sits on this axis, which
-					 * panel.css draws as a single graduation under the track. That
-					 * replaces the "default 400" that used to trail every slider on a
-					 * third line, and puts the fact where it means something.
-					 */
-					el('div', {
-						class: 'efm-axis__track',
-						style: {
-							'--efm-axis-default': String(span > 0 ? (axis.def - axis.min) / span : 0)
-						}
-					}, [slider]),
-					el('span', { class: 'efm-axis__scale' }, [
-						el('span', { text: trimNumber(axis.min) }),
-						el('span', { text: trimNumber(axis.max) })
-					])
-				]);
 			}).concat([resetAxes])));
 
 			/*
@@ -6096,8 +6403,41 @@
 				])
 			]);
 
+		/*
+		 * A standing preference rather than a question asked at each conversion.
+		 * Converting is one click from the Upload screen, and whether the original
+		 * is worth keeping is a fact about how this site is run -- whether the
+		 * fonts are archived somewhere else -- not a judgement to be made again for
+		 * every file.
+		 */
+		var deleteSource =
+			el('label', { class: 'efm-toggle' }, [
+				el('input', {
+					type: 'checkbox',
+					class: 'efm-checkbox',
+					checked: !!state.settings.delete_source_on_convert,
+					onchange: function (event) {
+						state.settings.delete_source_on_convert = event.target.checked;
+						render();
+					}
+				}),
+				el('span', {}, [
+					el('span', { class: 'efm-toggle__label', text: s('deleteSource', 'Delete the original after converting it to WOFF2') }),
+					el('span', { class: 'efm-field__hint', text: s('deleteSourceHint', 'Off by default. Converting is one-way here, so the file it converted from cannot be rebuilt from the result, and for a font you uploaded it may be the only copy on the site. Left off, the original stays on the server and the Upload screen marks it unused, ready to remove whenever you choose. A source that another family still maps is never deleted either way.') })
+				])
+			]);
+
 		contentEl.appendChild(section(s('stylesheet', 'Stylesheet'), [stylesheetStatus, inlineToggle, regenerate]));
 		contentEl.appendChild(section(s('privacy', 'Privacy'), [blockGoogle]));
+
+		/*
+		 * Hidden with the converter it belongs to. A build without the wasm binary
+		 * hides the convert button rather than breaking uploads, and a setting for
+		 * a button that is not there is a setting for nothing.
+		 */
+		if (converterAvailable()) {
+			contentEl.appendChild(section(s('conversion', 'Conversion'), [deleteSource]));
+		}
 
 		/*
 		 * The other half of what happens when the plugin goes. By default an
@@ -6115,7 +6455,9 @@
 						state.settings.purge_files = event.target.checked;
 					}
 				}),
-				el('span', { class: 'efm-toggle__text' }, [
+				// A bare wrapper, the way the other ten toggles write it. This one
+				// alone carried an efm-toggle__text class that no rule ever matched.
+				el('span', {}, [
 					el('span', { class: 'efm-toggle__label', text: s('purgeFiles', 'Delete the font files when the plugin is deleted') }),
 					el('span', { class: 'efm-field__hint', text: s('purgeFilesHint', 'Off by default, so deleting the plugin by mistake leaves your typography standing. On, deleting the plugin from Plugins also removes the generated stylesheet and every font file your families map. Files nothing maps are left alone, and so is anything else in wp-content/fonts, because Etch shares that folder. Deactivating never deletes anything.') })
 				])
@@ -6202,10 +6544,23 @@
 			contentEl.appendChild(
 				el('button', {
 					type: 'button',
-					class: 'efm-btn efm-btn--outline',
+					// Unlinks files from disk with no trash behind it, which makes it the
+					// least recoverable button in the panel. It read as an ordinary
+					// outline action.
+					class: 'efm-btn efm-btn--danger',
+					/*
+					 * The count and the size, because the size is the reason to press it
+					 * and it was the one number missing. "Delete unused files (7)" left
+					 * the reader to add up seven lines to find out whether it was worth
+					 * doing -- measured on one real library, those seven came to 2.2 MB
+					 * with a single 1.9 MB file among them. The toggle in the section
+					 * below already answers this way, appending the bundle size to its
+					 * own label.
+					 */
 					text: state.pruning
 						? s('loading', 'Loading…')
-						: s('cleanupButton', 'Delete unused files') + ' (' + unused.length + ')',
+						: s('cleanupButton', 'Delete unused files') +
+							' (' + unused.length + ' \u00b7 ' + formatSize(sizeOfRecords(unused)) + ')',
 					disabled: state.pruning,
 					onclick: pruneFiles
 				})
@@ -6215,7 +6570,13 @@
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('exportTitle', 'Export') }));
 		contentEl.appendChild(el('p', { class: 'efm-muted', text: s('exportHint', 'Download families, their variant mapping and assignments as a JSON file. Choose which families to include, and whether to bundle the font files with them.') }));
 
-		var exportable = state.families.map(function (family) { return family.name; });
+		/*
+		 * Live families only. Reading state.families offered the trash as something
+		 * to export, pre-selected along with everything else, so the obvious act of
+		 * pressing Download carried away families the site had deleted. The server
+		 * drops them too -- this is the half that stops them being offered.
+		 */
+		var exportable = liveFamilies().map(function (family) { return family.name; });
 		var picked = state.exportPick || exportable;
 
 		if (exportable.length) {
@@ -7134,17 +7495,43 @@
 		var list = el('ul', { class: 'efm-convert-log' });
 
 		state.convertLog.forEach(function (entry) {
-			list.appendChild(el('li', { class: 'efm-convert-log__item' + (entry.error ? ' is-error' : '') }, [
+			/*
+			 * Three outcomes share this list: a conversion, a file that was skipped
+			 * with a reason, and one that failed. Only the first has two sizes to
+			 * compare, so only the first gets the band -- the other two would draw an
+			 * empty one.
+			 */
+			var told = entry.error || entry.note || '';
+
+			var head = el('div', { class: 'efm-convert-log__head' }, [
 				el('span', { class: 'efm-file__name', text: entry.name, title: entry.name }),
 				el('span', {
-					class: 'efm-muted',
-					text: entry.error
-						? entry.error
-						: entry.note
-							? entry.note
-							: formatSize(entry.from) + ' \u2192 ' + formatSize(entry.to) + ' \u00b7 ' + entry.saved + '% ' + s('smaller', 'smaller')
+					class: 'efm-convert-log__note',
+					// The saving keeps its place beside the name: Etch's band is two
+					// columns and adding a third would stop being Etch's band.
+					text: told || (entry.saved + '% ' + s('smaller', 'smaller'))
 				})
-			]));
+			]);
+
+			var rows = [head];
+
+			if (!told) {
+				rows.push(el('div', { class: 'efm-results' }, [
+					el('div', { class: 'efm-results__col' }, [
+						el('span', { class: 'efm-results__label', text: s('originalFile', 'Original') }),
+						el('span', {
+							class: 'efm-results__value',
+							text: extensionOf(entry.name).toUpperCase() + ' ' + formatSize(entry.from)
+						})
+					]),
+					el('div', { class: 'efm-results__col efm-results__col--out' }, [
+						el('span', { class: 'efm-results__label', text: s('compressedFile', 'Compressed') }),
+						el('span', { class: 'efm-results__value', text: 'WOFF2 ' + formatSize(entry.to) })
+					])
+				]));
+			}
+
+			list.appendChild(el('li', { class: 'efm-convert-log__item' + (entry.error ? ' is-error' : '') }, rows));
 		});
 
 		return el('div', { class: 'efm-convert-report' }, [
@@ -7247,16 +7634,45 @@
 					applyState(next);
 				});
 		}).then(function () {
+			var summary = s('converted', 'Converted') + ' \u00b7 ' + formatSize(stored.from) +
+				' \u2192 ' + formatSize(stored.to) + ' \u00b7 ';
+
 			/*
-			 * Naming the source, because the conversion is what made it an orphan.
-			 * It is deliberately not deleted -- there is no decoder here, so a WOFF2
-			 * cannot become a TTF again and the original may be the only copy. It is
-			 * removed on purpose from Import & export instead.
+			 * The conversion is what made the source an orphan, so the source is
+			 * named either way. What happens to it is the site's standing choice in
+			 * Settings rather than this function's opinion.
+			 *
+			 * Off, which is the default, it stays: converting is one-way here --
+			 * there is an encoder and no decoder, so a WOFF2 cannot become a TTF
+			 * again -- and for an uploaded font this may be the only copy on the
+			 * site. Import & export removes it on purpose instead.
+			 *
+			 * The mapping check is not belt and braces. store_upload() refuses a
+			 * file it already holds and answers with the twin it kept, so converting
+			 * a second copy of a face can finish with the source still mapped by
+			 * another family, and no setting should delete a file in use.
 			 */
-			setStatus(
-				s('converted', 'Converted') + ' \u00b7 ' + formatSize(stored.from) + ' \u2192 ' + formatSize(stored.to) +
-				' \u00b7 ' + file.name + ' ' + s('nowUnused', 'is now unused')
-			);
+			if (state.settings.delete_source_on_convert && !fileUsedBy(file.name).length) {
+				return deleteFile(file.name).then(function () {
+					/*
+					 * deleteFile reports its own failure and swallows it, so the message
+					 * is decided by what the refreshed list actually holds rather than by
+					 * having asked. A delete that failed still leaves an orphan, and
+					 * saying otherwise sends someone looking for a file that is there.
+					 */
+					var gone = !(state.files || []).some(function (entry) {
+						return entry.name === file.name;
+					});
+
+					setStatus(gone
+						? summary + file.name + ' \u00b7 ' + s('sourceDeleted', 'original deleted')
+						: summary + file.name + ' ' + s('nowUnused', 'is now unused'));
+				});
+			}
+
+			setStatus(summary + file.name + ' ' + s('nowUnused', 'is now unused'));
+
+			return null;
 		}).catch(fail).then(function () {
 			state.converting = '';
 			render();
@@ -7904,7 +8320,8 @@
 			body: {
 				inline_css: !!state.settings.inline_css,
 				block_google: !!state.settings.block_google,
-				purge_files: !!state.settings.purge_files
+				purge_files: !!state.settings.purge_files,
+				delete_source_on_convert: !!state.settings.delete_source_on_convert
 			}
 		})
 			.then(function (next) {

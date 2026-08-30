@@ -333,6 +333,7 @@ class EFM_Rest {
 				'inline_css'   => (bool) $request->get_param( 'inline_css' ),
 				'block_google' => (bool) $request->get_param( 'block_google' ),
 				'purge_files'  => (bool) $request->get_param( 'purge_files' ),
+				'delete_source_on_convert' => (bool) $request->get_param( 'delete_source_on_convert' ),
 			)
 		);
 

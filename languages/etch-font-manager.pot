@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Etch Font Manager\n"
 "Report-Msgid-Bugs-To: https://github.com/donkanishka/etch-font-manager/issues\n"
-"POT-Creation-Date: 2026-08-22 10:09+0000\n"
+"POT-Creation-Date: 2026-08-30 08:40+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -187,7 +187,7 @@ msgid "Install selected"
 msgstr ""
 
 #: includes/class-efm-builder.php:333
-#: includes/class-efm-builder.php:553
+#: includes/class-efm-builder.php:560
 msgid "Select"
 msgstr ""
 
@@ -244,6 +244,7 @@ msgid "Reset axes"
 msgstr ""
 
 #: includes/class-efm-builder.php:348
+#: includes/class-efm-builder.php:548
 msgid "Variable axes"
 msgstr ""
 
@@ -470,7 +471,7 @@ msgid "Restore"
 msgstr ""
 
 #: includes/class-efm-builder.php:405
-#: includes/class-efm-builder.php:563
+#: includes/class-efm-builder.php:570
 msgid "Delete permanently"
 msgstr ""
 
@@ -540,7 +541,7 @@ msgid "Delete these font files from the server?"
 msgstr ""
 
 #: includes/class-efm-builder.php:423
-#: includes/class-efm-builder.php:559
+#: includes/class-efm-builder.php:566
 msgid "Deleted"
 msgstr ""
 
@@ -865,7 +866,7 @@ msgid "Uploading…"
 msgstr ""
 
 #: includes/class-efm-builder.php:508
-#: includes/class-efm-builder.php:577
+#: includes/class-efm-builder.php:584
 msgid "Uploaded"
 msgstr ""
 
@@ -890,7 +891,7 @@ msgid "Converting to WOFF2…"
 msgstr ""
 
 #: includes/class-efm-builder.php:514
-#: includes/class-efm-builder.php:558
+#: includes/class-efm-builder.php:565
 msgid "Converted"
 msgstr ""
 
@@ -1018,161 +1019,185 @@ msgstr ""
 msgid "Removal"
 msgstr ""
 
-#: includes/class-efm-builder.php:548
-msgid "Delete the font files when the plugin is deleted"
-msgstr ""
-
 #: includes/class-efm-builder.php:549
-msgid "Off by default, so deleting the plugin by mistake leaves your typography standing. On, deleting the plugin from Plugins also removes the generated stylesheet and every font file your families map. Files nothing maps are left alone, and so is anything else in wp-content/fonts, because Etch shares that folder. Deactivating never deletes anything."
+msgid "Original"
 msgstr ""
 
 #: includes/class-efm-builder.php:550
-msgid "unused"
+msgid "Compressed"
 msgstr ""
 
 #: includes/class-efm-builder.php:551
-msgid "is now unused"
+msgid "Conversion"
 msgstr ""
 
 #: includes/class-efm-builder.php:552
-msgid "Select every file"
+msgid "Delete the original after converting it to WOFF2"
+msgstr ""
+
+#: includes/class-efm-builder.php:553
+msgid "Off by default. Converting is one-way here, so the file it converted from cannot be rebuilt from the result, and for a font you uploaded it may be the only copy on the site. Left off, the original stays on the server and the Upload screen marks it unused, ready to remove whenever you choose. A source that another family still maps is never deleted either way."
 msgstr ""
 
 #: includes/class-efm-builder.php:554
-msgid "Select every family in the trash"
+msgid "original deleted"
 msgstr ""
 
 #: includes/class-efm-builder.php:555
-msgid "Convert selected"
+msgid "Delete the font files when the plugin is deleted"
 msgstr ""
 
 #: includes/class-efm-builder.php:556
-msgid "Delete selected"
+msgid "Off by default, so deleting the plugin by mistake leaves your typography standing. On, deleting the plugin from Plugins also removes the generated stylesheet and every font file your families map. Files nothing maps are left alone, and so is anything else in wp-content/fonts, because Etch shares that folder. Deactivating never deletes anything."
 msgstr ""
 
 #: includes/class-efm-builder.php:557
-msgid "Restore selected"
+msgid "unused"
 msgstr ""
 
-#: includes/class-efm-builder.php:560
-msgid "Delete files"
+#: includes/class-efm-builder.php:558
+msgid "is now unused"
+msgstr ""
+
+#: includes/class-efm-builder.php:559
+msgid "Select every file"
 msgstr ""
 
 #: includes/class-efm-builder.php:561
-msgid "Delete these files from the fonts folder?"
+msgid "Select every family in the trash"
 msgstr ""
 
 #: includes/class-efm-builder.php:562
-msgid "of them are mapped by a family, and those variants will be removed too."
+msgid "Convert selected"
+msgstr ""
+
+#: includes/class-efm-builder.php:563
+msgid "Delete selected"
 msgstr ""
 
 #: includes/class-efm-builder.php:564
-msgid "Delete these families for good? Their font files stay on the server and can be removed from Import & export."
-msgstr ""
-
-#: includes/class-efm-builder.php:565
-msgid "Delete these families for good? Their font files can be downloaded from Google Fonts again."
-msgstr ""
-
-#: includes/class-efm-builder.php:566
-msgid "Select every variant"
+msgid "Restore selected"
 msgstr ""
 
 #: includes/class-efm-builder.php:567
-msgid "Select variant"
+msgid "Delete files"
 msgstr ""
 
 #: includes/class-efm-builder.php:568
-msgid "Remove selected"
+msgid "Delete these files from the fonts folder?"
 msgstr ""
 
 #: includes/class-efm-builder.php:569
-msgid "Add the files already here"
-msgstr ""
-
-#: includes/class-efm-builder.php:570
-msgid "Add to library"
+msgid "of them are mapped by a family, and those variants will be removed too."
 msgstr ""
 
 #: includes/class-efm-builder.php:571
-msgid "Those files are already in the library."
+msgid "Delete these families for good? Their font files stay on the server and can be removed from Import & export."
 msgstr ""
 
 #: includes/class-efm-builder.php:572
-msgid "There are font files on the server that no family uses yet. They can be taken into the library, or start fresh from Google Fonts."
+msgid "Delete these families for good? Their font files can be downloaded from Google Fonts again."
 msgstr ""
 
 #: includes/class-efm-builder.php:573
-msgid "Installing writes this family to the server, which replaces anything unsaved in the panel."
+msgid "Select every variant"
 msgstr ""
 
 #: includes/class-efm-builder.php:574
-msgid "Converting writes the family mapping to the server, which replaces anything unsaved in the panel."
+msgid "Select variant"
 msgstr ""
 
 #: includes/class-efm-builder.php:575
-msgid "Every weight Google publishes for this family is installed."
+msgid "Remove selected"
 msgstr ""
 
 #: includes/class-efm-builder.php:576
-msgid "Change the weights to download a different selection."
+msgid "Add the files already here"
+msgstr ""
+
+#: includes/class-efm-builder.php:577
+msgid "Add to library"
 msgstr ""
 
 #: includes/class-efm-builder.php:578
-msgid "Delete this family for good? Its font files can be downloaded from Google Fonts again."
+msgid "Those files are already in the library."
 msgstr ""
 
 #: includes/class-efm-builder.php:579
+msgid "There are font files on the server that no family uses yet. They can be taken into the library, or start fresh from Google Fonts."
+msgstr ""
+
+#: includes/class-efm-builder.php:580
+msgid "Installing writes this family to the server, which replaces anything unsaved in the panel."
+msgstr ""
+
+#: includes/class-efm-builder.php:581
+msgid "Converting writes the family mapping to the server, which replaces anything unsaved in the panel."
+msgstr ""
+
+#: includes/class-efm-builder.php:582
+msgid "Every weight Google publishes for this family is installed."
+msgstr ""
+
+#: includes/class-efm-builder.php:583
+msgid "Change the weights to download a different selection."
+msgstr ""
+
+#: includes/class-efm-builder.php:585
+msgid "Delete this family for good? Its font files can be downloaded from Google Fonts again."
+msgstr ""
+
+#: includes/class-efm-builder.php:586
 msgid "Delete every family in the trash for good? Their font files can be downloaded from Google Fonts again."
 msgstr ""
 
-#: includes/class-efm-fonts.php:618
+#: includes/class-efm-fonts.php:647
 msgid "That file does not look like an Etch Font Manager export."
 msgstr ""
 
-#: includes/class-efm-fonts.php:626
+#: includes/class-efm-fonts.php:655
 msgid "The bundled font data in that file is not readable."
 msgstr ""
 
-#: includes/class-efm-fonts.php:1408
-#: includes/class-efm-rest.php:353
+#: includes/class-efm-fonts.php:1519
+#: includes/class-efm-rest.php:354
 msgid "No file received."
 msgstr ""
 
-#: includes/class-efm-fonts.php:1414
+#: includes/class-efm-fonts.php:1525
 #, php-format
 msgid "Upload failed (error %d)."
 msgstr ""
 
-#: includes/class-efm-fonts.php:1420
+#: includes/class-efm-fonts.php:1531
 msgid "File is larger than the 10 MB limit."
 msgstr ""
 
-#: includes/class-efm-fonts.php:1425
+#: includes/class-efm-fonts.php:1536
 msgid "Only woff2, woff, ttf and otf files are allowed."
 msgstr ""
 
-#: includes/class-efm-fonts.php:1429
+#: includes/class-efm-fonts.php:1540
 msgid "File contents do not match the font type."
 msgstr ""
 
-#: includes/class-efm-fonts.php:1468
+#: includes/class-efm-fonts.php:1579
 msgid "Invalid destination path."
 msgstr ""
 
-#: includes/class-efm-fonts.php:1486
+#: includes/class-efm-fonts.php:1597
 msgid "Could not save the uploaded file."
 msgstr ""
 
-#: includes/class-efm-fonts.php:1609
+#: includes/class-efm-fonts.php:1720
 msgid "No file name provided."
 msgstr ""
 
-#: includes/class-efm-fonts.php:1615
+#: includes/class-efm-fonts.php:1726
 msgid "Invalid file path."
 msgstr ""
 
-#: includes/class-efm-fonts.php:1619
+#: includes/class-efm-fonts.php:1730
 msgid "File not found."
 msgstr ""
 
@@ -1200,7 +1225,7 @@ msgstr ""
 msgid "You are not allowed to manage fonts."
 msgstr ""
 
-#: includes/class-efm-rest.php:417
+#: includes/class-efm-rest.php:418
 msgid "Could not write the stylesheet. Check that the fonts folder is writable."
 msgstr ""
 

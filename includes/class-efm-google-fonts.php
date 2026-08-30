@@ -584,6 +584,17 @@ class EFM_Google_Fonts {
 			$google['axis'] = $axis;
 		}
 
+		/*
+		 * The whole axis list, not just the weight range above. The catalogue
+		 * already parsed it and the install threw it away, which left the panel able
+		 * to offer a type tester before an install and nothing at all afterwards --
+		 * the axes were only ever in the search results, and those are cleared on
+		 * leaving the Google view. Recorded here, a family can be retuned any time.
+		 */
+		if ( ! empty( $meta['axes'] ) ) {
+			$google['axes'] = $meta['axes'];
+		}
+
 		if ( null === $index ) {
 			$families[] = array(
 				'name'     => $family,

@@ -1276,16 +1276,6 @@ class EFM_Fonts {
 	}
 
 	/**
-	 * Sanitize the Google Fonts block kept on a family.
-	 *
-	 * Recording where a family came from, which subsets were chosen and which
-	 * cuts the family offers is what lets the editor re-install a different
-	 * selection later without searching the library again.
-	 *
-	 * @param mixed $google Raw block.
-	 * @return array
-	 */
-	/**
 	 * Sanitize a font-variation-settings value.
 	 *
 	 * Rebuilt from what is recognised rather than filtered, because this string is
@@ -1334,6 +1324,16 @@ class EFM_Fonts {
 		return implode( ', ', $parts );
 	}
 
+	/**
+	 * Sanitize the Google Fonts block kept on a family.
+	 *
+	 * Recording where a family came from, which subsets were chosen and which
+	 * cuts the family offers is what lets the editor re-install a different
+	 * selection later without searching the library again.
+	 *
+	 * @param mixed $google Raw block.
+	 * @return array
+	 */
 	protected static function sanitize_google_block( $google ) {
 		if ( ! is_array( $google ) || empty( $google ) ) {
 			return array();

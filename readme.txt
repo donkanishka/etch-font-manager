@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 0.33.0
+Stable tag: 0.34.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,21 @@ Settings > Removal has the opt-out. Tick "Delete the font files when the plugin 
 Reinstalling leaves the kept stylesheet in place rather than regenerating over it, so the site carries on loading its fonts. The library itself starts empty — restore it from Import & export.
 
 == Changelog ==
+
+= 0.34.0 =
+* Added: uploaded variable fonts get their axes. The panel reads them from the file at upload, which is the only moment it can, since converting to WOFF2 happens before anything is sent.
+* Added: a family can be published as the site's heading or body font, writing the typography tokens Etch documents and Automatic.css reads. Each token belongs to one family.
+* Added: multi-select and bulk move to trash on the Font library.
+* Added: font files are grouped by where they came from, because the right answer to "can I delete this" differs by group.
+* Added: the save bar names both families when a typography token changes hands, and the Apply to field names any other family writing a rule for the same selector.
+* Changed: Library is now Font library, and Upload fonts is now Font files. That screen has always listed every file in the fonts folder, most of them not uploads.
+* Changed: Settings joined the save bar. It no longer commits on its own, so a changed toggle is an unsaved change like any other.
+* Changed: variable axes moved directly under the preview, and unused files moved to the Font files screen beside the group that already listed them.
+* Changed: sixteen failure messages replaced one generic line, and each copy button names what it copied.
+* Fixed: dragging a variable axis rewrote the stylesheet and marked the panel unsaved while the preview never moved.
+* Fixed: deleting a font file left the family behind with no variants, still named and still publishing a CSS variable while generating nothing.
+* Fixed: the Settings screen said "Fonts saved." and its button read "Save fonts", and its Removal toggle updated nothing but itself.
+* Fixed: card buttons stood at two heights with two glyph sizes, and axis names read "wdth wdth" unless Google Fonts had been opened first.
 
 = 0.33.0 =
 * Added: a variable font keeps the instance you tune. Installing records the family's axes, the family editor offers the same sliders the type tester does, and the tuning is written to the stylesheet instead of having to be copied out by hand.

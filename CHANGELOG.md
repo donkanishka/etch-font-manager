@@ -2,6 +2,62 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.34.0
+
+A tenth pass, sixteen items, driven a screenshot at a time. Its spine is that a screen should be named for what
+it holds and should say what it is about to cost you.
+
+Half of it came out of questions rather than bug reports. "Does the variable axes panel help anyone?" turned out
+to mean the axes changed the stylesheet while the preview sat still. "Should Google fonts appear under Upload
+fonts?" turned out to mean the screen had been listing the whole folder for its entire life under a name that
+claimed otherwise. "Do static fonts need variable axes?" caught a notice, added an hour earlier, that would have
+appeared on every family on every install.
+
+### Added
+
+- **Uploaded variable fonts get their axes.** The panel reads the `fvar` table in the browser at upload, which is
+  the only moment it can: conversion to WOFF2 happens before anything is sent, and the encoder we ship has no
+  decoder to undo it. TTF, OTF and WOFF are read; a font uploaded already as WOFF2 says so rather than showing an
+  empty space where sliders should be.
+- **Typography tokens.** A family can be published as the site's heading or body font, writing
+  `--heading-font-family` and `--text-font-family` -- the names Etch's documentation tells you to declare and
+  Automatic.css reads without ever declaring. The block is attached to ACSS's own stylesheet handle so it wins on
+  order; the mapping removed in 0.17.0 needed `!important` because it loaded first and had no other way through.
+  Each token belongs to one family, enforced in the panel, on every save and in the generator.
+- **Multi-select on the Font library**, with bulk move to trash, in the style the Trash and the file tables
+  already use.
+- **Font files are grouped by origin** -- Uploaded, From Google Fonts, Not in the library -- because the right
+  answer to "can I delete this" differs by group.
+- **Two collision warnings.** The save bar names both sides when a typography token changes hands, and the Apply
+  to field names any other family writing a rule for the same selector.
+
+### Changed
+
+- **Library is now Font library, and Upload fonts is now Font files.** The second had listed every file in
+  `wp-content/fonts` since it was written, most of them not uploads; its own badge gave it away.
+- **Settings joined the save bar.** The screen no longer commits on its own, so a changed toggle shows as an
+  unsaved change like everything else and is named in the bar.
+- **Variable axes sit under the preview**, where they were 702px away in a pane 711px tall.
+- **Unused files moved to the Font files screen**, under the group that already listed them, leaving Import &
+  export doing exactly that.
+- Sixteen toast messages replaced one generic failure line, and each copy button names what it put on the
+  clipboard.
+
+### Fixed
+
+- **Dragging a variable axis never moved the preview.** It rewrote the generated CSS and marked the panel
+  unsaved while the specimen stayed at the default cut.
+- **Deleting a font file left the family behind with no variants** -- a card that still named a family and
+  published a CSS variable while generating no `@font-face`. The confirmation now names the family it empties and
+  offers to trash it, and an empty family is badged.
+- **The Settings screen reported "Fonts saved."** and its button read "Save fonts", both from sharing one string
+  key with the library's save bar.
+- **A toggle in Settings updated nothing but itself.** Removal's checkbox re-rendered neither the screen nor the
+  save bar.
+- Card buttons stood at two heights and carried two glyph sizes; `.efm-btn--sm` declared a 24px height matching
+  nothing in Etch, whose only small control is 28px.
+- Axis names read "wdth wdth" unless the Google Fonts screen had been opened first.
+
 ## 0.33.0
 
 A ninth pass, driven a screenshot at a time. Its spine is that the panel should show its work: a delete should

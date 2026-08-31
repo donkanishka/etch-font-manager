@@ -108,15 +108,39 @@ class EFM_Rest {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/files/axes',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'set_axes' ),
+				'permission_callback' => $auth,
+				'args'                => array(
+					'filename' => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'axes'     => array(
+						'type'     => 'array',
+						'required' => true,
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/files/delete',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => array( __CLASS__, 'delete_file' ),
 				'permission_callback' => $auth,
 				'args'                => array(
-					'filename' => array(
+					'filename'      => array(
 						'type'     => 'string',
 						'required' => true,
+					),
+					'trash_emptied' => array(
+						'type'    => 'boolean',
+						'default' => false,
 					),
 				),
 			)
@@ -297,6 +321,12 @@ class EFM_Rest {
 			// Referenced by a family but absent from the folder, which is what an
 			// import without bundled font files leaves behind.
 			'missing'    => EFM_Fonts::missing_files( $families ),
+			// So the family editor can name an axis without the Google Fonts screen
+			// having been opened first. The names used to arrive only on a search
+			// response, so opening Library then Manage on a cold panel printed the
+			// tag where the name belonged and the row read "wdth wdth". Cached only,
+			// because this payload must not go to the network.
+			'axisNames'  => EFM_Google_Fonts::cached_axis_registry(),
 		);
 	}
 
@@ -369,6 +399,30 @@ class EFM_Rest {
 	}
 
 	/**
+	 * POST /files/axes
+	 *
+	 * The panel reads fvar in the browser, because that is the only moment the
+	 * original bytes exist: an upload is converted to WOFF2 before it is sent, and
+	 * the encoder we ship cannot undo that. This records what it found.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public static function set_axes( WP_REST_Request $request ) {
+		$axes = EFM_Fonts::set_file_axes(
+			(string) $request->get_param( 'filename' ),
+			(array) $request->get_param( 'axes' )
+		);
+
+		return rest_ensure_response(
+			array(
+				'axes'  => $axes,
+				'state' => self::state(),
+			)
+		);
+	}
+
+	/**
 	 * POST /files/delete
 	 *
 	 * @param WP_REST_Request $request Request.
@@ -385,6 +439,7 @@ class EFM_Rest {
 		// Drop variants that referenced the deleted file.
 		$families = EFM_Fonts::families();
 		$clean    = sanitize_file_name( $filename );
+		$trash    = (bool) $request->get_param( 'trash_emptied' );
 
 		foreach ( $families as $i => $family ) {
 			if ( empty( $family['variants'] ) ) {
@@ -399,7 +454,23 @@ class EFM_Rest {
 					}
 				)
 			);
+
+			/*
+			 * Opt-in, and only for a family this delete actually emptied. Removing
+			 * the last file a family maps used to leave the record behind with no
+			 * variants: a card that still named a family, published its CSS
+			 * variable and generated no @font-face at all. The trash rather than
+			 * deletion, because the name, the Apply to selector and any tuned
+			 * instance are worth more than the file that went, and this is the one
+			 * screen with no undo behind it.
+			 */
+			if ( $trash && empty( $families[ $i ]['variants'] ) ) {
+				$families[ $i ]['trashed'] = true;
+			}
 		}
+
+		// The axes described a file that no longer exists.
+		EFM_Fonts::forget_file_axes( $clean );
 
 		EFM_Fonts::save_families( $families );
 

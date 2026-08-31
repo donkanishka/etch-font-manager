@@ -16,6 +16,19 @@ class EFM_Fonts {
 
 	const OPTION_FAMILIES = 'efm_font_families';
 	const OPTION_SETTINGS = 'efm_settings';
+
+	/*
+	 * Variable axes read out of a font file, keyed by the name it was stored
+	 * under. Kept beside the files rather than on the family because axes are a
+	 * fact about the file: two families mapping the same variable font describe
+	 * the same axes, and a family assembled from several files inherits them from
+	 * whichever of its variants is variable.
+	 *
+	 * Written by the panel, which reads fvar in the browser at upload -- the only
+	 * moment the original bytes exist, since converting to WOFF2 happens before
+	 * anything is sent and the encoder has no decoder to undo it.
+	 */
+	const OPTION_AXES = 'efm_file_axes';
 	const CSS_FILENAME    = 'efm-fonts.css';
 	const TRANSIENT_INLINE = 'efm_inline_css';
 	const MAX_FILE_SIZE   = 10485760; // 10 MB.
@@ -1106,6 +1119,75 @@ class EFM_Fonts {
 	}
 
 	/**
+	 * The typography tokens a family can be mapped to.
+	 *
+	 * The two names Etch's own documentation tells people to declare, and the two
+	 * Automatic.css consumes. Neither is invented here: ACSS's stylesheet reads
+	 * --text-font-family without ever declaring it, which is precisely the gap
+	 * this fills.
+	 */
+	const ROLES = array( 'heading', 'text' );
+
+	/**
+	 * Sanitise a family's token roles.
+	 *
+	 * @param mixed $roles Candidate roles.
+	 * @return array
+	 */
+	protected static function sanitize_roles( $roles ) {
+		$clean = array();
+
+		foreach ( (array) $roles as $role ) {
+			$role = strtolower( sanitize_key( (string) $role ) );
+
+			if ( in_array( $role, self::ROLES, true ) && ! in_array( $role, $clean, true ) ) {
+				$clean[] = $role;
+			}
+		}
+
+		// Sorted, so the order a role happened to be ticked in never reads as a
+		// change when the panel compares what it holds against what was saved.
+		sort( $clean );
+
+		return $clean;
+	}
+
+	/**
+	 * Leave each role with at most one family holding it.
+	 *
+	 * A token has one value, so two families claiming it is not a preference to
+	 * be honoured but a conflict to be resolved -- and resolved the same way
+	 * every time, or the stylesheet changes under a save that touched neither
+	 * family. The first live claimant in stored order keeps it.
+	 *
+	 * Disabled and trashed families are stripped outright: they contribute no
+	 * @font-face, so pointing a token at them would name a font the page never
+	 * loads.
+	 *
+	 * @param array $families Sanitised families.
+	 * @return array
+	 */
+	protected static function resolve_roles( $families ) {
+		$taken = array();
+
+		foreach ( $families as $index => $family ) {
+			$live = empty( $family['trashed'] ) && ! empty( $family['enabled'] );
+			$kept = array();
+
+			foreach ( (array) ( $family['roles'] ?? array() ) as $role ) {
+				if ( $live && ! isset( $taken[ $role ] ) ) {
+					$taken[ $role ] = true;
+					$kept[]         = $role;
+				}
+			}
+
+			$families[ $index ]['roles'] = $kept;
+		}
+
+		return $families;
+	}
+
+	/**
 	 * Sanitize the full families structure.
 	 *
 	 * @param array $input Raw families.
@@ -1187,6 +1269,7 @@ class EFM_Fonts {
 				'enabled'  => $enabled,
 				'trashed'  => ! empty( $family['trashed'] ),
 				'variation' => self::sanitize_variation( $family['variation'] ?? '' ),
+				'roles'    => self::sanitize_roles( $family['roles'] ?? array() ),
 			);
 
 			if ( ! empty( $google ) ) {
@@ -1196,7 +1279,57 @@ class EFM_Fonts {
 			$clean[] = $entry;
 		}
 
-		return $clean;
+		return self::resolve_roles( $clean );
+	}
+
+	/**
+	 * The typography token block, mapping each role to the family that holds it.
+	 *
+	 * One source for two consumers: the generated stylesheet, so a site without
+	 * Automatic.css still gets the tokens Etch's own docs ask for, and the inline
+	 * style printed after ACSS, so a site with it wins on order rather than on
+	 * !important. The mapping that was removed in 0.17.0 wrote !important because
+	 * it loaded first and had no other way through.
+	 *
+	 * Points at var(--efm-family-slug) rather than repeating the stack, so the
+	 * fallbacks and any tuned instance stay defined in exactly one place.
+	 *
+	 * @param array|null $families Optional families. Defaults to stored data.
+	 * @return string CSS, empty when no family holds a role.
+	 */
+	public static function token_css( $families = null ) {
+		if ( null === $families ) {
+			$families = self::families();
+		}
+
+		$lines = '';
+
+		foreach ( self::ROLES as $role ) {
+			foreach ( $families as $family ) {
+				if ( ! in_array( $role, (array) ( $family['roles'] ?? array() ), true ) ) {
+					continue;
+				}
+
+				if ( empty( $family['variants'] ) || empty( $family['enabled'] ) || ! empty( $family['trashed'] ) ) {
+					continue;
+				}
+
+				$slug = self::family_slug( $family['name'] ?? '' );
+
+				if ( '' === $slug ) {
+					continue;
+				}
+
+				$lines .= "\t--{$role}-font-family: var(--efm-family-{$slug});\n";
+				break;
+			}
+		}
+
+		if ( '' === $lines ) {
+			return '';
+		}
+
+		return "/* Typography tokens, as Etch documents them and Automatic.css reads them */\n:root {\n" . $lines . "}\n\n";
 	}
 
 	/**
@@ -1413,7 +1546,99 @@ class EFM_Fonts {
 	// Files.
 
 	/**
-	 * List uploaded font files.
+	 * Axes known for every stored file, keyed by file name.
+	 *
+	 * @return array
+	 */
+	public static function file_axes() {
+		$stored = get_option( self::OPTION_AXES, array() );
+
+		return is_array( $stored ) ? $stored : array();
+	}
+
+	/**
+	 * Record the axes read from one file.
+	 *
+	 * An empty list is stored rather than dropped: it is the difference between
+	 * "this font has no axes" and "nobody has looked", and the family editor says
+	 * something different for each.
+	 *
+	 * @param string $filename Stored file name.
+	 * @param array  $axes     Axis records.
+	 * @return array The stored list.
+	 */
+	public static function set_file_axes( $filename, $axes ) {
+		$name = sanitize_file_name( (string) $filename );
+
+		if ( '' === $name ) {
+			return array();
+		}
+
+		$stored          = self::file_axes();
+		$clean           = self::sanitize_axes( $axes );
+		$stored[ $name ] = $clean;
+
+		update_option( self::OPTION_AXES, $stored, false );
+
+		return $clean;
+	}
+
+	/**
+	 * Forget the axes recorded for a file.
+	 *
+	 * @param string $filename Stored file name.
+	 */
+	public static function forget_file_axes( $filename ) {
+		$name   = sanitize_file_name( (string) $filename );
+		$stored = self::file_axes();
+
+		if ( ! array_key_exists( $name, $stored ) ) {
+			return;
+		}
+
+		unset( $stored[ $name ] );
+		update_option( self::OPTION_AXES, $stored, false );
+	}
+
+	/**
+	 * Sanitise a list of axis records.
+	 *
+	 * The panel reads these out of a font file in the browser, so they arrive as
+	 * user input and are treated as such. Floats throughout: opsz and wdth are
+	 * fractional on real families -- Noto Sans opens at wdth 62.5 -- and an int
+	 * cast would quietly shrink the range.
+	 *
+	 * @param mixed $axes Candidate records.
+	 * @return array
+	 */
+	protected static function sanitize_axes( $axes ) {
+		$clean = array();
+
+		foreach ( (array) $axes as $axis ) {
+			if ( ! is_array( $axis ) ) {
+				continue;
+			}
+
+			$tag = isset( $axis['tag'] ) ? (string) $axis['tag'] : '';
+
+			// A tag is four characters by definition, and only ever printable ASCII.
+			if ( ! preg_match( '/^[ -~]{4}$/', $tag ) ) {
+				continue;
+			}
+
+			$clean[] = array(
+				'tag' => $tag,
+				'min' => (float) ( $axis['min'] ?? 0 ),
+				'max' => (float) ( $axis['max'] ?? 0 ),
+				'def' => (float) ( $axis['def'] ?? 0 ),
+			);
+		}
+
+		return $clean;
+	}
+
+	/**
+	 * List every font file in the folder.
 	 *
 	 * @return array<int,array<string,mixed>>
 	 */
@@ -1424,6 +1649,7 @@ class EFM_Fonts {
 			return array();
 		}
 
+		$axes  = self::file_axes();
 		$files = array();
 
 		foreach ( new DirectoryIterator( $dir ) as $file ) {
@@ -1438,7 +1664,7 @@ class EFM_Fonts {
 
 			$guess = self::guess_variant( $file->getFilename() );
 
-			$files[] = array(
+			$record = array(
 				'name'   => $file->getFilename(),
 				'ext'    => $ext,
 				'size'   => $file->getSize(),
@@ -1446,6 +1672,14 @@ class EFM_Fonts {
 				'weight' => $guess['weight'],
 				'style'  => $guess['style'],
 			);
+
+			// Present only once something has looked, so the panel can tell an
+			// unread file from one that genuinely has no axes.
+			if ( array_key_exists( $record['name'], $axes ) ) {
+				$record['axes'] = $axes[ $record['name'] ];
+			}
+
+			$files[] = $record;
 		}
 
 		usort(
@@ -1947,6 +2181,8 @@ class EFM_Fonts {
 		if ( '' !== $tokens ) {
 			$css .= "/* One custom property per family, so a family can be used as var(--efm-family-slug) */\n:root {\n" . $tokens . "}\n\n";
 		}
+
+		$css .= self::token_css( $families );
 
 		$applied = '';
 

@@ -35,6 +35,11 @@
 		 * something did.
 		 */
 		saved: fingerprint((cfg.state && cfg.state.families) || []),
+		/*
+		 * The same snapshot for the settings screen, so its toggles answer to the
+		 * save bar like everything else instead of to a button of their own.
+		 */
+		savedSettings: settingsFingerprint((cfg.state && cfg.state.settings) || {}),
 		files: (cfg.state && cfg.state.files) || [],
 		settings: (cfg.state && cfg.state.settings) || {},
 		cssUrl: (cfg.state && cfg.state.cssUrl) || '',
@@ -54,6 +59,8 @@
 		 */
 		pickedFiles: [],
 		pickedTrash: [],
+		// Live families, selected by name for the same reason as the two above.
+		pickedFamilies: [],
 		/*
 		 * Variants have no id to select by, so this holds positions -- and positions
 		 * only mean anything next to the family they came from. Carrying that family
@@ -451,12 +458,7 @@
 		 * glyph appears in step, and this is the other case.
 		 */
 		statFamilies: '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12v-1h6v1"/><path d="M11 17h2"/><path d="M12 11v6"/>',
-		/*
-		 * Lucide's upload: the arrow now rises out of a tray rather than off a bare
-		 * rule. Same 24 grid and round caps as the Iconoir set around it, so it
-		 * inherits the panel's 1.5 stroke without redrawing.
-		 */
-		upload: '<path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>',
+
 		/*
 		 * A G in a rounded square rather than the globe this used to be. The globe
 		 * said "the internet"; the nav item means Google Fonts specifically, and at
@@ -495,12 +497,17 @@
 		textSize: '<path d="M3 5a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M17 5a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M3 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M17 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M5 7v10"/><path d="M7 5h10"/><path d="M7 19h10"/><path d="M19 7v10"/><path d="M10 10h4"/><path d="M12 14v-4"/>',
 		/*
 		 * Tabler's file-typography: a page with a T set in it rather than three ruled
-		 * lines, so the Files count reads as font files specifically. Tabler's leading
+		 * lines, so it reads as a font file specifically. Tabler's leading
 		 * <path d="M0 0h24v24H0z"> bounding box is dropped, as with the bin -- it is
 		 * invisible only because of its own stroke="none", which does not survive
 		 * being stripped.
+		 *
+		 * Shared by the Font files nav item and the Files stat below it, because both
+		 * mean the same thing. Named for the glyph rather than for one of them: it
+		 * was called `page` while the nav wore an upload arrow, and an upload arrow
+		 * named how a file arrives rather than what the screen holds.
 		 */
-		page: '<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2"/><path d="M11 18h2"/><path d="M12 18v-7"/><path d="M9 12v-1h6v1"/>',
+		fontFile: '<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2"/><path d="M11 18h2"/><path d="M12 18v-7"/><path d="M9 12v-1h6v1"/>',
 		/*
 		 * Tabler's arrows-exchange: two arrows swapping places, which is what a
 		 * format conversion is. The old glyph was arrows converging on a line -- a
@@ -692,6 +699,14 @@
 		out.fallback = String(source.fallback || '');
 		out.selector = String(source.selector || '');
 		out.force = !!source.force;
+		/*
+		 * Sorted, because the order a role was ticked in is not a change. Without
+		 * this, unticking heading and ticking it again leaves ['text','heading']
+		 * against a stored ['heading','text'] and the panel reports unsaved changes
+		 * over a difference nobody made -- the same trap absent-versus-default set
+		 * for the rest of this record.
+		 */
+		out.roles = (source.roles || []).slice().sort();
 		out.enabled = isEnabled(source);
 		out.trashed = !!source.trashed;
 
@@ -713,6 +728,58 @@
 		return JSON.stringify((list || []).map(normalizeFamily));
 	}
 
+	/*
+	 * The four settings the panel writes, in a fixed order. Plain strings and no
+	 * translation, because the fingerprint is taken while the panel is still
+	 * booting; the labels live in settingLabel() and are only read when the save
+	 * bar has something to say.
+	 */
+	var SETTING_KEYS = ['inline_css', 'block_google', 'delete_source_on_convert', 'purge_files'];
+
+	function settingLabel(key) {
+		if ('inline_css' === key) {
+			return s('inlineCss', 'Print the CSS inline');
+		}
+
+		if ('block_google' === key) {
+			return s('blockGoogle', 'Block Google Fonts loaded by other plugins');
+		}
+
+		if ('delete_source_on_convert' === key) {
+			return s('deleteSource', 'Delete the original after converting it to WOFF2');
+		}
+
+		return s('purgeFiles', 'Delete the font files when the plugin is deleted');
+	}
+
+	/**
+	 * Settings as the server would store them.
+	 *
+	 * Booleans, in a declared order, so an absent key and a false one fingerprint
+	 * the same -- the same normalising the family diff needed, for the same reason.
+	 *
+	 * @param {Object} [values] Settings to read. Defaults to the live ones.
+	 * @return {Object} Normalised settings.
+	 */
+	function normalizeSettings(values) {
+		var source = values || {};
+		var out = {};
+
+		SETTING_KEYS.forEach(function (key) {
+			out[key] = !!source[key];
+		});
+
+		return out;
+	}
+
+	function settingsFingerprint(values) {
+		return JSON.stringify(normalizeSettings(values));
+	}
+
+	function settingsDirty() {
+		return settingsFingerprint(state.settings) !== state.savedSettings;
+	}
+
 	/**
 	 * Whether anything is waiting to be saved.
 	 *
@@ -726,6 +793,10 @@
 	 */
 	function isDirty() {
 		if (state.pendingFileDeletes.length) {
+			return true;
+		}
+
+		if (settingsDirty()) {
 			return true;
 		}
 
@@ -796,13 +867,38 @@
 	 *
 	 * @return {Array} Entries of { name, what }.
 	 */
+	/*
+	 * Settings the buffer has changed, worded the way a family change is worded so
+	 * the two read as one list: the control's own label, then enabled or disabled.
+	 */
+	function settingChanges() {
+		var before;
+
+		try {
+			before = JSON.parse(state.savedSettings || '{}');
+		} catch (error) {
+			return [];
+		}
+
+		var now = normalizeSettings(state.settings);
+
+		return SETTING_KEYS.filter(function (key) {
+			return !!before[key] !== !!now[key];
+		}).map(function (key) {
+			return {
+				name: settingLabel(key),
+				what: now[key] ? s('changeEnabled', 'enabled') : s('changeDisabled', 'disabled')
+			};
+		});
+	}
+
 	function changeSummary() {
 		var before;
 
 		try {
 			before = JSON.parse(state.saved || '[]');
 		} catch (error) {
-			return [];
+			return settingChanges();
 		}
 
 		var was = {};
@@ -826,17 +922,61 @@
 				return;
 			}
 
+			/*
+			 * Reported alongside the state change rather than swallowed by it.
+			 * Disabling or trashing a family drops the tokens it held, and "Inter
+			 * disabled" on its own does not tell you the site just lost its heading
+			 * font -- which is the part worth seeing before pressing Save.
+			 */
+			var lost = ROLE_KEYS.filter(function (role) {
+				return hasRole(prior, role) && !hasRole(family, role);
+			}).map(function (role) {
+				return {
+					name: name,
+					what: s('changeRoleCleared', 'no longer') + ' ' +
+						('heading' === role ? s('roleHeadingChip', 'Headings') : s('roleTextChip', 'Body text')).toLowerCase()
+				};
+			});
+
 			if (!!prior.trashed !== !!family.trashed) {
 				out.push({ name: name, what: family.trashed ? s('changeTrashed', 'moved to trash') : s('changeRestored', 'restored') });
+				lost.forEach(function (entry) { out.push(entry); });
 				return;
 			}
 
 			if (isEnabled(prior) !== isEnabled(family)) {
 				out.push({ name: name, what: isEnabled(family) ? s('changeEnabled', 'enabled') : s('changeDisabled', 'disabled') });
+				lost.forEach(function (entry) { out.push(entry); });
 				return;
 			}
 
 			if (JSON.stringify(normalizeFamily(prior)) === JSON.stringify(normalizeFamily(family))) {
+				return;
+			}
+
+			/*
+			 * Named, because a token has one owner: taking heading for this family
+			 * silently takes it from another, and the save bar is where that becomes
+			 * visible before it is committed rather than after.
+			 */
+			var roleShift = ROLE_KEYS.filter(function (role) {
+				return hasRole(prior, role) !== hasRole(family, role);
+			});
+
+			if (roleShift.length) {
+				roleShift.forEach(function (role) {
+					var gained = hasRole(family, role);
+					var label = 'heading' === role
+						? s('roleHeadingChip', 'Headings')
+						: s('roleTextChip', 'Body text');
+
+					out.push({
+						name: name,
+						what: (gained ? s('changeRoleSet', 'set as') : s('changeRoleCleared', 'no longer')) +
+							' ' + label.toLowerCase()
+					});
+				});
+
 				return;
 			}
 
@@ -867,13 +1007,13 @@
 		if (1 === added.length && 1 === removed.length) {
 			out.push({ name: removed[0], what: s('changeRenamed', 'renamed to') + ' ' + added[0] });
 
-			return out;
+			return out.concat(settingChanges());
 		}
 
 		added.forEach(function (name) { out.push({ name: name, what: s('changeAdded', 'added') }); });
 		removed.forEach(function (name) { out.push({ name: name, what: s('changeRemoved', 'removed') }); });
 
-		return out;
+		return out.concat(settingChanges());
 	}
 
 	function plural(count, one, many) {
@@ -1038,6 +1178,33 @@
 		});
 	}
 
+	/**
+	 * Families these files would leave with nothing mapped.
+	 *
+	 * Every variant has to be in the set, which is why the whole selection is
+	 * weighed at once: deleting one of a family's six files empties nothing, and
+	 * deleting all six empties it exactly once.
+	 *
+	 * @param {string[]} filenames Files about to be deleted.
+	 * @return {string[]} Family names left with no variants.
+	 */
+	function emptiedBy(filenames) {
+		return state.families.filter(function (family) {
+			var variants = family.variants || [];
+
+			// Already empty, so this delete is not what emptied it.
+			if (!variants.length || isTrashed(family)) {
+				return false;
+			}
+
+			return variants.every(function (variant) {
+				return filenames.indexOf(variant.file) !== -1;
+			});
+		}).map(function (family) {
+			return family.name;
+		});
+	}
+
 	/* --------------------------------------------------------------------- */
 	/* REST                                                                   */
 	/* --------------------------------------------------------------------- */
@@ -1063,7 +1230,16 @@
 				return null;
 			}).then(function (data) {
 				if (!response.ok) {
-					throw new Error((data && data.message) || s('error', 'Something went wrong.'));
+					/*
+					 * Tagged, because only a message the server actually wrote is
+					 * worth showing. A refusal it could not describe -- a crash, a
+					 * 502, an HTML error page -- arrives with nothing useful, and
+					 * the caller's own sentence is better than a shrug.
+					 */
+					var refusal = new Error((data && data.message) || '');
+
+					refusal.fromServer = !!(data && data.message);
+					throw refusal;
 				}
 				return data;
 			});
@@ -1078,11 +1254,22 @@
 		state.saved = fingerprint(next.families || []);
 		state.files = next.files || [];
 		state.settings = next.settings || {};
+		state.savedSettings = settingsFingerprint(next.settings || {});
 		state.cssUrl = next.cssUrl || state.cssUrl;
 		state.cssVersion = next.cssVersion || state.cssVersion;
 		state.unused = next.unused || [];
 		state.missing = next.missing || [];
 		state.cssBuilt = next.cssBuilt || 0;
+
+		/*
+		 * Only when the payload carries them. A search response is the richer
+		 * source -- it can pay for a fetch -- so a state refresh must not blank
+		 * names the Google screen has already put there.
+		 */
+		if (next.axisNames && Object.keys(next.axisNames).length) {
+			state.axisNames = next.axisNames;
+		}
+
 		refreshFontCss();
 		loadPreviewFaces();
 	}
@@ -1261,8 +1448,15 @@
 	];
 
 	var VIEWS = [
-		{ key: 'library', icon: 'library', label: function () { return s('library', 'Library'); }, count: function () { return liveFamilies().length; } },
-		{ key: 'upload', icon: 'upload', label: function () { return s('upload', 'Upload fonts'); }, count: function () { return state.files.length; } },
+		{ key: 'library', icon: 'library', label: function () { return s('library', 'Font library'); }, count: function () { return liveFamilies().length; } },
+		/*
+		 * Named for what the screen holds, not for one of the ways a file gets
+		 * there. The count gave it away: it has always been every file in the
+		 * folder, and on a library built from Google Fonts almost none of them were
+		 * uploads. Uploading is still the first and largest thing on the screen.
+		 */
+		{ key: 'upload', icon: 'fontFile', label: function () { return s('fontFiles', 'Font files'); }, count: function () { return state.files.length; } },
+
 		{ key: 'google', icon: 'google', label: function () { return s('googleFonts', 'Google Fonts'); } },
 		{ key: 'settings', icon: 'settings', label: function () { return s('settings', 'Settings'); } },
 		{ key: 'tools', icon: 'transfer', label: function () { return s('tools', 'Import & export'); } },
@@ -2052,8 +2246,24 @@
 		statusRingEl.hidden = !status || toastPersists(status.type);
 	}
 
-	function fail(error) {
-		setStatus((error && error.message) || s('error', 'Something went wrong.'), 'error');
+	/**
+	 * A rejection handler that names the operation the server could not.
+	 *
+	 * A rejection arrives from three places and only one of them is worth
+	 * repeating: a response the server refused with a message of its own. The
+	 * other two -- a refusal it could not describe, and fetch rejecting because
+	 * the network went away -- used to surface as "Something went wrong." or, on
+	 * a dropped connection, the browser's own "Failed to fetch". Neither says
+	 * which of thirteen operations just failed or what it left behind, so those
+	 * take the caller's sentence instead.
+	 *
+	 * @param {string} message What this particular operation should say.
+	 * @return {Function} A rejection handler for .catch().
+	 */
+	function failing(message) {
+		return function (error) {
+			setStatus((error && error.fromServer && error.message) || message, 'error');
+		};
 	}
 
 	function go(view) {
@@ -2254,7 +2464,7 @@
 			el('div', { class: 'efm-nav__meta' }, [
 				stat(live.length, plural(live.length, s('familyLabel', 'family'), s('familiesLabel', 'families')), 'statFamilies'),
 				stat(variantCount, plural(variantCount, s('variant', 'variant'), s('variants', 'variants')), 'textSize'),
-				stat(state.files.length, plural(state.files.length, s('fileLabel', 'file'), s('filesLabel', 'files')), 'page')
+				stat(state.files.length, plural(state.files.length, s('fileLabel', 'file'), s('filesLabel', 'files')), 'fontFile')
 			])
 		);
 	}
@@ -2308,12 +2518,16 @@
 			el('button', {
 				type: 'button',
 				/*
-				 * Not the accent variant. Etch floods the accent in exactly one
-				 * place, the builder's own Save, and that button sits nine pixels
-				 * below this panel while it is open. Two accent-filled saves on one
-				 * screen is the confusion; this one is strong but neutral.
+				 * The accent variant, like every other committing action in the
+				 * panel. This used to be a neutral one-off, on the reasoning that
+				 * the builder's own accent Save sits nine pixels below the panel
+				 * and two accent saves would compete. The panel had already
+				 * abandoned that rule everywhere else -- Settings saves, Import
+				 * now, Download configuration and Reset all are all accent-filled
+				 * -- so the one button that actually commits the library was the
+				 * quietest committing button on the screen. Dumal's call.
 				 */
-				class: 'efm-btn efm-btn--strong',
+				class: 'efm-btn efm-btn--primary',
 				text: state.busy === 'save' ? s('saving', 'Saving…') : s('save', 'Save fonts'),
 				disabled: state.busy === 'save',
 				onclick: saveFamilies
@@ -2330,7 +2544,16 @@
 	 * keystroke and drag, and rebuilding the grid would drop scroll position and
 	 * re-run the IntersectionObserver on each one.
 	 */
-	function repaintSpecimens() {
+	/**
+	 * Repaint every specimen on screen.
+	 *
+	 * @param {string} [variation] Instance to apply, when a drag is changing one.
+	 *                             Dragging an axis used to rewrite the generated
+	 *                             CSS and mark the panel unsaved while the preview
+	 *                             sat at the default cut, so the one control whose
+	 *                             whole purpose is to be seen showed nothing.
+	 */
+	function repaintSpecimens(variation) {
 		Array.prototype.forEach.call(contentEl.querySelectorAll('[data-efm-specimen]'), function (node) {
 			var subsets = (node.getAttribute('data-efm-subsets') || '').split(',').filter(Boolean);
 
@@ -2339,6 +2562,10 @@
 				script: node.getAttribute('data-efm-script') || ''
 			});
 			node.style.fontSize = state.previewSize + 'px';
+
+			if (variation !== undefined) {
+				node.style.fontVariationSettings = variation || 'normal';
+			}
 		});
 	}
 
@@ -3368,14 +3595,24 @@
 	 * @param {string}   script  ISO 15924 primary script code, when known.
 	 * @return {HTMLElement}
 	 */
-	function specimen(family, subsets, script) {
+	function specimen(family, subsets, script, variation) {
 		return el('p', {
 			class: 'efm-specimen',
 			'data-efm-specimen': 'true',
 			'data-efm-subsets': (subsets || []).join(','),
 			'data-efm-script': script || '',
 			text: sampleFor({ subsets: subsets || [], script: script || '' }),
-			style: { 'font-family': familyStack(family), 'font-size': state.previewSize + 'px' }
+			/*
+			 * The instance the family carries, so the preview shows the face the
+			 * site will actually render rather than the default cut. 'normal' is
+			 * the CSS-wide way of saying "no instance", which is what a family
+			 * without a tuned variation wants.
+			 */
+			style: {
+				'font-family': familyStack(family),
+				'font-size': state.previewSize + 'px',
+				'font-variation-settings': variation || 'normal'
+			}
 		});
 	}
 
@@ -3447,6 +3684,7 @@
 		var family = state.families[index];
 
 		family.enabled = enabled;
+		dropRolesIfIdle(index);
 		render();
 	}
 
@@ -3456,10 +3694,150 @@
 	 *
 	 * @param {number} index Family index.
 	 */
+	/*
+	 * Kept in the order the generated stylesheet writes them, so the panel and the
+	 * CSS agree about which token comes first.
+	 */
+	var ROLE_KEYS = ['heading', 'text'];
+
+	/**
+	 * A family's Apply to list, split into its individual selectors.
+	 *
+	 * @param {Object} family Family record.
+	 * @return {string[]}
+	 */
+	function selectorParts(family) {
+		return String(family.selector || '').split(',').map(function (part) {
+			return part.trim();
+		}).filter(Boolean);
+	}
+
+	/**
+	 * Other live families applying themselves to the same selector.
+	 *
+	 * Exact matches between comma-separated parts only. Two families both naming
+	 * h1 is a genuine collision -- build_css() writes both rules and the later one
+	 * silently wins -- and it can be found by comparing strings. Whether ".card h1"
+	 * overlaps "h1" is a cascade question, not a string question, so it is left
+	 * alone rather than guessed at.
+	 *
+	 * @param {number} index Family index to check.
+	 * @return {Array} Entries of { name, parts }.
+	 */
+	function selectorClashes(index) {
+		var mine = selectorParts(state.families[index] || {});
+
+		if (!mine.length) {
+			return [];
+		}
+
+		var out = [];
+
+		state.families.forEach(function (family, at) {
+			if (at === index || isTrashed(family) || !isEnabled(family) || !(family.variants || []).length) {
+				return;
+			}
+
+			var shared = selectorParts(family).filter(function (part) {
+				return mine.indexOf(part) !== -1;
+			});
+
+			if (shared.length) {
+				out.push({ name: family.name, parts: shared });
+			}
+		});
+
+		return out;
+	}
+
+	function hasRole(family, role) {
+		return (family.roles || []).indexOf(role) !== -1;
+	}
+
+	/**
+	 * The live family currently holding a role, if any.
+	 *
+	 * @param {string} role Role key.
+	 * @return {?Object} The family, or null.
+	 */
+	function familyHolding(role) {
+		return state.families.filter(function (family) {
+			return !isTrashed(family) && hasRole(family, role);
+		})[0] || null;
+	}
+
+	/**
+	 * Give a role to one family, taking it from whoever had it.
+	 *
+	 * @param {number}  index Family index.
+	 * @param {string}  role  Role key.
+	 * @param {boolean} on    Whether this family should hold it.
+	 */
+	function setRole(index, role, on) {
+		state.families.forEach(function (family, at) {
+			var roles = (family.roles || []).filter(function (held) {
+				return held !== role;
+			});
+
+			if (on && at === index) {
+				roles.push(role);
+			}
+
+			family.roles = roles.sort();
+		});
+
+		render();
+	}
+
+	/**
+	 * Drop the roles of a family that is no longer live.
+	 *
+	 * The server does this on every save -- a disabled or trashed family emits no
+	 * @font-face, so a token pointing at it would name a font the page never loads
+	 * -- and the panel has to do the same or the two disagree about what was
+	 * saved. Doing it here also puts the loss in the save bar, where "Sekuya no
+	 * longer used for headings" is visible before you commit rather than after.
+	 *
+	 * @param {number} index Family index.
+	 */
+	function dropRolesIfIdle(index) {
+		var family = state.families[index];
+
+		if (!family || !(family.roles || []).length) {
+			return;
+		}
+
+		if (isTrashed(family) || !isEnabled(family)) {
+			family.roles = [];
+		}
+	}
+
 	function trashFamily(index) {
 		var family = state.families[index];
 
 		family.trashed = true;
+		dropRolesIfIdle(index);
+		state.editing = null;
+		render();
+	}
+
+	/**
+	 * Move a selection of live families to the trash.
+	 *
+	 * No confirmation, deliberately: the single-card button it mirrors asks none
+	 * either, because nothing is destroyed. The families keep their files and
+	 * their mapping and the Trash screen restores them exactly as they were. The
+	 * question is asked there, where deleting is permanent.
+	 */
+	function trashPickedFamilies() {
+		state.families.forEach(function (family, at) {
+			if (!isTrashed(family) && state.pickedFamilies.indexOf(family.name) !== -1) {
+				family.trashed = true;
+				dropRolesIfIdle(at);
+			}
+		});
+
+		state.pickedFamilies = [];
 		state.editing = null;
 		render();
 	}
@@ -3492,7 +3870,7 @@
 				s('trashEmpty', 'The trash is empty'),
 				s('trashEmptyHint', 'Families you delete from the library wait here, and can be restored until you empty it.'),
 				[{
-					label: s('backToLibrary', 'Back to Library'),
+					label: s('backToLibrary', 'Back to the font library'),
 					variant: 'outline',
 					onclick: function () { go('library'); }
 				}]
@@ -3813,7 +4191,9 @@
 									render();
 								});
 							}
-						}, [icon('trash')])
+							// Card rows carry --sm buttons, whose glyphs are one step
+							// down. The box stays the control height either way.
+						}, [icon('trash', 'sm')])
 					])
 				]),
 				el('div', { class: 'efm-card__meta' }, [
@@ -3916,10 +4296,39 @@
 			return;
 		}
 
+		/*
+		 * The same selection the Trash and the file tables already offer, on the one
+		 * screen that did not. Scoped to what is on screen: everyFamily is built from
+		 * the filtered list, so Select every family means the ones the filter left
+		 * showing rather than a library the reader cannot see.
+		 */
+		var everyFamily = list.map(function (row) { return row.family.name; });
+
+		// Anything the filter hid stops being selected, so a bulk action cannot reach
+		// a family that is not on screen.
+		state.pickedFamilies = state.pickedFamilies.filter(function (name) {
+			return everyFamily.indexOf(name) !== -1;
+		});
+
+		contentEl.appendChild(el('div', { class: 'efm-resultbar' }, [
+			el('div', { class: 'efm-bulk' }, [
+				pickAll(state.pickedFamilies, everyFamily, s('selectAllFamilies', 'Select every family'))
+			]),
+			bulkBar(state.pickedFamilies, [
+				{
+					label: s('trashSelected', 'Move selected to trash'),
+					variant: 'danger',
+					onclick: trashPickedFamilies
+				}
+			])
+		]));
+
 		var grid = el('div', { class: gridClass() });
 
 		list.forEach(function (row) {
 			var family = row.family;
+			// Read once and used twice, so the border and the checkbox cannot disagree.
+			var picked = state.pickedFamilies.indexOf(family.name) !== -1;
 			var variants = family.variants || [];
 			var weights = variants.map(function (v) { return v.weight; }).filter(function (w, i, arr) { return arr.indexOf(w) === i; }).sort();
 			var subsetList = variants.map(function (v) { return v.subset; }).filter(function (sub, i, arr) {
@@ -3930,8 +4339,19 @@
 			var gone = missingFor(family);
 
 			grid.appendChild(
-				el('article', { class: 'efm-card' + (enabled ? '' : ' is-disabled') }, [
+				el('article', { class: 'efm-card' + (enabled ? '' : ' is-disabled') + (picked ? ' is-picked' : '') }, [
 					el('div', { class: 'efm-card__head' }, [
+						el('label', { class: 'efm-card__pick' }, [
+							el('input', {
+								type: 'checkbox',
+								class: 'efm-checkbox',
+								checked: picked,
+								'aria-label': s('selectFamily', 'Select') + ' ' + family.name,
+								onchange: function () {
+									togglePicked(state.pickedFamilies, family.name);
+								}
+							})
+						]),
 						el('h2', { class: 'efm-card__title', text: family.name }),
 						/*
 						 * A badge, not the full-width notice this used to be. That
@@ -3941,6 +4361,28 @@
 						 * title, where it is still reachable.
 						 */
 						enabled ? null : el('span', { class: 'efm-badge efm-badge--muted', text: s('disabledLabel', 'Disabled') }),
+						/*
+						 * The role chips 0.17.0 removed, back because something can be
+						 * assigned again. They went then because nothing could: the mapping
+						 * had been deleted and the chips could never light up.
+						 */
+						hasRole(family, 'heading')
+							? el('span', { class: 'efm-badge', text: s('roleHeadingChip', 'Headings') })
+							: null,
+						hasRole(family, 'text')
+							? el('span', { class: 'efm-badge', text: s('roleTextChip', 'Body text') })
+							: null,
+						/*
+						 * A family with no variants at all, which is what deleting the last
+						 * file it mapped leaves behind. The footer counted "0 variants" and
+						 * nothing else said the card was inert -- it still named a family and
+						 * still published a CSS variable, while generating no @font-face.
+						 */
+						variants.length ? null : el('span', {
+							class: 'efm-badge efm-badge--warn efm-tooltip efm-tooltip--wrap',
+							'data-efm-tooltip': s('emptyNotice', 'This family maps no font files, so it loads nothing. Add a variant from Manage, or move the family to the trash.'),
+							text: s('emptyLabel', 'No files')
+						}),
 						/*
 						 * Nothing else said so. The specimen renders in whatever the
 						 * browser falls back to, which on the machine that did the
@@ -3980,10 +4422,14 @@
 								onclick: function () {
 									trashFamily(row.index);
 								}
-							}, [icon('trash')])
+								// Card rows carry --sm buttons, whose glyphs are one step
+								// down. The box stays the control height either way.
+							}, [icon('trash', 'sm')])
 						])
 					]),
-					specimen(family.name, subsetList),
+					// Carries the tuned instance too, so the card previews the face the
+					// site renders rather than the default cut.
+					specimen(family.name, subsetList, '', family.variation),
 					subsetList.length ? el('div', { class: 'efm-chips' }, subsetList.slice(0, CHIP_LIMIT).map(function (sub) {
 						return el('span', { class: 'efm-chip', text: sub });
 					}).concat(subsetList.length > CHIP_LIMIT
@@ -4013,8 +4459,8 @@
 					// would clip a centred tooltip of this length.
 					class: 'efm-btn efm-btn--outline efm-tooltip efm-tooltip--start',
 					// Named for where it lands, not for the direction it points.
-					'aria-label': s('backToLibrary', 'Back to Library'),
-					'data-efm-tooltip': s('backToLibrary', 'Back to Library'),
+					'aria-label': s('backToLibrary', 'Back to the font library'),
+					'data-efm-tooltip': s('backToLibrary', 'Back to the font library'),
 					onclick: function () {
 						state.editing = null;
 						render();
@@ -4032,7 +4478,58 @@
 		contentEl.appendChild(el('h2', { class: 'efm-detail__title', text: family.name }));
 
 		contentEl.appendChild(previewToolbar(null));
-		contentEl.appendChild(specimen(family.name));
+		contentEl.appendChild(specimen(family.name, null, '', family.variation));
+
+		/*
+		 * The tuning the type tester offers before an install, offered again after
+		 * one. The axes used to live only in the search results, so an instance died
+		 * the moment you left the Google view: you could dial a face to exactly the
+		 * weight you wanted, read the declaration off the screen, and your only way
+		 * to keep it was to paste it into a stylesheet by hand.
+		 *
+		 * Directly under the preview, because that is the only place the sliders mean
+		 * anything. They used to sit below Delivery and the Google block -- measured
+		 * at 702px under the specimen, in a pane 711px tall, so reaching them scrolled
+		 * the thing they change off the screen entirely.
+		 *
+		 * Google installs only. An uploaded font's axes would have to be read back
+		 * out of the file, and the panel converts to WOFF2 with no way back, so it
+		 * cannot open one it has written.
+		 */
+		var tunable = axesForFamily(family);
+
+		/*
+		 * Said rather than left blank. A font the panel converted to WOFF2 cannot be
+		 * reopened -- the wasm encodes and does not decode -- so its axes are not
+		 * absent, they are unknown, and the way to recover them is to upload the
+		 * original again.
+		 */
+		if (!tunable.length && axesUnreadable(family)) {
+			contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('axesTitle', 'Variable axes') }));
+			contentEl.appendChild(el('p', {
+				class: 'efm-muted',
+				text: s('axesUnknown', 'The panel cannot read this family\'s files, so it does not know whether the font has variable axes. WOFF2 cannot be opened here. Upload the original TTF, OTF or WOFF and the axes will appear.')
+			}));
+		}
+
+		if (tunable.length) {
+			contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('axesTitle', 'Variable axes') }));
+
+			/*
+			 * Conditional, because the honest answer differs. build_css() only writes
+			 * font-variation-settings into a rule when the family has an Apply to
+			 * selector; without one the instance is published as a custom property
+			 * and nothing consumes it. A blanket "this changes your site" was wrong
+			 * for the default case, which is the case most families are in.
+			 */
+			contentEl.appendChild(el('p', {
+				class: 'efm-muted',
+				text: family.selector
+					? s('axesHintApplied', 'This family has an Apply to selector, so these change how it renders on the site as well as in this preview.')
+					: s('axesHintUnapplied', 'These change this preview only. To use the instance on the site, give the family an Apply to selector under Delivery, or use its variation variable in your own CSS.')
+			}));
+			contentEl.appendChild(familyAxes(index, tunable));
+		}
 
 		/*
 		 * Paired on one row. Both hold a short value, so a full-width input each
@@ -4074,30 +4571,58 @@
 			])
 		);
 
+		/*
+		 * The two names Etch's documentation tells people to declare and Automatic.css
+		 * reads without ever declaring: measured on a live ACSS install, its stylesheet
+		 * consumes --text-font-family twice and defines it nowhere, so the token is a
+		 * contract waiting to be filled rather than a value to fight over.
+		 *
+		 * A role belongs to one family at a time. Ticking it here takes it from
+		 * whichever family held it, because a custom property has one value and
+		 * silently honouring the first of two claimants would make the stylesheet
+		 * depend on library order.
+		 */
+		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('rolesTitle', 'Typography tokens') }));
+		contentEl.appendChild(el('p', {
+			class: 'efm-muted',
+			text: s('rolesHint', 'Publish this family as the site\'s heading or body font. Etch documents both names and Automatic.css reads them, so a framework picks the family up without you writing a rule. Each one belongs to a single family.')
+		}));
+
+		ROLE_KEYS.forEach(function (role) {
+			var holder = familyHolding(role);
+			var mine = hasRole(family, role);
+
+			contentEl.appendChild(el('label', { class: 'efm-toggle' }, [
+				el('input', {
+					type: 'checkbox',
+					class: 'efm-checkbox',
+					checked: mine,
+					onchange: function (event) {
+						setRole(index, role, event.target.checked);
+					}
+				}),
+				el('span', {}, [
+					el('span', {
+						class: 'efm-toggle__label',
+						text: 'heading' === role
+							? s('roleHeading', 'Use for headings')
+							: s('roleText', 'Use for body text')
+					}),
+					el('span', {
+						class: 'efm-field__hint',
+						text: '--' + role + '-font-family' +
+							(!mine && holder ? ' \u00b7 ' + s('roleHeldBy', 'currently') + ' ' + holder.name : '')
+					})
+				])
+			]));
+		});
+
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('delivery', 'Delivery') }));
 		contentEl.appendChild(deliverySection(index));
 
 		if (family.google) {
 			contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('googleSource', 'Google Fonts') }));
 			contentEl.appendChild(googleSection(index));
-		}
-
-		/*
-		 * The tuning the type tester offers before an install, offered again after
-		 * one. The axes used to live only in the search results, so an instance died
-		 * the moment you left the Google view: you could dial a face to exactly the
-		 * weight you wanted, read the declaration off the screen, and your only way
-		 * to keep it was to paste it into a stylesheet by hand.
-		 *
-		 * Google installs only. An uploaded font's axes would have to be read back
-		 * out of the file, and the panel converts to WOFF2 with no way back, so it
-		 * cannot open one it has written.
-		 */
-		var tunable = (family.google && family.google.axes) || [];
-
-		if (tunable.length) {
-			contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('axesTitle', 'Variable axes') }));
-			contentEl.appendChild(familyAxes(index, tunable));
 		}
 
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('cssPreview', 'Generated CSS') }));
@@ -4243,6 +4768,24 @@
 				(variation ? '\t--efm-family-' + family.slug + '-variation: ' + variation + ';\n' : '') + '}');
 		}
 
+		/*
+		 * Mirrors token_css() in build_css(). These two have drifted twice in this
+		 * codebase, which is why the roles are read the same way here: a role only
+		 * reaches the stylesheet from a family that is enabled, untrashed and
+		 * actually maps a file.
+		 */
+		if (family.slug && (family.variants || []).length && isEnabled(family) && !isTrashed(family)) {
+			var roleLines = ROLE_KEYS.filter(function (role) {
+				return hasRole(family, role);
+			}).map(function (role) {
+				return '\t--' + role + '-font-family: var(--efm-family-' + family.slug + ');';
+			});
+
+			if (roleLines.length) {
+				blocks.push(':root {\n' + roleLines.join('\n') + '\n}');
+			}
+		}
+
 		if (family.selector) {
 			var important = family.force ? ' !important' : '';
 
@@ -4257,6 +4800,8 @@
 
 	function cssTokenField(family) {
 		var token = 'var(--efm-family-' + family.slug + ')';
+		var tuned = String(family.variation || '');
+		var variationToken = 'var(--efm-family-' + family.slug + '-variation)';
 
 		/*
 		 * A published value rather than a field. It used to be a readonly input,
@@ -4274,14 +4819,38 @@
 					'aria-label': s('copy', 'Copy'),
 					'data-efm-tooltip': s('copy', 'Copy'),
 					onclick: function () {
-						copyText(token);
+						copyText(token, s('copiedToken', 'CSS variable copied.'));
 					}
 				}, [icon('copy', 'sm')])
 			]),
 			el('span', {
 				class: 'efm-field__hint',
 				text: s('cssTokenHint', 'Use this anywhere a font family is expected. It already includes the fallback stack.')
-			})
+			}),
+
+			/*
+			 * Only once an instance exists, and only here, beside the token it
+			 * belongs to. The stylesheet has always published this property; the
+			 * panel never mentioned it, so the one way to use a tuned instance
+			 * without an Apply to selector was to find it by reading the
+			 * generated CSS.
+			 */
+			tuned ? el('div', { class: 'efm-token' }, [
+				el('code', { class: 'efm-token__value', text: variationToken }),
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--ghost efm-btn--sm efm-btn--icon efm-tooltip efm-tooltip--end',
+					'aria-label': s('copy', 'Copy'),
+					'data-efm-tooltip': s('copy', 'Copy'),
+					onclick: function () {
+						copyText(variationToken, s('copiedVariationToken', 'Variation variable copied.'));
+					}
+				}, [icon('copy', 'sm')])
+			]) : null,
+			tuned ? el('span', {
+				class: 'efm-field__hint',
+				text: s('variationTokenHint', 'The tuned instance, for font-variation-settings. Pair it with the family variable above.')
+			}) : null
 		]);
 	}
 
@@ -4292,11 +4861,17 @@
 	 * refused by permissions policy inside the builder, so a hidden textarea and
 	 * execCommand stand behind it rather than the copy quietly doing nothing.
 	 *
-	 * @param {string} text Value to copy.
+	 * The caller says what it handed over. Three buttons share this, and "Copied."
+	 * left the toast unable to tell a CSS variable from an axis declaration from
+	 * the @import line -- three values a reader is quite likely to be comparing in
+	 * the same sitting.
+	 *
+	 * @param {string} text    Value to copy.
+	 * @param {string} message What the toast should say once it is on the clipboard.
 	 */
-	function copyText(text) {
+	function copyText(text, message) {
 		function done() {
-			setStatus(s('copied', 'Copied.'));
+			setStatus(message);
 		}
 
 		function legacy() {
@@ -4401,7 +4976,7 @@
 				 * the one thing that has to be told, since it is derived from a diff
 				 * that nothing else here recomputes.
 				 */
-				repaintSpecimens();
+				repaintSpecimens(family.variation);
 				reset.disabled = '' === family.variation;
 
 				// Looked up now, not captured: the Generated CSS block is appended
@@ -4603,7 +5178,29 @@
 							renderSaveBar();
 						}
 					}),
-					el('span', { class: 'efm-field__hint', text: s('applyToHint', 'Optional. A comma separated selector list this family is applied to, so you do not have to write the rule yourself.') })
+					el('span', { class: 'efm-field__hint', text: s('applyToHint', 'Optional. A comma separated selector list this family is applied to, so you do not have to write the rule yourself.') }),
+					/*
+					 * Named the moment it happens. Two families writing a rule for the
+					 * same selector is decided by which one the stylesheet reaches last,
+					 * which is stored order -- invisible from here, and not something to
+					 * discover by wondering why a font did not change.
+					 */
+					(function () {
+						var clashes = selectorClashes(index);
+
+						if (!clashes.length) {
+							return null;
+						}
+
+						return el('span', {
+							class: 'efm-field__hint efm-field__hint--warn',
+							text: s('selectorClash', 'Also applied by') + ' ' +
+								clashes.map(function (clash) {
+									return clash.name + ' (' + clash.parts.join(', ') + ')';
+								}).join(', ') + '. ' +
+								s('selectorClashHint', 'Whichever comes last in the stylesheet wins.')
+						});
+					}())
 				])
 			]),
 			family.selector ? el('label', { class: 'efm-toggle' }, [
@@ -4637,7 +5234,7 @@
 		});
 
 		if (!fileOptions.length) {
-			fileOptions.push({ value: '', label: s('noFiles', 'No files uploaded yet.') });
+			fileOptions.push({ value: '', label: s('noFiles', 'No font files on the server yet.') });
 		}
 
 		var fileSelect = dropdown({
@@ -4728,6 +5325,266 @@
 
 	/* ------------------------------- Upload ------------------------------ */
 
+	/**
+	 * One row of the font files table.
+	 *
+	 * Lifted out of renderUpload so the three groups below can each build their
+	 * own table from the same row rather than three copies of it drifting apart,
+	 * which is exactly what previewCss() and build_css() have twice done here.
+	 *
+	 * @param {Object} file File record.
+	 * @return {HTMLElement} The row.
+	 */
+	function fileRow(file) {
+		/*
+		 * A file whose WOFF2 twin is already sitting in this same table has
+		 * nothing left to convert: running it again would spend the work only to
+		 * overwrite the file it produced last time.
+		 */
+		var twin = woff2Name(file.name);
+		var already = twin !== file.name && state.files.some(function (other) {
+			return other.name === twin;
+		});
+
+		return el('div', { class: 'efm-table__row' }, [
+				el('span', { class: 'efm-file__cell' }, [
+					el('label', { class: 'efm-card__pick' }, [
+						el('input', {
+							type: 'checkbox',
+							class: 'efm-checkbox',
+							checked: state.pickedFiles.indexOf(file.name) !== -1,
+							'aria-label': s('selectFile', 'Select') + ' ' + file.name,
+							onchange: function () {
+								togglePicked(state.pickedFiles, file.name);
+							}
+						})
+					]),
+					el('span', { class: 'efm-file__name', text: file.name, title: file.name })
+				]),
+				el('span', { class: 'efm-muted', text: (file.ext || '').toUpperCase() + ' · ' + (file.weight || '400') + (file.style === 'italic' ? ' ' + s('italic', 'Italic') : '') }),
+				/*
+				 * Both states named. "in use" against a blank meant the reader had
+				 * to know that blank was a state at all -- and the file it applies
+				 * to most often is a source left behind by a conversion, which is
+				 * exactly the one worth noticing.
+				 */
+				el('span', {
+					class: 'efm-muted',
+					text: formatSize(file.size) + ' \u00b7 ' + (fileUsedBy(file.name).length
+						? s('inUse', 'in use')
+						: s('unusedLabel', 'unused'))
+				}),
+				convertible(file.name) && converterAvailable()
+					? el('button', {
+						type: 'button',
+						class: 'efm-icon-btn efm-tooltip efm-tooltip--end',
+						disabled: !!state.converting || already,
+						// Named, so the answer to "why can I not press this" is the
+						// file that already holds the result.
+						'aria-label': already ? s('convertedAlready', 'Already converted to WOFF2') : s('convertFile', 'Convert to WOFF2'),
+						'data-efm-tooltip': already
+							? s('convertedAlready', 'Already converted to WOFF2') + ' \u00b7 ' + twin
+							: s('convertFile', 'Convert to WOFF2'),
+						onclick: function () {
+							convertExisting(file);
+						}
+					}, [icon('compress')])
+					// Keeps the delete button in its own column on rows that
+					// cannot be converted.
+					: el('span', {}),
+				el('button', {
+					type: 'button',
+					class: 'efm-icon-btn efm-icon-btn--danger efm-tooltip efm-tooltip--end',
+					'aria-label': s('deleteFile', 'Delete file'),
+					'data-efm-tooltip': s('deleteFile', 'Delete file'),
+					onclick: function (event) {
+						var users = fileUsedBy(file.name);
+						var emptied = emptiedBy([file.name]);
+						var alsoFamily = { checked: false };
+						var message = s('confirmDelete', 'Delete this file from the fonts folder?');
+
+						if (users.length) {
+							message += '\n\n' + s('confirmDeleteUsed', 'It is mapped by:') + ' ' + users.join(', ') +
+								'.\n' + s('confirmDeleteUsedHint', 'Those variants will be removed too.');
+						}
+
+						/*
+						 * Named before it happens. Stripping the variants used to leave a
+						 * family behind with none, which the dialog never mentioned.
+						 */
+						if (emptied.length) {
+							message += '\n\n' + s('confirmEmpties', 'That leaves nothing mapped by:') + ' ' + emptied.join(', ') + '.';
+						}
+
+						/*
+						 * Last, where Etch puts "This action cannot be undone". Two
+						 * different things in this panel are called Delete and only
+						 * one of them is recoverable: a family goes to the Trash and
+						 * leaves its files behind, while a file is unlinked from disk
+						 * on the spot. The dialog never said which of the two this
+						 * was.
+						 */
+						message += '\n\n' + s('confirmPermanent', 'The Trash holds families, not files, so this cannot be undone.');
+
+						askConfirm({
+							// The row it is unlinking, marked behind the question.
+							mark: [event.currentTarget.closest('.efm-table__row')],
+							title: s('deleteFile', 'Delete file'),
+							message: message,
+							confirm: s('deleteAction', 'Delete'),
+							danger: true,
+							/*
+							 * The mirror of the family dialog's "Also delete its font
+							 * files", offered from the other side. Unticked: a family is
+							 * more than the file that went -- it holds the name, the
+							 * Apply to selector, its CSS variable and any tuned instance.
+							 */
+							checkbox: emptied.length ? {
+								state: alsoFamily,
+								label: s('alsoTrashEmptied', 'Also move the emptied family to the trash')
+							} : null
+						}).then(function (answer) {
+							if ('confirm' === answer) {
+								deleteFile(file.name, alsoFamily.checked);
+							}
+						});
+					}
+				}, [icon('trash')])
+		]);
+	}
+
+	/**
+	 * Where a file came from, as far as the library can honestly say.
+	 *
+	 * Read off the families that map it, because nothing records an origin on the
+	 * file itself: a Google install writes into the same shared folder an upload
+	 * does, and Etch writes there too. A file nothing maps is reported as loose
+	 * rather than guessed at -- it may be Etch's, or left by an older plugin.
+	 *
+	 * @param {string} filename File name.
+	 * @return {string} 'google', 'upload' or 'loose'.
+	 */
+	/**
+	 * The axes a family can be tuned on.
+	 *
+	 * A Google install carries them from the API. Anything else reads them from
+	 * whichever of its files turned out to be variable, which the panel recorded
+	 * when that file was uploaded. Both arrive in the same shape, so the editor
+	 * below cannot tell the two apart.
+	 *
+	 * @param {Object} family Family record.
+	 * @return {Array} Axis records, empty when there is nothing to tune.
+	 */
+	function axesForFamily(family) {
+		if (family.google && (family.google.axes || []).length) {
+			return family.google.axes;
+		}
+
+		var found = [];
+
+		(family.variants || []).forEach(function (variant) {
+			if (found.length) {
+				return;
+			}
+
+			var record = fileRecord(variant.file);
+
+			if (record && (record.axes || []).length) {
+				found = record.axes;
+			}
+		});
+
+		return found;
+	}
+
+	/**
+	 * Whether nothing has ever been able to read this family's files.
+	 *
+	 * True only when every file it maps is one the panel cannot open -- a WOFF2,
+	 * in practice. That is the difference between a font with no axes and a font
+	 * whose axes are unknowable, and it is worth saying out loud rather than
+	 * showing an empty space where sliders would be.
+	 *
+	 * @param {Object} family Family record.
+	 * @return {boolean}
+	 */
+	function axesUnreadable(family) {
+		var variants = family.variants || [];
+
+		if (!variants.length || (family.google && (family.google.axes || []).length)) {
+			return false;
+		}
+
+		/*
+		 * Only worth saying about a font that plausibly has axes to miss. Every
+		 * family installed before the panel learned to read fvar has no stored list,
+		 * and most fonts are not variable, so answering true on all of them would
+		 * put a paragraph about variable axes on the majority of static families --
+		 * noise in place of the silence they had.
+		 */
+		if (!variants.some(function (variant) { return looksVariable(variant.file); })) {
+			return false;
+		}
+
+		return variants.every(function (variant) {
+			var record = fileRecord(variant.file);
+
+			// No stored list at all means nothing has looked, which for a file the
+			// panel converted is the same as cannot look.
+			return record && !record.axes;
+		});
+	}
+
+	/**
+	 * Whether a file name advertises a variable font.
+	 *
+	 * A guess, and deliberately a conservative one, used only to decide whether
+	 * an unreadable font is worth mentioning. Guessing wrong low costs nothing --
+	 * the panel stays quiet, which is what it did before -- while guessing wrong
+	 * high puts an explanation on a font that never had axes.
+	 *
+	 * Axis tags are matched only inside the brackets Google and most foundries
+	 * use, so "Something-Italic" is not read as declaring an ital axis.
+	 *
+	 * @param {string} filename File name.
+	 * @return {boolean}
+	 */
+	function looksVariable(filename) {
+		var name = String(filename || '').toLowerCase();
+
+		if (/\[[a-z,]*(wght|wdth|opsz|slnt|ital|grad)[a-z,]*\]/.test(name)) {
+			return true;
+		}
+
+		if (/(^|[^a-z])vf([^a-z]|$)/.test(name)) {
+			return true;
+		}
+
+		return name.indexOf('variable') !== -1;
+	}
+
+	function fileRecord(filename) {
+		return (state.files || []).filter(function (entry) {
+			return entry.name === filename;
+		})[0] || null;
+	}
+
+	function fileOrigin(filename) {
+		var owners = state.families.filter(function (family) {
+			return (family.variants || []).some(function (variant) {
+				return variant.file === filename;
+			});
+		});
+
+		if (!owners.length) {
+			return 'loose';
+		}
+
+		return owners.some(function (family) {
+			return 'google' === (family.source || '');
+		}) ? 'google' : 'upload';
+	}
+
 	function renderUpload() {
 		var input = el('input', {
 			type: 'file',
@@ -4799,10 +5656,10 @@
 					}
 				}),
 				el('span', {}, [
-					el('span', { class: 'efm-toggle__label', text: s('convertUpload', 'Convert TTF and OTF to WOFF2') }),
+					el('span', { class: 'efm-toggle__label', text: s('convertUpload', 'Convert TTF, OTF and WOFF to WOFF2') }),
 					el('span', {
 						class: 'efm-field__hint',
-						text: s('convertHint', 'Runs in your browser, so the font is never sent anywhere but your own site. WOFF2 is normally 30 to 65% smaller and is what every current browser prefers. Only the container changes: glyphs, variable axes and OpenType features are untouched. It is not a subsetter, so a font that is large because of its character coverage stays large.')
+						text: s('convertHint', 'Runs in your browser, so the font is never sent anywhere but your own site. WOFF2 is what every current browser prefers: normally 40 to 65% smaller than TTF or OTF, and around 20% smaller than WOFF. Only the container changes: glyphs, variable axes and OpenType features are untouched. It is not a subsetter, so a font that is large because of its character coverage stays large.')
 					})
 				])
 			]));
@@ -4819,12 +5676,22 @@
 		 */
 		contentEl.appendChild(el('h3', {
 			class: 'efm-section-title',
-			text: s('files', 'Uploaded files') + (state.files.length
+			/*
+			 * "Font files", not "Uploaded files". This lists the whole shared folder
+			 * -- uploads, Google installs and anything Etch left there -- and the old
+			 * heading claimed an origin it never checked.
+			 */
+			text: s('filesTitle', 'Font files') + (state.files.length
 				? ' \u00b7 ' + formatSize(sizeOfRecords(state.files))
 				: '')
 		}));
 
-		if (state.files.length && state.pickedFiles.length) {
+		if (!state.files.length) {
+			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('noFiles', 'No font files on the server yet.') }));
+			return;
+		}
+
+		{
 			/*
 			 * Only what the selection can actually do. Converting offers itself for
 			 * the files that are convertible and not already converted, which is the
@@ -4843,8 +5710,15 @@
 				return !fileUsedBy(name).length;
 			});
 
+			/*
+			 * Select-all lives here rather than in a table head, because the table is
+			 * three tables now and one checkbox cannot sit in three heads. The Library
+			 * already puts it in the bar for the same reason.
+			 */
 			contentEl.appendChild(el('div', { class: 'efm-resultbar' }, [
-				el('span', {}),
+				el('div', { class: 'efm-bulk' }, [
+					pickAll(state.pickedFiles, state.files.map(function (entry) { return entry.name; }), s('selectAllFiles', 'Select every file'))
+				]),
 				bulkBar(state.pickedFiles, [
 					{
 						label: s('convertSelected', 'Convert selected') + ' (' + convertable.length + ')',
@@ -4871,129 +5745,104 @@
 			]));
 		}
 
-		if (!state.files.length) {
-			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('noFiles', 'No files uploaded yet.') }));
-			return;
-		}
-
-		var everyFile = state.files.map(function (entry) { return entry.name; });
-
-		var table = el('div', { class: 'efm-table efm-table--files' }, [
-			el('div', { class: 'efm-table__head' }, [
-				// Inside the File cell rather than in a column of its own, so the
-				// grid template the two tables share does not have to change.
-				el('span', { class: 'efm-file__cell' }, [
-					pickAll(state.pickedFiles, everyFile, s('selectAllFiles', 'Select every file')),
-					el('span', { text: s('file', 'File') })
-				]),
-				el('span', { text: s('type', 'Type') }),
-				el('span', { text: s('size', 'Size') }),
-				el('span', { text: '' }),
-				el('span', { text: '' })
-			])
-		]);
+		/*
+		 * Grouped by where each file came from, because this screen lists the whole
+		 * wp-content/fonts folder and always has: Etch shares it, a Google install
+		 * writes into it, and adopting a file that is already there is a feature.
+		 * Calling the lot "Uploaded files" was the only thing claiming otherwise.
+		 *
+		 * Each group says what it is and what its files are worth, because the right
+		 * answer to "can I delete this" differs by group: a Google file is a click
+		 * from being downloaded again, an uploaded one may be the only copy there is.
+		 */
+		var groups = [
+			{
+				id: 'upload',
+				title: s('groupUploaded', 'Uploaded'),
+				hint: s('groupUploadedHint', 'Files you added here, mapped by a family. For a font you uploaded this may be the only copy on the site.'),
+				files: []
+			},
+			{
+				id: 'google',
+				title: s('groupGoogle', 'From Google Fonts'),
+				hint: s('groupGoogleHint', 'Written by the Google Fonts screen. Deleting one can be undone by installing the family again.'),
+				files: []
+			},
+			{
+				id: 'loose',
+				title: s('groupLoose', 'Not in the library'),
+				hint: s('groupLooseHint', 'On the server, but no family maps them. Usually what is left after deselecting a weight, though Etch shares this folder so some may be its. Add them to the library, or delete them to free the space.'),
+				files: []
+			}
+		];
 
 		state.files.forEach(function (file) {
-			/*
-			 * A file whose WOFF2 twin is already sitting in this same table has
-			 * nothing left to convert: running it again would spend the work only to
-			 * overwrite the file it produced last time.
-			 */
-			var twin = woff2Name(file.name);
-			var already = twin !== file.name && state.files.some(function (other) {
-				return other.name === twin;
+			var bucket = fileOrigin(file.name);
+
+			groups.forEach(function (group) {
+				if (group.id === bucket) {
+					group.files.push(file);
+				}
 			});
-
-			table.appendChild(
-				el('div', { class: 'efm-table__row' }, [
-					el('span', { class: 'efm-file__cell' }, [
-						el('label', { class: 'efm-card__pick' }, [
-							el('input', {
-								type: 'checkbox',
-								class: 'efm-checkbox',
-								checked: state.pickedFiles.indexOf(file.name) !== -1,
-								'aria-label': s('selectFile', 'Select') + ' ' + file.name,
-								onchange: function () {
-									togglePicked(state.pickedFiles, file.name);
-								}
-							})
-						]),
-						el('span', { class: 'efm-file__name', text: file.name, title: file.name })
-					]),
-					el('span', { class: 'efm-muted', text: (file.ext || '').toUpperCase() + ' · ' + (file.weight || '400') + (file.style === 'italic' ? ' ' + s('italic', 'Italic') : '') }),
-					/*
-					 * Both states named. "in use" against a blank meant the reader had
-					 * to know that blank was a state at all -- and the file it applies
-					 * to most often is a source left behind by a conversion, which is
-					 * exactly the one worth noticing.
-					 */
-					el('span', {
-						class: 'efm-muted',
-						text: formatSize(file.size) + ' \u00b7 ' + (fileUsedBy(file.name).length
-							? s('inUse', 'in use')
-							: s('unusedLabel', 'unused'))
-					}),
-					convertible(file.name) && converterAvailable()
-						? el('button', {
-							type: 'button',
-							class: 'efm-icon-btn efm-tooltip efm-tooltip--end',
-							disabled: !!state.converting || already,
-							// Named, so the answer to "why can I not press this" is the
-							// file that already holds the result.
-							'aria-label': already ? s('convertedAlready', 'Already converted to WOFF2') : s('convertFile', 'Convert to WOFF2'),
-							'data-efm-tooltip': already
-								? s('convertedAlready', 'Already converted to WOFF2') + ' \u00b7 ' + twin
-								: s('convertFile', 'Convert to WOFF2'),
-							onclick: function () {
-								convertExisting(file);
-							}
-						}, [icon('compress')])
-						// Keeps the delete button in its own column on rows that
-						// cannot be converted.
-						: el('span', {}),
-					el('button', {
-						type: 'button',
-						class: 'efm-icon-btn efm-icon-btn--danger efm-tooltip efm-tooltip--end',
-						'aria-label': s('deleteFile', 'Delete file'),
-						'data-efm-tooltip': s('deleteFile', 'Delete file'),
-						onclick: function (event) {
-							var users = fileUsedBy(file.name);
-							var message = s('confirmDelete', 'Delete this file from the fonts folder?');
-
-							if (users.length) {
-								message += '\n\n' + s('confirmDeleteUsed', 'It is mapped by:') + ' ' + users.join(', ') +
-									'.\n' + s('confirmDeleteUsedHint', 'Those variants will be removed too.');
-							}
-
-							/*
-							 * Last, where Etch puts "This action cannot be undone". Two
-							 * different things in this panel are called Delete and only
-							 * one of them is recoverable: a family goes to the Trash and
-							 * leaves its files behind, while a file is unlinked from disk
-							 * on the spot. The dialog never said which of the two this
-							 * was.
-							 */
-							message += '\n\n' + s('confirmPermanent', 'The Trash holds families, not files, so this cannot be undone.');
-
-							askConfirm({
-								// The row it is unlinking, marked behind the question.
-								mark: [event.currentTarget.closest('.efm-table__row')],
-								title: s('deleteFile', 'Delete file'),
-								message: message,
-								confirm: s('deleteAction', 'Delete'),
-								danger: true
-							}).then(function (answer) {
-								if ('confirm' === answer) {
-									deleteFile(file.name);
-								}
-							});
-						}
-					}, [icon('trash')])
-				])
-			);
 		});
 
-		contentEl.appendChild(table);
+		groups.forEach(function (group) {
+			if (!group.files.length) {
+				return;
+			}
+
+			contentEl.appendChild(el('h3', {
+				class: 'efm-section-title',
+				text: group.title + ' \u00b7 ' + group.files.length + ' ' +
+					plural(group.files.length, s('fileSingular', 'file'), s('filesLower', 'files')) +
+					' \u00b7 ' + formatSize(sizeOfRecords(group.files))
+			}));
+			contentEl.appendChild(el('p', { class: 'efm-muted', text: group.hint }));
+
+			/*
+			 * The cleanup lives with the files it deletes. It used to sit in Import &
+			 * export under "Unused files", listing the same set a second time: that
+			 * section and this group resolve to the identical predicate -- a file no
+			 * family's variants name -- so the panel was answering one question on two
+			 * screens and calling it two things.
+			 */
+			if ('loose' === group.id) {
+				contentEl.appendChild(
+					el('button', {
+						type: 'button',
+						// Unlinks files from disk with no trash behind it, which makes it
+						// the least recoverable button in the panel.
+						class: 'efm-btn efm-btn--danger',
+						text: state.pruning
+							? s('loading', 'Loading\u2026')
+							: s('cleanupButton', 'Delete unused files') + ' \u00b7 ' +
+								group.files.length + ' ' +
+								plural(group.files.length, s('fileSingular', 'file'), s('filesLower', 'files')) +
+								' \u00b7 ' + formatSize(sizeOfRecords(group.files)),
+						disabled: state.pruning,
+						onclick: pruneFiles
+					})
+				);
+			}
+
+			var table = el('div', { class: 'efm-table efm-table--files' }, [
+				el('div', { class: 'efm-table__head' }, [
+					el('span', { class: 'efm-file__cell' }, [
+						el('span', { text: s('file', 'File') })
+					]),
+					el('span', { text: s('type', 'Type') }),
+					el('span', { text: s('size', 'Size') }),
+					el('span', { text: '' }),
+					el('span', { text: '' })
+				])
+			]);
+
+			group.files.forEach(function (file) {
+				table.appendChild(fileRow(file));
+			});
+
+			contentEl.appendChild(table);
+		});
 	}
 
 	/* ---------------------------- Google Fonts --------------------------- */
@@ -5163,7 +6012,7 @@
 			max: trimNumber(axis.max),
 			step: trimNumber(step),
 			value: trimNumber(current),
-			'aria-label': (meta.name || axis.tag) + ' (' + axis.tag + ')',
+			'aria-label': meta.name ? meta.name + ' (' + axis.tag + ')' : axis.tag,
 			/*
 			 * Updated in place rather than through render(). Dragging a slider
 			 * cannot rebuild the pane -- that would destroy the input mid-drag --
@@ -5179,9 +6028,14 @@
 		syncRange(slider);
 
 		return el('label', { class: 'efm-axis' }, [
+			/*
+			 * The tag stands alone when nothing names it. Printing meta.name ||
+			 * axis.tag beside the tag itself meant an unnamed axis rendered as
+			 * "wdth wdth", which read like a bug because it was one.
+			 */
 			el('span', { class: 'efm-axis__label' }, [
-				el('span', { class: 'efm-axis__name', text: meta.name || axis.tag }),
-				el('span', { class: 'efm-axis__tag', text: axis.tag }),
+				meta.name ? el('span', { class: 'efm-axis__name', text: meta.name }) : null,
+				el('span', { class: meta.name ? 'efm-axis__tag' : 'efm-axis__name', text: axis.tag }),
 				valueLabel
 			]),
 			/*
@@ -5397,7 +6251,7 @@
 					'aria-label': s('copy', 'Copy'),
 					'data-efm-tooltip': s('copy', 'Copy'),
 					onclick: function () {
-						copyText(cssLine.textContent);
+						copyText(cssLine.textContent, s('copiedVariation', 'Variable font settings copied.'));
 					}
 				}, [icon('copy', 'sm')])
 			]));
@@ -6451,8 +7305,11 @@
 					type: 'checkbox',
 					class: 'efm-checkbox',
 					checked: !!state.settings.purge_files,
+					// Re-rendered like its three neighbours. This one alone updated the
+					// buffer and told nothing, so even the save bar could not see it.
 					onchange: function (event) {
 						state.settings.purge_files = event.target.checked;
+						render();
 					}
 				}),
 				// A bare wrapper, the way the other ten toggles write it. This one
@@ -6465,17 +7322,14 @@
 
 		contentEl.appendChild(section(s('removal', 'Removal'), [purgeFiles]));
 
-		// Saving covers both boxes, so it belongs to the screen rather than to
-		// either one of them.
-		contentEl.appendChild(
-			el('button', {
-				type: 'button',
-				class: 'efm-btn efm-btn--primary',
-				text: state.busy === 'settings' ? s('saving', 'Saving…') : s('save', 'Save changes'),
-				disabled: state.busy === 'settings',
-				onclick: saveSettings
-			})
-		);
+		/*
+		 * No save button of its own. This screen used to commit by itself, which
+		 * meant a toggle changed nothing the save bar knew about: the panel could
+		 * carry unsaved settings while reporting no unsaved changes, and closing it
+		 * lost them without a word. The toggles are part of the same buffer as
+		 * everything else now, so the save bar names them and one Save commits the
+		 * lot.
+		 */
 	}
 
 	/* -------------------------------- Tools ------------------------------ */
@@ -6512,7 +7366,7 @@
 					'aria-label': s('copy', 'Copy'),
 					'data-efm-tooltip': s('copy', 'Copy'),
 					onclick: function () {
-						copyText(line);
+						copyText(line, s('copiedImport', 'Stylesheet import line copied.'));
 					}
 				}, [icon('copy', 'sm')])
 			])
@@ -6520,53 +7374,6 @@
 	}
 
 	function renderTools() {
-		var unused = state.unused || [];
-
-		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('cleanupTitle', 'Unused files') }));
-		contentEl.appendChild(el('p', {
-			class: 'efm-muted',
-			text: unused.length
-				? s('cleanupHint', 'These font files are on the server but no family uses them, usually from deselecting a weight. Deleting them frees space; the weight can be downloaded again at any time.')
-				: s('cleanupNone', 'Every font file on the server is in use.')
-		}));
-
-		if (unused.length) {
-			/*
-			 * The same well the confirmation shows these names in. It was an
-			 * unstyled <ul> -- .efm-files and .efm-file carried no CSS at all -- so
-			 * the one machine-written list in the panel was the only thing set as
-			 * body copy, and read as a paragraph that had lost its sentences.
-			 */
-			contentEl.appendChild(el('div', { class: 'efm-filewell' }, unused.map(function (file) {
-				return el('span', { class: 'efm-filewell__item', text: file.name + ' \u00b7 ' + formatSize(file.size) });
-			})));
-
-			contentEl.appendChild(
-				el('button', {
-					type: 'button',
-					// Unlinks files from disk with no trash behind it, which makes it the
-					// least recoverable button in the panel. It read as an ordinary
-					// outline action.
-					class: 'efm-btn efm-btn--danger',
-					/*
-					 * The count and the size, because the size is the reason to press it
-					 * and it was the one number missing. "Delete unused files (7)" left
-					 * the reader to add up seven lines to find out whether it was worth
-					 * doing -- measured on one real library, those seven came to 2.2 MB
-					 * with a single 1.9 MB file among them. The toggle in the section
-					 * below already answers this way, appending the bundle size to its
-					 * own label.
-					 */
-					text: state.pruning
-						? s('loading', 'Loading…')
-						: s('cleanupButton', 'Delete unused files') +
-							' (' + unused.length + ' \u00b7 ' + formatSize(sizeOfRecords(unused)) + ')',
-					disabled: state.pruning,
-					onclick: pruneFiles
-				})
-			);
-		}
-
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('exportTitle', 'Export') }));
 		contentEl.appendChild(el('p', { class: 'efm-muted', text: s('exportHint', 'Download families, their variant mapping and assignments as a JSON file. Choose which families to include, and whether to bundle the font files with them.') }));
 
@@ -6825,7 +7632,7 @@
 				state.importPayload = null;
 				setStatus(s('imported', 'imported'));
 			})
-			.catch(fail)
+			.catch(failing(s('failImport', 'Could not import that configuration. Your fonts are unchanged.')))
 			.then(function () {
 				state.busy = '';
 				render();
@@ -6848,10 +7655,11 @@
 				state.recovering = '';
 
 				if (failed.length) {
-					fail(new Error(s('recoverFailed', 'Could not download:') + ' ' + failed.join(', ')));
+					setStatus(s('recoverFailed', 'Could not download:') + ' ' + failed.join(', '), 'error');
 				} else {
 					state.importReport = null;
-					setStatus(s('recoverDone', 'Downloaded') + ' · ' + done);
+					setStatus(s('recoverDone', 'Downloaded') + ' \u00b7 ' + done + ' ' +
+						plural(done, s('fileSingular', 'file'), s('filesLower', 'files')));
 				}
 
 				render();
@@ -6965,7 +7773,7 @@
 
 				setStatus(s('exported', 'Configuration downloaded.'));
 			})
-			.catch(fail)
+			.catch(failing(s('failExport', 'Could not build the download. Your fonts are unchanged.')))
 			.then(function () {
 				state.busy = '';
 				render();
@@ -6985,7 +7793,7 @@
 				payload = JSON.parse(reader.result);
 			} catch (error) {
 				state.busy = '';
-				fail(new Error(s('importInvalid', 'That file is not valid JSON.')));
+				setStatus(s('importInvalid', 'That file is not valid JSON.'), 'error');
 				render();
 				return;
 			}
@@ -6998,7 +7806,7 @@
 					state.importPayload = payload;
 					state.importReport = null;
 				})
-				.catch(fail)
+				.catch(failing(s('failImportPreview', 'Could not read that configuration. Nothing has been changed.')))
 				.then(function () {
 					state.busy = '';
 					render();
@@ -7007,7 +7815,7 @@
 
 		reader.onerror = function () {
 			state.busy = '';
-			fail(new Error(s('error', 'Something went wrong.')));
+			setStatus(s('failImportRead', 'Could not read that file. It may be unreadable, or no longer where it was.'), 'error');
 			render();
 		};
 
@@ -7039,13 +7847,42 @@
 		 */
 		var saved = true;
 
+		/*
+		 * Captured before anything is sent. Both endpoints answer with the whole
+		 * state, so applying the families response would overwrite state.settings
+		 * with the copy the server still holds -- and the settings request that
+		 * followed would then post the values it had just been handed back. The
+		 * payload is read once, here, and the settings response is the one applied.
+		 */
+		var settingsPending = settingsDirty();
+		var settingsBody = normalizeSettings(state.settings);
+		var bothChanged = settingsPending && fingerprint(state.families) !== state.saved;
+
+		// Which request is in flight, so a failure names the half that failed rather
+		// than reporting the families it may well have written successfully.
+		var stage = 'families';
+
 		state.pendingFileDeletes = [];
 
 		return request('/families', { method: 'POST', body: { families: state.families } })
 			.then(function (next) {
-				applyState(next);
-				setStatus(s('saved', 'Fonts saved.'));
+				if (!settingsPending) {
+					applyState(next);
+					setStatus(s('saved', 'Fonts saved.'));
+					return null;
+				}
 
+				stage = 'settings';
+
+				return request('/settings', { method: 'POST', body: settingsBody })
+					.then(function (after) {
+						applyState(after);
+						setStatus(bothChanged
+							? s('savedBoth', 'Fonts and settings saved.')
+							: s('settingsSaved', 'Settings saved.'));
+					});
+			})
+			.then(function () {
 				return doomedFiles.reduce(function (chain, name) {
 					return chain.then(function () {
 						return request('/files/delete', { method: 'POST', body: { filename: name } })
@@ -7057,7 +7894,9 @@
 			})
 			.catch(function (error) {
 				saved = false;
-				fail(error);
+				failing('settings' === stage
+					? s('failSaveSettings', 'Could not save your settings. They are unchanged on the server.')
+					: s('failSaveFonts', 'Could not save your fonts. Nothing was written to the server.'))(error);
 			})
 			.then(function () {
 				state.busy = '';
@@ -7075,7 +7914,7 @@
 			applyState(next);
 			state.editing = null;
 			render();
-		}).catch(fail);
+		}).catch(failing(s('failReload', 'Could not reload your fonts from the server, so what you see may be out of date.')));
 	}
 
 	/* ------------------------------ Converter ---------------------------- */
@@ -7302,6 +8141,156 @@
 	}
 
 	/**
+	 * Whether these bytes open as a plain sfnt.
+	 *
+	 * 0x00010000 is TrueType, OTTO is CFF, true and ttcf turn up on older Apple
+	 * fonts. Checked rather than assumed, because toSfnt() hands a WOFF2 straight
+	 * back unchanged -- it only knows how to unwrap WOFF -- and reading a table
+	 * directory out of brotli-compressed bytes yields convincing nonsense.
+	 *
+	 * @param {ArrayBuffer} buffer Font bytes.
+	 * @return {boolean}
+	 */
+	function isSfnt(buffer) {
+		if (!buffer || buffer.byteLength < 12) {
+			return false;
+		}
+
+		var version = new DataView(buffer).getUint32(0);
+
+		return 0x00010000 === version || 0x4f54544f === version ||
+			0x74727565 === version || 0x74746366 === version;
+	}
+
+	/**
+	 * Find one table in an sfnt directory.
+	 *
+	 * @param {ArrayBuffer} buffer Font bytes.
+	 * @param {string}      want   Four character tag.
+	 * @return {?{offset: number, length: number}}
+	 */
+	function sfntTable(buffer, want) {
+		var view = new DataView(buffer);
+		var count = view.getUint16(4);
+		var at;
+		var tag;
+		var i;
+
+		for (i = 0; i < count; i++) {
+			at = 12 + i * 16;
+
+			if (at + 16 > buffer.byteLength) {
+				return null;
+			}
+
+			tag = String.fromCharCode(
+				view.getUint8(at), view.getUint8(at + 1), view.getUint8(at + 2), view.getUint8(at + 3)
+			);
+
+			if (tag === want) {
+				return { offset: view.getUint32(at + 8), length: view.getUint32(at + 12) };
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * The variable axes declared in a font's fvar table.
+	 *
+	 * Returned in the shape the Google index already uses -- tag, min, max, def --
+	 * so the family editor cannot tell the two sources apart and needs no second
+	 * code path. Values are Fixed 16.16, hence the /65536; fvar orders them min,
+	 * default, max, which is not the order they are stored in.
+	 *
+	 * A malformed or truncated table answers with nothing rather than throwing:
+	 * this runs inside an upload, and a font the panel cannot introspect should
+	 * still upload perfectly well.
+	 *
+	 * @param {ArrayBuffer} buffer sfnt bytes.
+	 * @return {Array} Axis records, empty when the font is not variable.
+	 */
+	function parseFvar(buffer) {
+		if (!isSfnt(buffer)) {
+			return [];
+		}
+
+		try {
+			var table = sfntTable(buffer, 'fvar');
+
+			if (!table || table.offset + 16 > buffer.byteLength) {
+				return [];
+			}
+
+			var view = new DataView(buffer);
+			var base = table.offset;
+			var first = base + view.getUint16(base + 4);
+			var count = view.getUint16(base + 8);
+			var size = view.getUint16(base + 10);
+			var out = [];
+			var at;
+			var i;
+
+			// 20 is the size of the axis record every fvar has had since 1.0.
+			if (size < 20) {
+				return [];
+			}
+
+			for (i = 0; i < count; i++) {
+				at = first + i * size;
+
+				if (at + 20 > buffer.byteLength) {
+					break;
+				}
+
+				out.push({
+					tag: String.fromCharCode(
+						view.getUint8(at), view.getUint8(at + 1), view.getUint8(at + 2), view.getUint8(at + 3)
+					),
+					min: view.getInt32(at + 4) / 65536,
+					def: view.getInt32(at + 8) / 65536,
+					max: view.getInt32(at + 12) / 65536
+				});
+			}
+
+			return out;
+		} catch (error) {
+			return [];
+		}
+	}
+
+	/**
+	 * Read a font's axes from whatever container it arrived in.
+	 *
+	 * The one seam the WOFF2 decoder slots into later: sfnt is read directly,
+	 * WOFF is unwrapped by machinery that already exists, and WOFF2 answers with
+	 * nothing because the wasm we ship encodes and does not decode. Filling that
+	 * branch in is the whole of adding WOFF2 support -- nothing else here changes,
+	 * and the axes it returns would be stored exactly the same way.
+	 *
+	 * Answers null when the container could not be opened and an array when it
+	 * could. The difference matters: an empty array says "read it, not a variable
+	 * font", null says "nobody has been able to look", and the family editor has
+	 * something different to tell you in each case.
+	 *
+	 * @param {ArrayBuffer} buffer Original file bytes.
+	 * @return {Promise} Resolves with axis records, or null when unreadable.
+	 */
+	function axesFromFont(buffer) {
+		var head = new Uint8Array(buffer, 0, Math.min(4, buffer.byteLength));
+
+		if (isWoff2(head)) {
+			return Promise.resolve(null);
+		}
+
+		return toSfnt(buffer).then(function (sfnt) {
+			return isSfnt(sfnt) ? parseFvar(sfnt) : null;
+		}).catch(function () {
+			return null;
+		});
+	}
+
+	/**
 	 * Can this file be converted here and now?
 	 *
 	 * WOFF needs DecompressionStream on top of everything else, so it is gated
@@ -7438,14 +8427,41 @@
 			filename: file.name,
 			converted: false,
 			from: file.size,
-			to: file.size
+			to: file.size,
+			axes: null
 		};
 
-		if (!state.convert || !convertible(file.name) || !converterAvailable()) {
-			return Promise.resolve(plain);
-		}
+		/*
+		 * Read before anything else happens to the bytes. Conversion runs here in
+		 * the browser and only its result is uploaded, so the original never reaches
+		 * the server -- this is the one moment a variable font's fvar table can be
+		 * read at all. Missing it is why an uploaded variable font had no axes while
+		 * a Google install did.
+		 */
+		return file.arrayBuffer().then(function (buffer) {
+			return axesFromFont(buffer).then(function (axes) {
+				plain.axes = axes;
 
-		return file.arrayBuffer().then(toSfnt).then(convertBuffer).then(function (result) {
+				if (!state.convert || !convertible(file.name) || !converterAvailable()) {
+					return plain;
+				}
+
+				return convertUploadBuffer(buffer, file, plain);
+			});
+		});
+	}
+
+	/**
+	 * Convert an upload's bytes, keeping the axes already read from them.
+	 *
+	 * @param {ArrayBuffer} buffer Original bytes.
+	 * @param {File}        file   The file they came from.
+	 * @param {Object}      plain  The unconverted result, used when conversion is
+	 *                             refused or does not pay.
+	 * @return {Promise}
+	 */
+	function convertUploadBuffer(buffer, file, plain) {
+		return toSfnt(buffer).then(convertBuffer).then(function (result) {
 			var bytes = new Uint8Array(result);
 
 			// Only take the result if it really is a WOFF2 and really is smaller.
@@ -7459,7 +8475,10 @@
 				filename: woff2Name(file.name),
 				converted: true,
 				from: file.size,
-				to: bytes.length
+				to: bytes.length,
+				// Carried across the conversion. The WOFF2 that comes out cannot be
+				// read back, so this is the only copy of the answer.
+				axes: plain.axes
 			};
 		}).catch(function (error) {
 			plain.error = (error && error.message) || s('convertFailed', 'Could not convert this font.');
@@ -7653,6 +8672,9 @@
 			 * another family, and no setting should delete a file in use.
 			 */
 			if (state.settings.delete_source_on_convert && !fileUsedBy(file.name).length) {
+				// No trash-the-emptied flag, and there must never be one: the guard
+				// above only lets this run on a file nothing maps, so there is no
+				// family to empty and a standing setting should not trash one anyway.
 				return deleteFile(file.name).then(function () {
 					/*
 					 * deleteFile reports its own failure and swallows it, so the message
@@ -7673,7 +8695,7 @@
 			setStatus(summary + file.name + ' ' + s('nowUnused', 'is now unused'));
 
 			return null;
-		}).catch(fail).then(function () {
+		}).catch(failing(s('failConvert', 'Could not convert that font. The original file is untouched.'))).then(function () {
 			state.converting = '';
 			render();
 		});
@@ -7883,6 +8905,31 @@
 					applyState(result && result.state);
 
 					/*
+					 * Recorded against the name the server actually wrote, which is not
+					 * always the one asked for: store_upload() renames on collision. Only
+					 * when something was read -- a WOFF2 upload cannot be introspected, and
+					 * storing an empty list for it would claim it had been looked at.
+					 */
+					var written = result && result.file && result.file.name;
+
+					if (item.axes && written && !(result.file && result.file.duplicate)) {
+						return request('/files/axes', {
+							method: 'POST',
+							body: { filename: written, axes: item.axes }
+						}).then(function (next) {
+							applyState(next && next.state);
+
+							return result;
+						// An upload that landed is not undone by failing to describe it.
+						}).catch(function () {
+							return result;
+						});
+					}
+
+					return result;
+				}).then(function (result) {
+
+					/*
 					 * A duplicate comes back as the file already holding those bytes
 					 * rather than as an error, so one repeat in the middle of a folder
 					 * does not abandon the rest of it. It is not adopted either: the
@@ -7949,7 +8996,7 @@
 			// -- keeps the warning rather than fading on a success countdown.
 			setStatus(message, level);
 			saveFamilies();
-		}).catch(fail).then(render);
+		}).catch(failing(s('failUpload', 'Could not upload those fonts. Nothing was added to the library.'))).then(render);
 	}
 
 	/**
@@ -7974,7 +9021,8 @@
 			});
 		}, Promise.resolve()).then(function () {
 			state.pickedFiles = [];
-			setStatus(s('convertedCount', 'Converted') + ' \u00b7 ' + queue.length);
+			setStatus(s('convertedCount', 'Converted') + ' \u00b7 ' + queue.length + ' ' +
+				plural(queue.length, s('fileSingular', 'file'), s('filesLower', 'files')));
 			render();
 		});
 	}
@@ -7995,11 +9043,19 @@
 			return fileUsedBy(name).length;
 		});
 
+		var emptied = emptiedBy(names);
+		var alsoFamilies = { checked: false };
 		var message = s('confirmDeleteFiles', 'Delete these files from the fonts folder?');
 
 		if (mapped.length) {
 			message += '\n\n' + mapped.length + ' ' +
 				s('confirmDeleteFilesUsed', 'of them are mapped by a family, and those variants will be removed too.');
+		}
+
+		// Weighed across the whole selection: a family goes only when every file it
+		// maps is in the list.
+		if (emptied.length) {
+			message += '\n\n' + s('confirmEmpties', 'That leaves nothing mapped by:') + ' ' + emptied.join(', ') + '.';
 		}
 
 		message += '\n\n' + s('confirmPermanent', 'The Trash holds families, not files, so this cannot be undone.');
@@ -8016,7 +9072,15 @@
 			message: message,
 			list: names,
 			confirm: s('deleteAction', 'Delete'),
-			danger: true
+			danger: true,
+			checkbox: emptied.length ? {
+				state: alsoFamilies,
+				label: plural(
+					emptied.length,
+					s('alsoTrashEmptied', 'Also move the emptied family to the trash'),
+					s('alsoTrashEmptiedPlural', 'Also move the emptied families to the trash')
+				)
+			} : null
 		}).then(function (answer) {
 			if ('confirm' !== answer) {
 				return;
@@ -8024,11 +9088,12 @@
 
 			names.reduce(function (chain, name) {
 				return chain.then(function () {
-					return deleteFile(name);
+					return deleteFile(name, alsoFamilies.checked);
 				});
 			}, Promise.resolve()).then(function () {
 				state.pickedFiles = [];
-				setStatus(s('deletedCount', 'Deleted') + ' \u00b7 ' + names.length);
+				setStatus(s('deletedCount', 'Deleted') + ' \u00b7 ' + names.length + ' ' +
+					plural(names.length, s('fileSingular', 'file'), s('filesLower', 'files')));
 				render();
 			});
 		});
@@ -8066,9 +9131,18 @@
 			.then(function (data) {
 				applyState(data && data.state);
 				var report = (data && data.pruned) || {};
-				setStatus(s('cleanupDone', 'Deleted') + ' · ' + (report.deleted || []).length + ' · ' + formatSize(report.bytes || 0));
+				/*
+				 * Named, like the button that started it. A count beside a size reads
+				 * as "N files · size" everywhere else in the panel; "Deleted · 7 ·
+				 * 2.2 MB" left the 7 standing for a noun it never said.
+				 */
+				var freed = (report.deleted || []).length;
+
+				setStatus(s('cleanupDone', 'Deleted') + ' \u00b7 ' + freed + ' ' +
+					plural(freed, s('fileSingular', 'file'), s('filesLower', 'files')) +
+					' \u00b7 ' + formatSize(report.bytes || 0));
 			})
-			.catch(fail)
+			.catch(failing(s('failPrune', 'Could not delete those files. They are still on the server.')))
 			.then(function () {
 				state.pruning = false;
 				render();
@@ -8084,13 +9158,23 @@
 	 * @param {string} filename File to remove.
 	 * @return {Promise}
 	 */
-	function deleteFile(filename) {
-		return request('/files/delete', { method: 'POST', body: { filename: filename } })
+	/**
+	 * Unlink a file and drop the variants that mapped it.
+	 *
+	 * @param {string}  filename     File to remove.
+	 * @param {boolean} [trashEmpty] Also trash any family this leaves with no
+	 *                               variants. Decided in the confirmation, and
+	 *                               sent with the delete so the two land together
+	 *                               rather than as a second write the buffer could
+	 *                               lose between.
+	 */
+	function deleteFile(filename, trashEmpty) {
+		return request('/files/delete', { method: 'POST', body: { filename: filename, trash_emptied: !!trashEmpty } })
 			.then(function (next) {
 				applyState(next);
 				render();
 			})
-			.catch(fail);
+			.catch(failing(s('failDeleteFile', 'Could not delete that file. It is still on the server.')));
 	}
 
 	function googleQuery(offset) {
@@ -8169,7 +9253,7 @@
 					state.axisNames = data.axisNames;
 				}
 			})
-			.catch(fail)
+			.catch(failing(s('failSearch', 'Could not reach Google Fonts. Check the connection and try again.')))
 			.then(function () {
 				state.searching = false;
 				render();
@@ -8207,7 +9291,7 @@
 				// previous one was left at.
 				delete scrollMemory.google;
 			})
-			.catch(fail)
+			.catch(failing(s('failPage', 'Could not load that page of results from Google Fonts.')))
 			.then(function () {
 				state.loadingMore = false;
 				render();
@@ -8288,7 +9372,7 @@
 				delete state.cuts[family];
 				setStatus(s('installed', 'Installed') + ' · ' + family);
 			})
-			.catch(fail)
+			.catch(failing(s('failInstall', 'Could not install that family. Nothing was written to the server.')))
 			.then(function () {
 				state.busy = '';
 				render();
@@ -8304,31 +9388,7 @@
 				applyState(next);
 				setStatus(s('regenerated', 'Stylesheet regenerated.'));
 			})
-			.catch(fail)
-			.then(function () {
-				state.busy = '';
-				render();
-			});
-	}
-
-	function saveSettings() {
-		state.busy = 'settings';
-		render();
-
-		request('/settings', {
-			method: 'POST',
-			body: {
-				inline_css: !!state.settings.inline_css,
-				block_google: !!state.settings.block_google,
-				purge_files: !!state.settings.purge_files,
-				delete_source_on_convert: !!state.settings.delete_source_on_convert
-			}
-		})
-			.then(function (next) {
-				applyState(next);
-				setStatus(s('saved', 'Fonts saved.'));
-			})
-			.catch(fail)
+			.catch(failing(s('failRegenerate', 'Could not regenerate the stylesheet. The existing one is unchanged.')))
 			.then(function () {
 				state.busy = '';
 				render();

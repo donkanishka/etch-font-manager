@@ -1879,6 +1879,15 @@
 }
 
 /*
+ * A hint that is reporting a conflict rather than explaining a field, so it
+ * takes the warning colour the missing-files badge uses. Full strength, not the
+ * 45% every other hint is muted to: a hint nobody reads is the failure mode.
+ */
+.efm-field__hint--warn {
+	color: var(--e-warning, #f2c960);
+}
+
+/*
  * Two fields sharing a row. The basis rather than a breakpoint decides when
  * they split: below roughly 260px each they wrap to one per line, which tracks
  * the panel's own width. The manager is sized by the builder, not the viewport,
@@ -3032,12 +3041,14 @@
 }
 
 /*
- * Etch's default variant: the accent fill, at most one per screen.
+ * Etch's default variant: the accent fill, for the action that commits what a
+ * screen is for -- saving, importing, installing, resetting -- and nothing else.
  *
- * Etch's own hover drops this to near-black. That is measurably what the
- * builder does, but it reads as a glitch rather than a state change, so the
- * hover settles on --e-base-light instead: still an Etch surface, still a clear
- * change, without the flicker to almost-black.
+ * The hover is Etch's, not a departure from it. An earlier note here claimed
+ * Etch drops its accent button to near-black and that we chose --e-base-light
+ * to avoid the flicker. Re-measured on the builder's own Save with the panel
+ * open: Etch hovers it to rgb(54, 54, 58), which is --e-base-light exactly.
+ * There was never a divergence to justify.
  */
 .efm-btn--primary {
 	background: var(--efm-accent);
@@ -3046,30 +3057,9 @@
 }
 
 /*
- * Strong without being the accent, for the panel's own primary action.
- *
- * Etch floods the accent in exactly one place: the builder's Save, which sits
- * just below this panel while it is open. Measured with a manager of Etch's own
- * open, that Save is the only accent-filled button on the screen, and its
- * managers keep their actions quieter. This is the same idea: near-white on the
- * raised surface reads as the strongest control in the panel without competing
- * with the one that saves the page.
- */
-.efm-btn--strong {
-	background: var(--efm-surface-raised);
-	border-color: var(--efm-line);
-	color: var(--efm-text-strong);
-}
-
-.efm-btn--strong:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--efm-text) 20%, var(--efm-surface-raised));
-	border-color: color-mix(in srgb, var(--efm-text) 30%, transparent);
-}
-
-/*
  * Neutral on hover, not a darker accent: Etch's --e-base-light, which is what
- * Etch fills an active or selected surface with, and Dumal's call for every
- * primary button in the panel.
+ * Etch fills an active or selected surface with, what its own Save measurably
+ * hovers to, and Dumal's call for every primary button in the panel.
  *
  * The border is the reason it reads. --e-base-light is also what a section box
  * is filled with, and "Download configuration" sits inside one, so a bare fill
@@ -3149,8 +3139,16 @@
 	background: oklch(from var(--efm-danger) l c h / .4);
 }
 
+/*
+ * Compact, but not shorter. Etch has exactly one small control height --
+ * --etch-input-height-sm, which resolves to the same 28px --efm-control-block
+ * derives -- so the 24px this used to declare was the one height in the panel
+ * that matched nothing in Etch, and the only un-derived one in a stylesheet
+ * built on the token bridge. It also left --sm --icon buttons 28 wide and 24
+ * tall, square in intent only. So --sm moves the type and the inline padding
+ * down a step and leaves the height alone.
+ */
 .efm-btn--sm {
-	block-size: 24px;
 	padding-inline: var(--efm-pad-inline);
 	font-size: var(--e-font-size-s, 11px);
 }

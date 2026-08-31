@@ -21,6 +21,8 @@ class EFM_Builder {
 		add_action( 'wp_head', array( __CLASS__, 'print_preloads' ), 1 );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_fonts' ), 20 );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_panel' ), 30 );
+		// Late, so Automatic.css has certainly registered its handle by now.
+		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'bridge_acss_tokens' ), 99 );
 		add_action( 'enqueue_block_assets', array( __CLASS__, 'enqueue_fonts' ), 20 );
 
 		/*
@@ -119,6 +121,44 @@ class EFM_Builder {
 			array(),
 			EFM_Fonts::css_version()
 		);
+	}
+
+	/**
+	 * Re-declare the typography tokens immediately after Automatic.css.
+	 *
+	 * The generated stylesheet already carries them, but it is enqueued before
+	 * ACSS -- measured on a real install, efm-fonts sits at index 3 and
+	 * automaticcss-core at index 4 -- so anything ACSS declares for the same
+	 * token would win on order. Attaching the identical block to ACSS's own
+	 * handle prints it directly after that stylesheet, which is how this wins
+	 * without !important. The mapping removed in 0.17.0 used !important precisely
+	 * because it had no way to be later.
+	 *
+	 * Same string from the same builder, so the two copies cannot drift, and a
+	 * duplicate declaration of an identical value costs nothing.
+	 *
+	 * Does nothing when ACSS is absent: wp_add_inline_style() on an unregistered
+	 * handle is a no-op, and without ACSS there is nothing to be later than.
+	 */
+	public static function bridge_acss_tokens() {
+		/**
+		 * Filter the stylesheet handle the token block is attached to.
+		 *
+		 * @param string $handle Style handle.
+		 */
+		$handle = apply_filters( 'efm_token_bridge_handle', 'automaticcss-core' );
+
+		if ( ! wp_style_is( $handle, 'enqueued' ) && ! wp_style_is( $handle, 'registered' ) ) {
+			return;
+		}
+
+		$css = EFM_Fonts::token_css();
+
+		if ( '' === trim( $css ) ) {
+			return;
+		}
+
+		wp_add_inline_style( $handle, $css );
 	}
 
 	/**
@@ -289,9 +329,9 @@ class EFM_Builder {
 		return array(
 			'fontManager'    => __( 'Font Manager', 'etch-font-manager' ),
 			'backToBuilder'  => __( 'Back to Builder', 'etch-font-manager' ),
-			'library'        => __( 'Library', 'etch-font-manager' ),
+			'library'        => __( 'Font library', 'etch-font-manager' ),
 			'settings'       => __( 'Settings', 'etch-font-manager' ),
-			'backToLibrary'  => __( 'Back to Library', 'etch-font-manager' ),
+			'backToLibrary'  => __( 'Back to the font library', 'etch-font-manager' ),
 			'manageFamily'   => __( 'Manage', 'etch-font-manager' ),
 			'familyLabel'    => __( 'family', 'etch-font-manager' ),
 			'familiesLabel'  => __( 'families', 'etch-font-manager' ),
@@ -302,7 +342,10 @@ class EFM_Builder {
 			'checkSpelling'  => __( 'Please check your spelling.', 'etch-font-manager' ),
 			'dismiss'        => __( 'Dismiss', 'etch-font-manager' ),
 			'copy'           => __( 'Copy', 'etch-font-manager' ),
-			'copied'         => __( 'Copied.', 'etch-font-manager' ),
+			'copiedToken'    => __( 'CSS variable copied.', 'etch-font-manager' ),
+			'copiedVariation' => __( 'Variable font settings copied.', 'etch-font-manager' ),
+			'copiedImport'   => __( 'Stylesheet import line copied.', 'etch-font-manager' ),
+			'copiedVariationToken' => __( 'Variation variable copied.', 'etch-font-manager' ),
 			'copyFailed'     => __( 'Could not copy. Select the value and copy it.', 'etch-font-manager' ),
 			'noVariants'     => __( 'No variants mapped yet.', 'etch-font-manager' ),
 			'previewText'    => __( 'Preview text', 'etch-font-manager' ),
@@ -416,8 +459,7 @@ class EFM_Builder {
 			'applyCuts'      => __( 'Download selection', 'etch-font-manager' ),
 			'variableNote'   => __( 'Installed as a variable font: one file per subset covering every weight.', 'etch-font-manager' ),
 			'cleanupTitle'   => __( 'Unused files', 'etch-font-manager' ),
-			'cleanupHint'    => __( 'These font files are on the server but no family uses them, usually from deselecting a weight. Deleting them frees space; the weight can be downloaded again at any time.', 'etch-font-manager' ),
-			'cleanupNone'    => __( 'Every font file on the server is in use.', 'etch-font-manager' ),
+
 			'cleanupButton'  => __( 'Delete unused files', 'etch-font-manager' ),
 			'cleanupConfirm' => __( 'Delete these font files from the server?', 'etch-font-manager' ),
 			'cleanupDone'    => __( 'Deleted', 'etch-font-manager' ),
@@ -477,7 +519,23 @@ class EFM_Builder {
 			'addedToLibrary' => __( 'added to the library', 'etch-font-manager' ),
 			'mappedToFamily' => __( 'mapped to an existing family', 'etch-font-manager' ),
 			'reviewAndSave'  => __( 'review and save', 'etch-font-manager' ),
+			'selectorClash'  => __( 'Also applied by', 'etch-font-manager' ),
+			'selectorClashHint' => __( 'Whichever comes last in the stylesheet wins.', 'etch-font-manager' ),
+			'rolesTitle'     => __( 'Typography tokens', 'etch-font-manager' ),
+			'rolesHint'      => __( 'Publish this family as the site\'s heading or body font. Etch documents both names and Automatic.css reads them, so a framework picks the family up without you writing a rule. Each one belongs to a single family.', 'etch-font-manager' ),
+			'roleHeading'    => __( 'Use for headings', 'etch-font-manager' ),
+			'roleText'       => __( 'Use for body text', 'etch-font-manager' ),
+			'roleHeldBy'     => __( 'currently', 'etch-font-manager' ),
+			'changeRoleSet'  => __( 'set as', 'etch-font-manager' ),
+			'changeRoleCleared' => __( 'no longer', 'etch-font-manager' ),
+			'roleHeadingChip' => __( 'Headings', 'etch-font-manager' ),
+			'roleTextChip'   => __( 'Body text', 'etch-font-manager' ),
+			'axesUnknown'    => __( 'The panel cannot read this family\'s files, so it does not know whether the font has variable axes. WOFF2 cannot be opened here. Upload the original TTF, OTF or WOFF and the axes will appear.', 'etch-font-manager' ),
+			'axesHintApplied' => __( 'This family has an Apply to selector, so these change how it renders on the site as well as in this preview.', 'etch-font-manager' ),
+			'axesHintUnapplied' => __( 'These change this preview only. To use the instance on the site, give the family an Apply to selector under Delivery, or use its variation variable in your own CSS.', 'etch-font-manager' ),
+			'variationTokenHint' => __( 'The tuned instance, for font-variation-settings. Pair it with the family variable above.', 'etch-font-manager' ),
 			'save'           => __( 'Save fonts', 'etch-font-manager' ),
+			'savedBoth'      => __( 'Fonts and settings saved.', 'etch-font-manager' ),
 			'unsavedChanges' => __( 'Unsaved changes', 'etch-font-manager' ),
 			'cancel'         => __( 'Cancel', 'etch-font-manager' ),
 			'continue'       => __( 'Continue', 'etch-font-manager' ),
@@ -499,7 +557,8 @@ class EFM_Builder {
 			'changeRestored' => __( 'restored', 'etch-font-manager' ),
 			'changeGained'   => __( 'gained', 'etch-font-manager' ),
 			'changeLost'     => __( 'lost', 'etch-font-manager' ),
-			'upload'         => __( 'Upload fonts', 'etch-font-manager' ),
+			'upload'         => __( 'Upload font files', 'etch-font-manager' ),
+			'fontFiles'      => __( 'Font files', 'etch-font-manager' ),
 			'uploadHint'     => __( 'Drag files from your computer, or select them with the button below.', 'etch-font-manager' ),
 			'uploadIntro'    => __( 'Font files live on your own server, and every family you build here is made from them.', 'etch-font-manager' ),
 			'selectFiles'    => __( 'Select files', 'etch-font-manager' ),
@@ -518,8 +577,14 @@ class EFM_Builder {
 			'convertBlocked' => __( 'The converter could not start in this browser.', 'etch-font-manager' ),
 			'convertNoRead'  => __( 'Could not read the file from the fonts folder.', 'etch-font-manager' ),
 			'convertBadWoff' => __( 'This WOFF file is damaged and could not be read.', 'etch-font-manager' ),
-			'files'          => __( 'Uploaded files', 'etch-font-manager' ),
-			'noFiles'        => __( 'No files uploaded yet.', 'etch-font-manager' ),
+			'filesTitle'     => __( 'Font files', 'etch-font-manager' ),
+			'groupUploaded'  => __( 'Uploaded', 'etch-font-manager' ),
+			'groupUploadedHint' => __( 'Files you added here, mapped by a family. For a font you uploaded this may be the only copy on the site.', 'etch-font-manager' ),
+			'groupGoogle'    => __( 'From Google Fonts', 'etch-font-manager' ),
+			'groupGoogleHint' => __( 'Written by the Google Fonts screen. Deleting one can be undone by installing the family again.', 'etch-font-manager' ),
+			'groupLoose'     => __( 'Not in the library', 'etch-font-manager' ),
+			'groupLooseHint' => __( 'On the server, but no family maps them. Usually what is left after deselecting a weight, though Etch shares this folder so some may be its. Add them to the library, or delete them to free the space.', 'etch-font-manager' ),
+			'noFiles'        => __( 'No font files on the server yet.', 'etch-font-manager' ),
 			'deleteFile'     => __( 'Delete file', 'etch-font-manager' ),
 			'googleFonts'    => __( 'Google Fonts', 'etch-font-manager' ),
 			'searchGoogle'   => __( 'Search Google Fonts', 'etch-font-manager' ),
@@ -535,7 +600,27 @@ class EFM_Builder {
 			'italic'         => __( 'Italic', 'etch-font-manager' ),
 			'confirmDelete'  => __( 'Delete this file from the fonts folder?', 'etch-font-manager' ),
 			'confirmPermanent' => __( 'The Trash holds families, not files, so this cannot be undone.', 'etch-font-manager' ),
-			'error'          => __( 'Something went wrong.', 'etch-font-manager' ),
+			'confirmEmpties' => __( 'That leaves nothing mapped by:', 'etch-font-manager' ),
+			'alsoTrashEmptied' => __( 'Also move the emptied family to the trash', 'etch-font-manager' ),
+			'alsoTrashEmptiedPlural' => __( 'Also move the emptied families to the trash', 'etch-font-manager' ),
+			'emptyLabel'     => __( 'No files', 'etch-font-manager' ),
+			'emptyNotice'    => __( 'This family maps no font files, so it loads nothing. Add a variant from Manage, or move the family to the trash.', 'etch-font-manager' ),
+			'settingsSaved'  => __( 'Settings saved.', 'etch-font-manager' ),
+			'failImport'     => __( 'Could not import that configuration. Your fonts are unchanged.', 'etch-font-manager' ),
+			'failImportPreview' => __( 'Could not read that configuration. Nothing has been changed.', 'etch-font-manager' ),
+			'failImportRead' => __( 'Could not read that file. It may be unreadable, or no longer where it was.', 'etch-font-manager' ),
+			'failExport'     => __( 'Could not build the download. Your fonts are unchanged.', 'etch-font-manager' ),
+			'failReload'     => __( 'Could not reload your fonts from the server, so what you see may be out of date.', 'etch-font-manager' ),
+			'failSaveFonts'  => __( 'Could not save your fonts. Nothing was written to the server.', 'etch-font-manager' ),
+			'failSaveSettings' => __( 'Could not save your settings. They are unchanged on the server.', 'etch-font-manager' ),
+			'failUpload'     => __( 'Could not upload those fonts. Nothing was added to the library.', 'etch-font-manager' ),
+			'failConvert'    => __( 'Could not convert that font. The original file is untouched.', 'etch-font-manager' ),
+			'failPrune'      => __( 'Could not delete those files. They are still on the server.', 'etch-font-manager' ),
+			'failDeleteFile' => __( 'Could not delete that file. It is still on the server.', 'etch-font-manager' ),
+			'failSearch'     => __( 'Could not reach Google Fonts. Check the connection and try again.', 'etch-font-manager' ),
+			'failPage'       => __( 'Could not load that page of results from Google Fonts.', 'etch-font-manager' ),
+			'failInstall'    => __( 'Could not install that family. Nothing was written to the server.', 'etch-font-manager' ),
+			'failRegenerate' => __( 'Could not regenerate the stylesheet. The existing one is unchanged.', 'etch-font-manager' ),
 			'preview'        => __( 'The quick brown fox', 'etch-font-manager' ),
 			'saveFirst'      => __( 'Save first', 'etch-font-manager' ),
 			'confirmLeave'   => __( 'You have unsaved font changes.', 'etch-font-manager' ),
@@ -559,6 +644,8 @@ class EFM_Builder {
 			'selectAllFiles' => __( 'Select every file', 'etch-font-manager' ),
 			'selectFile'     => __( 'Select', 'etch-font-manager' ),
 			'selectAllTrash' => __( 'Select every family in the trash', 'etch-font-manager' ),
+			'selectAllFamilies' => __( 'Select every family', 'etch-font-manager' ),
+			'trashSelected'  => __( 'Move selected to trash', 'etch-font-manager' ),
 			'convertSelected' => __( 'Convert selected', 'etch-font-manager' ),
 			'deleteSelected' => __( 'Delete selected', 'etch-font-manager' ),
 			'restoreSelected' => __( 'Restore selected', 'etch-font-manager' ),

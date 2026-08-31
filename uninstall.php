@@ -57,6 +57,7 @@ if ( $efm_purge ) {
 
 delete_option( 'efm_font_families' );
 delete_option( 'efm_settings' );
+delete_option( 'efm_file_axes' );
 delete_option( 'efm_version' );
 delete_transient( 'efm_google_fonts_index' );
 delete_transient( 'efm_google_fonts_index_v2' );

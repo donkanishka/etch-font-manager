@@ -379,6 +379,22 @@ class EFM_Google_Fonts {
 	}
 
 	/**
+	 * The axis registry, but only if it is already cached.
+	 *
+	 * axis_registry() falls back to priming the whole Google index, which is the
+	 * right trade on the Google Fonts screen and the wrong one in the state
+	 * payload: that is read every time the builder loads, and a cold cache would
+	 * hold the panel open on a network round trip nobody asked for.
+	 *
+	 * @return array Registry keyed by axis tag, or an empty array when uncached.
+	 */
+	public static function cached_axis_registry() {
+		$registry = get_transient( self::TRANSIENT_AXES );
+
+		return is_array( $registry ) ? $registry : array();
+	}
+
+	/**
 	 * Subsets present in the index, with how many families offer each.
 	 *
 	 * Powers the writing-system filter. The count is worth returning because it

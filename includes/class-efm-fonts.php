@@ -1161,8 +1161,8 @@ class EFM_Fonts {
 	 * family. The first live claimant in stored order keeps it.
 	 *
 	 * Disabled and trashed families are stripped outright: they contribute no
-	 * @font-face, so pointing a token at them would name a font the page never
-	 * loads.
+	 * font-face rule, so pointing a token at them would name a font the page
+	 * never loads.
 	 *
 	 * @param array $families Sanitised families.
 	 * @return array

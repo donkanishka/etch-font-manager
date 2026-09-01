@@ -381,8 +381,8 @@ class EFM_Google_Fonts {
 	/**
 	 * The axis registry, but only if it is already cached.
 	 *
-	 * axis_registry() falls back to priming the whole Google index, which is the
-	 * right trade on the Google Fonts screen and the wrong one in the state
+	 * The uncached path in axis_registry() primes the whole Google index, which is
+	 * the right trade on the Google Fonts screen and the wrong one in the state
 	 * payload: that is read every time the builder loads, and a cold cache would
 	 * hold the panel open on a network round trip nobody asked for.
 	 *

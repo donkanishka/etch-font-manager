@@ -1,10 +1,10 @@
 {
-  "version": "0.34.1",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.34.1/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.34.1",
+  "version": "0.35.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.35.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.35.0",
   "requires": "6.0",
   "requires_php": "7.4",
-  "tested": "6.8",
+  "tested": "7.0",
   "date": "2026-09-01",
-  "notes": "Hotfix. 0.34.0 could not be opened: a list the settings fingerprint depends on was declared below the code that reads it, so the panel script threw before registering its Settings Bar control and the Font Manager icon never appeared. Everything in 0.34.0 is unchanged and now reachable."
+  "notes": "Eight items. The typography tokens finally reach the page: ticking a role declared a custom property and left the rule that uses it to Automatic.css, which only writes one when its Typography section is configured, so on most sites the switch changed nothing. The block that was meant to load after ACSS never fired either. Also: files belonging to a trashed or disabled family no longer claim to be in use, Apply to stops writing selectors a role already covers, Font files gained a search field and format filters, and a select-all sits in each table head rather than floating above the grid."
 }

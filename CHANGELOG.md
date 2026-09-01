@@ -2,6 +2,62 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.35.0
+
+An eleventh pass, eight items, driven a screenshot at a time. Its spine is that a control should mean what it
+says: a checkbox should belong to something, a label should describe what is true, and a switch should change
+something.
+
+The largest finding was not in the list it came from. Asked why the typography tokens did nothing, the answer
+was that they had never done anything on any site: the feature declared a custom property and stopped, and
+nothing was there to read it.
+
+### Added
+
+- **The typography tokens now apply themselves.** Ticking a role wrote `--heading-font-family` and stopped,
+  leaving the rule that uses it to Automatic.css -- which only writes one once its Typography section is
+  configured, and which is not present at all on a site without ACSS. Measured on a live install: nothing read
+  either token, so "Use for headings" was a switch that changed no pixels. The block now carries the rule as
+  well, on the same selectors ACSS uses, so a configured ACSS site gets two rules that agree and every other
+  site gets one that works.
+- **A search field and format chips on Font files.** The screen lists the whole shared fonts folder and has no
+  ceiling, so it gained the toolbar its sibling screens already had. The chips filter the tables by format and
+  carry a count in the sidebar's own badge.
+- **A select-all in each file table's head**, scoped to that group, beside the one in the bulk bar that answers
+  for every group at once.
+- **A notice when Etch is not active.** The panel opens from the Etch Settings Bar and nowhere else, so without
+  Etch the plugin activated, kept serving the fonts it had already generated, and offered no way in. The Plugins
+  screen now says so, and says the fonts are still loading.
+
+### Fixed
+
+- **The Automatic.css bridge never fired.** The token block was attached to ACSS's own stylesheet handle at
+  priority 99 and bailed when that handle was not registered yet, leaving an empty
+  `<style id="automaticcss-core-inline-css">` on the page and the tokens only in `efm-fonts.css`, which loads
+  well before ACSS. That ordering matters now the block carries a `body` rule, because ACSS sets
+  `body { font-family: system-ui }` directly. It uses a handle of its own, enqueued last, so it no longer
+  depends on another plugin's timing.
+- **Files in the trash claimed to be in use.** "In use" was true of any file a family mapped, including a family
+  that is trashed or disabled and therefore emits no `@font-face` at all. Three states now: in use, not loaded,
+  and unused. What counts as safe to delete is unchanged -- a trashed family's files are still protected,
+  because restoring it needs them.
+- **A select-all in one file table answered for the others.** The box compared how many files were selected
+  against how many the table held, so choosing two files anywhere made a two-file table read as fully selected;
+  and unticking any of them cleared the selection in all three. It is compared by membership now.
+- **`Apply to` no longer writes a selector its own role already covers.** Both would have set `font-family` on
+  the same element, leaving source order to decide. The field keeps what was typed and the stylesheet drops the
+  duplicate, so unticking the role brings it back.
+- **Tested up to** said 6.8 while the plugin runs on 7.0.
+
+### Changed
+
+- **The select-all checkbox that floated above the grid is gone.** It sat outside the cards it selected with no
+  label and nothing to head, so it read as a stray control. Select all is a word in the bulk bar now, which only
+  exists once something is picked, and it counts what a filter left on screen.
+- **Taking a typography token from another family says so**, in a warning under the toggle rather than a toast:
+  it is unsaved state, so it behaves like unsaved state and Discard is what puts it back. Derived from the saved
+  snapshot, so handing the token back by hand clears the warning on its own.
+
 ## 0.34.1
 
 A hotfix. 0.34.0 could not be opened at all.

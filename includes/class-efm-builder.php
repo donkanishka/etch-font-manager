@@ -22,7 +22,7 @@ class EFM_Builder {
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_fonts' ), 20 );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_panel' ), 30 );
 		// Late, so Automatic.css has certainly registered its handle by now.
-		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'bridge_acss_tokens' ), 99 );
+		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'bridge_acss_tokens' ), PHP_INT_MAX );
 		add_action( 'enqueue_block_assets', array( __CLASS__, 'enqueue_fonts' ), 20 );
 
 		/*
@@ -44,6 +44,50 @@ class EFM_Builder {
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'block_google_fonts' ), 100 );
 		add_filter( 'wp_resource_hints', array( __CLASS__, 'filter_resource_hints' ), 10, 2 );
 		add_filter( 'style_loader_tag', array( __CLASS__, 'filter_style_tag' ), 10, 4 );
+		add_action( 'admin_notices', array( __CLASS__, 'etch_missing_notice' ) );
+	}
+
+	/**
+	 * Whether the Etch builder is present.
+	 *
+	 * Etch defines this constant at file scope, so it is set on every request in
+	 * which the plugin is active. An exact signal, unlike the Requires Plugins
+	 * header this deliberately does not use: that one matches on folder name, and
+	 * Etch ships as a paid zip that can be unpacked under any name -- a mismatch
+	 * there would block activation of this plugin outright and point the reader at
+	 * a wordpress.org listing that does not exist.
+	 *
+	 * @return bool
+	 */
+	public static function etch_active() {
+		return defined( 'ETCH_PLUGIN_FILE' ) || class_exists( '\\Etch\\Plugin' );
+	}
+
+	/**
+	 * Say so when the builder this plugin lives inside is not there.
+	 *
+	 * The panel opens from the Etch Settings Bar and nowhere else, so without Etch
+	 * this plugin activates, keeps serving the fonts it has already generated, and
+	 * offers no way in. Silence reads as a plugin that does not work; this names
+	 * the reason and confirms the fonts are still loading.
+	 *
+	 * Only on the Plugins screen, which is where the reader is when they wonder
+	 * where it went, and only for someone who could act on it.
+	 */
+	public static function etch_missing_notice() {
+		if ( self::etch_active() || ! current_user_can( 'activate_plugins' ) ) {
+			return;
+		}
+
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+
+		if ( ! $screen || 'plugins' !== $screen->id ) {
+			return;
+		}
+
+		echo '<div class="notice notice-warning"><p>' .
+			esc_html__( 'Etch Font Manager needs the Etch builder. Its Font Manager panel opens from the Etch Settings Bar, so there is no way in without it. Fonts you have already installed keep loading on the site.', 'etch-font-manager' ) .
+			'</p></div>';
 	}
 
 	/**
@@ -141,21 +185,40 @@ class EFM_Builder {
 	 * handle is a no-op, and without ACSS there is nothing to be later than.
 	 */
 	public static function bridge_acss_tokens() {
-		/**
-		 * Filter the stylesheet handle the token block is attached to.
-		 *
-		 * @param string $handle Style handle.
-		 */
-		$handle = apply_filters( 'efm_token_bridge_handle', 'automaticcss-core' );
-
-		if ( ! wp_style_is( $handle, 'enqueued' ) && ! wp_style_is( $handle, 'registered' ) ) {
-			return;
-		}
-
 		$css = EFM_Fonts::token_css();
 
 		if ( '' === trim( $css ) ) {
 			return;
+		}
+
+		/**
+		 * Filter the stylesheet handle the token block is attached to.
+		 *
+		 * Empty by default, which means the plugin prints the block on a handle of
+		 * its own. Name a handle here to attach it to that stylesheet instead.
+		 *
+		 * @param string $handle Style handle.
+		 */
+		$handle = (string) apply_filters( 'efm_token_bridge_handle', '' );
+
+		/*
+		 * A handle of our own rather than Automatic.css's, because attaching to
+		 * theirs did not work. Measured on a live site: the block was hooked at
+		 * priority 99 and bailed on wp_style_is( 'automaticcss-core' ), leaving an
+		 * empty <style id="automaticcss-core-inline-css"> and the tokens only in
+		 * efm-fonts.css -- which loads at position 6 against ACSS at 12.
+		 *
+		 * That ordering matters now that the block carries the applying rules:
+		 * ACSS sets body { font-family: system-ui } directly, so a body rule of
+		 * ours printed earlier would lose. Registering with no src and enqueueing
+		 * at the very end of wp_enqueue_scripts puts this last in the queue, which
+		 * is what decides print order -- no dependency on another plugin's timing.
+		 */
+		if ( '' === $handle || ( ! wp_style_is( $handle, 'enqueued' ) && ! wp_style_is( $handle, 'registered' ) ) ) {
+			$handle = 'efm-tokens';
+
+			wp_register_style( $handle, false, array(), EFM_VERSION );
+			wp_enqueue_style( $handle );
 		}
 
 		wp_add_inline_style( $handle, $css );
@@ -371,6 +434,7 @@ class EFM_Builder {
 			'resetAll'       => __( 'Reset all', 'etch-font-manager' ),
 			'ofLabel'        => __( 'of', 'etch-font-manager' ),
 			'selected'       => __( 'selected', 'etch-font-manager' ),
+			'selectAll'      => __( 'Select all', 'etch-font-manager' ),
 			'clearSelection' => __( 'Clear', 'etch-font-manager' ),
 			'installSelected' => __( 'Install selected', 'etch-font-manager' ),
 			'selectFamily'   => __( 'Select', 'etch-font-manager' ),
@@ -526,6 +590,10 @@ class EFM_Builder {
 			'roleHeading'    => __( 'Use for headings', 'etch-font-manager' ),
 			'roleText'       => __( 'Use for body text', 'etch-font-manager' ),
 			'roleHeldBy'     => __( 'currently', 'etch-font-manager' ),
+			'roleTakenFrom'  => __( 'Taken from', 'etch-font-manager' ),
+			'roleCoversSelector' => __( 'Not applied:', 'etch-font-manager' ),
+			'roleCoversHint' => __( 'The typography token above already answers for these.', 'etch-font-manager' ),
+			'roleTakenHint'  => __( 'Unsaved: Discard puts it back.', 'etch-font-manager' ),
 			'changeRoleSet'  => __( 'set as', 'etch-font-manager' ),
 			'changeRoleCleared' => __( 'no longer', 'etch-font-manager' ),
 			'roleHeadingChip' => __( 'Headings', 'etch-font-manager' ),
@@ -640,11 +708,12 @@ class EFM_Builder {
 			'purgeFiles'     => __( 'Delete the font files when the plugin is deleted', 'etch-font-manager' ),
 			'purgeFilesHint' => __( 'Off by default, so deleting the plugin by mistake leaves your typography standing. On, deleting the plugin from Plugins also removes the generated stylesheet and every font file your families map. Files nothing maps are left alone, and so is anything else in wp-content/fonts, because Etch shares that folder. Deactivating never deletes anything.', 'etch-font-manager' ),
 			'unusedLabel'    => __( 'unused', 'etch-font-manager' ),
+			'notLoaded'      => __( 'not loaded', 'etch-font-manager' ),
 			'nowUnused'      => __( 'is now unused', 'etch-font-manager' ),
-			'selectAllFiles' => __( 'Select every file', 'etch-font-manager' ),
 			'selectFile'     => __( 'Select', 'etch-font-manager' ),
-			'selectAllTrash' => __( 'Select every family in the trash', 'etch-font-manager' ),
-			'selectAllFamilies' => __( 'Select every family', 'etch-font-manager' ),
+			'searchFiles'    => __( 'Search font files', 'etch-font-manager' ),
+			'selectAllIn'    => __( 'Select every file in', 'etch-font-manager' ),
+			'formatLabel'    => __( 'Format', 'etch-font-manager' ),
 			'trashSelected'  => __( 'Move selected to trash', 'etch-font-manager' ),
 			'convertSelected' => __( 'Convert selected', 'etch-font-manager' ),
 			'deleteSelected' => __( 'Delete selected', 'etch-font-manager' ),

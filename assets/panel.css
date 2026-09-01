@@ -1719,6 +1719,64 @@
 }
 
 /*
+ * A chip carrying a count keeps its outline -- the outline is what says it can
+ * be pressed, and these are the one chip row in the panel that filters what is
+ * below it.
+ *
+ * It stands at the panel's control height rather than the 20px a plain chip
+ * takes, so it lines up with the search field beside it in the same toolbar and
+ * so the badge sits inside the chip rather than filling it end to end.
+ *
+ * The padding is deliberately lopsided. A pill inside a pill only reads as
+ * nested when the inner one is concentric with the outer one's rounded end,
+ * which means the space to its right must equal the space above and below it:
+ * 3px, from (28 - 2 border - 20 badge) / 2. The label keeps a full 12px, because
+ * a word against a rounded edge needs more room than a filled shape does.
+ */
+.efm-chip--counted {
+	block-size: var(--efm-control-block, 28px);
+	padding-inline: 12px 3px;
+}
+
+/*
+ * The count itself is the sidebar's badge, measured off .efm-nav__count: a pill
+ * on the raised fill in the code font at 11/500, muted, with tabular digits so
+ * the numbers do not shuffle as a filter changes them.
+ *
+ * Scaled to 20px rather than the nav's 19px-in-32px, because the chip it sits in
+ * is the 28px control height. The shape and the colours are the nav's; only the
+ * size answers to its container, and it is what the chip's 3px end padding is
+ * measured from.
+ */
+.efm-chip__count {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-inline-size: 20px;
+	block-size: 20px;
+	margin-inline-start: 8px;
+	padding-inline: 6px;
+	border-radius: 999px;
+	background: var(--efm-surface-raised);
+	color: var(--efm-muted);
+	font-family: var(--etch-font-code, ui-monospace, SFMono-Regular, Menlo, monospace);
+	font-size: var(--e-font-size-s, 11px);
+	font-weight: 500;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
+}
+
+/*
+ * On, the chip is itself filled with --efm-surface-raised, so a pill in that
+ * same colour would dissolve into it. The sidebar has the answer already: its
+ * active item inverts the badge to --efm-text, and this does the same.
+ */
+.efm-chip--toggle.is-on .efm-chip__count {
+	background: var(--efm-text);
+	color: var(--efm-surface-raised);
+}
+
+/*
  * A label beside its chips. The label and the chip block used to be two items
  * in one wrapping row, so whether the chips sat beside the label or below it
  * depended on whether they happened to fit: on the same card, Weights ended up

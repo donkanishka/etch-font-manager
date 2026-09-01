@@ -77,6 +77,10 @@
 		 */
 		pickedVariants: { family: null, list: [] },
 		filter: '',
+		// Transient: the Font files search box and format chips. Not saved, and not
+		// part of the library, so neither reaches the dirty diff.
+		fileFilter: '',
+		fileFormats: [],
 		query: '',
 		results: [],
 		// Transient: which page of the catalogue is on screen, counted from zero.
@@ -1183,6 +1187,62 @@
 		}).map(function (family) {
 			return family.name;
 		});
+	}
+
+	/**
+	 * Families that map a file AND actually load it.
+	 *
+	 * Deliberately narrower than fileUsedBy, which answers a different question.
+	 * That one asks whether anything would break if the file went away, and a
+	 * trashed family still counts there because restoring it has to find its
+	 * files. This one asks whether the file is on the site right now, and a
+	 * trashed or disabled family emits no @font-face at all -- build_css() drops
+	 * both through active_families() before writing a line.
+	 *
+	 * @param {string} filename File name.
+	 * @return {string[]} Family names loading it.
+	 */
+	function fileLoadedBy(filename) {
+		return state.families.filter(function (family) {
+			if (isTrashed(family) || !isEnabled(family)) {
+				return false;
+			}
+
+			return (family.variants || []).some(function (variant) {
+				return variant.file === filename;
+			});
+		}).map(function (family) {
+			return family.name;
+		});
+	}
+
+	/**
+	 * What a file's row should say about itself.
+	 *
+	 * Three states rather than two. "In use" against "unused" had no room for the
+	 * commonest middle case -- a family sitting in the trash, or switched off --
+	 * whose files load nothing but must not be deleted either, because that is
+	 * what restoring it needs. Those read as in use, which was wrong, and the
+	 * alternative of reading as unused would have been worse: the cleanup button
+	 * would have offered to delete them.
+	 *
+	 * @param {string} filename File name.
+	 * @return {{label: string, owners: string[]}}
+	 */
+	function fileUseState(filename) {
+		var loading = fileLoadedBy(filename);
+
+		if (loading.length) {
+			return { label: s('inUse', 'in use'), owners: loading };
+		}
+
+		var mapped = fileUsedBy(filename);
+
+		if (mapped.length) {
+			return { label: s('notLoaded', 'not loaded'), owners: mapped };
+		}
+
+		return { label: s('unusedLabel', 'unused'), owners: [] };
 	}
 
 	/**
@@ -2981,13 +3041,30 @@
 		var hidden = items.length - shown.length;
 
 		var chips = shown.map(function (item) {
-			return el('button', {
+			/*
+			 * A count is a number rather than part of the name, so it is its own span
+			 * and takes the sidebar's badge. Items without one keep the plain text and
+			 * the outline they had, which is every caller but the file formats.
+			 */
+			var counted = item.count !== null && item.count !== undefined;
+
+			var attrs = {
 				type: 'button',
-				class: 'efm-chip efm-chip--toggle' + (item.on ? ' is-on' : ''),
+				class: 'efm-chip efm-chip--toggle' + (counted ? ' efm-chip--counted' : '') + (item.on ? ' is-on' : ''),
 				'aria-pressed': item.on ? 'true' : 'false',
-				text: item.label,
 				onclick: item.onclick
-			});
+			};
+
+			if (!counted) {
+				attrs.text = item.label;
+
+				return el('button', attrs);
+			}
+
+			return el('button', attrs, [
+				el('span', { text: item.label }),
+				el('span', { class: 'efm-chip__count', text: String(item.count) })
+			]);
 		});
 
 		if (hidden > 0) {
@@ -3719,6 +3796,57 @@
 		}).filter(Boolean);
 	}
 
+	/*
+	 * Mirrors ROLE_SELECTORS in class-efm-fonts.php. A role publishes
+	 * --{role}-font-family and Automatic.css turns that into a rule for these
+	 * selectors once its Typography section is configured, so naming one in Apply
+	 * to as well would write a second rule for the same element and leave source
+	 * order to settle it:
+	 *
+	 *     h1,h2,h3,h4,h5,h6 { font-family: var(--heading-font-family); }
+	 *     body, p, li, a, button { font-family: var(--text-font-family); }
+	 */
+	var ROLE_SELECTORS = {
+		heading: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
+		text: ['body', 'p', 'li', 'a', 'button']
+	};
+
+	/**
+	 * Which role, if any, already answers for a selector this family holds.
+	 *
+	 * @param {Object} family Family record.
+	 * @param {string} part   One selector from the Apply to list.
+	 * @return {string} Role key, or empty.
+	 */
+	function roleCovering(family, part) {
+		var needle = part.toLowerCase();
+
+		return ROLE_KEYS.filter(function (role) {
+			return hasRole(family, role) && ROLE_SELECTORS[role].indexOf(needle) !== -1;
+		})[0] || '';
+	}
+
+	/**
+	 * The Apply to selectors a role has taken over, and those still written.
+	 *
+	 * @param {Object} family Family record.
+	 * @return {{kept: string[], covered: string[]}}
+	 */
+	function splitSelectors(family) {
+		var kept = [];
+		var covered = [];
+
+		selectorParts(family).forEach(function (part) {
+			if (roleCovering(family, part)) {
+				covered.push(part);
+			} else {
+				kept.push(part);
+			}
+		});
+
+		return { kept: kept, covered: covered };
+	}
+
 	/**
 	 * Other live families applying themselves to the same selector.
 	 *
@@ -3794,6 +3922,33 @@
 		});
 
 		render();
+	}
+
+	/**
+	 * Who held a role at the last save.
+	 *
+	 * Derived from the saved snapshot rather than remembered when the toggle is
+	 * pressed, for the same reason the dirty flag is derived: a stored fact would
+	 * have to be cleared on save, on discard and on reload, and the one that got
+	 * missed would leave the panel reporting a handover that no longer exists.
+	 *
+	 * @param {string} role Role key.
+	 * @return {string} Family name, or empty when nothing held it.
+	 */
+	function savedHolder(role) {
+		var before;
+
+		try {
+			before = JSON.parse(state.saved || '[]');
+		} catch (error) {
+			return '';
+		}
+
+		var held = before.filter(function (family) {
+			return !family.trashed && (family.roles || []).indexOf(role) !== -1;
+		})[0];
+
+		return held ? held.name || '' : '';
 	}
 
 	/**
@@ -3893,22 +4048,21 @@
 
 		var everyTrashed = inTrash.map(function (family) { return family.name; });
 
-		contentEl.appendChild(el('div', { class: 'efm-resultbar' }, [
-			el('div', { class: 'efm-bulk' }, [
-				pickAll(state.pickedTrash, everyTrashed, s('selectAllTrash', 'Select every family in the trash'))
-			]),
-			bulkBar(state.pickedTrash, [
-				{
-					label: s('restoreSelected', 'Restore selected'),
-					onclick: restorePickedTrash
-				},
-				{
-					label: s('deleteSelected', 'Delete selected'),
-					variant: 'danger',
-					onclick: deletePickedTrash
-				}
-			])
-		]));
+		var trashBar = bulkBar(state.pickedTrash, everyTrashed, [
+			{
+				label: s('restoreSelected', 'Restore selected'),
+				onclick: restorePickedTrash
+			},
+			{
+				label: s('deleteSelected', 'Delete selected'),
+				variant: 'danger',
+				onclick: deletePickedTrash
+			}
+		]);
+
+		if (trashBar) {
+			contentEl.appendChild(el('div', { class: 'efm-resultbar' }, [el('span', {}), trashBar]));
+		}
 
 		contentEl.appendChild(el('div', { class: 'efm-card__actions' }, [
 			el('button', {
@@ -4306,8 +4460,8 @@
 		/*
 		 * The same selection the Trash and the file tables already offer, on the one
 		 * screen that did not. Scoped to what is on screen: everyFamily is built from
-		 * the filtered list, so Select every family means the ones the filter left
-		 * showing rather than a library the reader cannot see.
+		 * the filtered list, so Select all means the ones the filter left showing
+		 * rather than a library the reader cannot see.
 		 */
 		var everyFamily = list.map(function (row) { return row.family.name; });
 
@@ -4317,18 +4471,17 @@
 			return everyFamily.indexOf(name) !== -1;
 		});
 
-		contentEl.appendChild(el('div', { class: 'efm-resultbar' }, [
-			el('div', { class: 'efm-bulk' }, [
-				pickAll(state.pickedFamilies, everyFamily, s('selectAllFamilies', 'Select every family'))
-			]),
-			bulkBar(state.pickedFamilies, [
-				{
-					label: s('trashSelected', 'Move selected to trash'),
-					variant: 'danger',
-					onclick: trashPickedFamilies
-				}
-			])
-		]));
+		var libraryBar = bulkBar(state.pickedFamilies, everyFamily, [
+			{
+				label: s('trashSelected', 'Move selected to trash'),
+				variant: 'danger',
+				onclick: trashPickedFamilies
+			}
+		]);
+
+		if (libraryBar) {
+			contentEl.appendChild(el('div', { class: 'efm-resultbar' }, [el('span', {}), libraryBar]));
+		}
 
 		var grid = el('div', { class: gridClass() });
 
@@ -4619,7 +4772,31 @@
 						class: 'efm-field__hint',
 						text: '--' + role + '-font-family' +
 							(!mine && holder ? ' \u00b7 ' + s('roleHeldBy', 'currently') + ' ' + holder.name : '')
-					})
+					}),
+					/*
+					 * Named the moment it happens, in the same shape the selector clash
+					 * above uses. A token has one owner, so ticking this took it from a
+					 * family the reader did not come here to change, on a screen they
+					 * are not looking at. The hint above names the holder beforehand,
+					 * which only helps if it was read first.
+					 *
+					 * It is unsaved state, so it behaves like unsaved state: it stands
+					 * until the change is committed or dropped, the save bar names both
+					 * families in the same breath, and Discard is what puts it back.
+					 */
+					(function () {
+						var lost = mine ? savedHolder(role) : '';
+
+						if (!lost || lost === (family.name || '')) {
+							return null;
+						}
+
+						return el('span', {
+							class: 'efm-field__hint efm-field__hint--warn',
+							text: s('roleTakenFrom', 'Taken from') + ' ' + lost + '. ' +
+								s('roleTakenHint', 'Unsaved: Discard puts it back.')
+						});
+					}())
 				])
 			]));
 		});
@@ -4648,7 +4825,9 @@
 			if (picks.length) {
 				contentEl.appendChild(el('div', { class: 'efm-resultbar' }, [
 					el('span', {}),
-					bulkBar(picks, [
+					// Null, not everyVariant: this table heads its own select-all in the
+					// column beside File, where it reads as a header rather than a stray box.
+					bulkBar(picks, null, [
 						{
 							label: s('removeSelected', 'Remove selected'),
 							variant: 'danger',
@@ -4782,21 +4961,40 @@
 		 * actually maps a file.
 		 */
 		if (family.slug && (family.variants || []).length && isEnabled(family) && !isTrashed(family)) {
-			var roleLines = ROLE_KEYS.filter(function (role) {
+			var held = ROLE_KEYS.filter(function (role) {
 				return hasRole(family, role);
-			}).map(function (role) {
+			});
+
+			var roleLines = held.map(function (role) {
 				return '\t--' + role + '-font-family: var(--efm-family-' + family.slug + ');';
 			});
 
 			if (roleLines.length) {
 				blocks.push(':root {\n' + roleLines.join('\n') + '\n}');
 			}
+
+			/*
+			 * The rule that makes the token mean something, mirroring token_css().
+			 * Declaring the property alone was the whole feature until now, and on a
+			 * live site nothing read it.
+			 */
+			held.forEach(function (role) {
+				blocks.push(ROLE_SELECTORS[role].join(', ') +
+					' {\n\tfont-family: var(--' + role + '-font-family);\n}');
+			});
 		}
 
-		if (family.selector) {
+		/*
+		 * applied_selector() in build_css(), mirrored: a selector one of this
+		 * family's own roles already answers for is not written twice. These two
+		 * have drifted before, so they change together.
+		 */
+		var applied = splitSelectors(family).kept.join(', ');
+
+		if (applied) {
 			var important = family.force ? ' !important' : '';
 
-			blocks.push(family.selector + ' {\n\tfont-family: ' + familyStack(name) + important + ';\n' +
+			blocks.push(applied + ' {\n\tfont-family: ' + familyStack(name) + important + ';\n' +
 				(variation ? '\tfont-variation-settings: ' + variation + important + ';\n' : '') + '}');
 		}
 
@@ -5192,6 +5390,26 @@
 					 * which is stored order -- invisible from here, and not something to
 					 * discover by wondering why a font did not change.
 					 */
+					/*
+					 * A role already answers for these, so writing them here would put a
+					 * second rule on the same element and leave source order to settle
+					 * which font wins. They are dropped from the stylesheet rather than
+					 * from the field: the field is what the reader typed, and a role can
+					 * be unticked, at which point they come back on their own.
+					 */
+					(function () {
+						var covered = splitSelectors(family).covered;
+
+						if (!covered.length) {
+							return null;
+						}
+
+						return el('span', {
+							class: 'efm-field__hint efm-field__hint--warn',
+							text: s('roleCoversSelector', 'Not applied:') + ' ' + covered.join(', ') + '. ' +
+								s('roleCoversHint', 'The typography token above already answers for these.')
+						});
+					}()),
 					(function () {
 						var clashes = selectorClashes(index);
 
@@ -5370,17 +5588,22 @@
 				]),
 				el('span', { class: 'efm-muted', text: (file.ext || '').toUpperCase() + ' · ' + (file.weight || '400') + (file.style === 'italic' ? ' ' + s('italic', 'Italic') : '') }),
 				/*
-				 * Both states named. "in use" against a blank meant the reader had
+				 * Every state named. "in use" against a blank meant the reader had
 				 * to know that blank was a state at all -- and the file it applies
 				 * to most often is a source left behind by a conversion, which is
-				 * exactly the one worth noticing.
+				 * exactly the one worth noticing. The families are on the tooltip,
+				 * because "not loaded" raises the question of which family it is
+				 * waiting for, and a row is too narrow to answer it inline.
 				 */
-				el('span', {
-					class: 'efm-muted',
-					text: formatSize(file.size) + ' \u00b7 ' + (fileUsedBy(file.name).length
-						? s('inUse', 'in use')
-						: s('unusedLabel', 'unused'))
-				}),
+				(function () {
+					var use = fileUseState(file.name);
+
+					return el('span', {
+						class: 'efm-muted' + (use.owners.length ? ' efm-tooltip efm-tooltip--end' : ''),
+						'data-efm-tooltip': use.owners.length ? use.owners.join(', ') : null,
+						text: formatSize(file.size) + ' \u00b7 ' + use.label
+					});
+				}()),
 				convertible(file.name) && converterAvailable()
 					? el('button', {
 						type: 'button',
@@ -5676,10 +5899,76 @@
 			contentEl.appendChild(convertReport());
 		}
 
+		if (!state.files.length) {
+			contentEl.appendChild(el('h3', {
+				class: 'efm-section-title',
+				text: s('filesTitle', 'Font files')
+			}));
+			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('noFiles', 'No font files on the server yet.') }));
+			return;
+		}
+
+		/*
+		 * The band under this heading used to hold one unlabelled checkbox and
+		 * otherwise nothing, so the screen read as a heading, a gap, then a second
+		 * heading. The Library and Google Fonts both put a toolbar in exactly that
+		 * position; this screen is the one that never had one, and it is also the
+		 * one whose list has no ceiling -- it shows the whole shared fonts folder,
+		 * which Etch writes into too. So the band earns its height by holding the
+		 * thing a long list needs: a way to find a file.
+		 */
+		var fileQuery = state.fileFilter.trim().toLowerCase();
+
+		// Formats in a fixed preference order rather than whatever order the folder
+		// happens to be in, so the chips do not move between renders. Anything the
+		// list does not know about is appended alphabetically rather than dropped.
+		var formatOrder = ['WOFF2', 'WOFF', 'TTF', 'OTF'];
+		var formatCounts = {};
+
+		state.files.forEach(function (file) {
+			var ext = (file.ext || '').toUpperCase();
+
+			if (ext) {
+				formatCounts[ext] = (formatCounts[ext] || 0) + 1;
+			}
+		});
+
+		var formats = Object.keys(formatCounts).sort(function (a, b) {
+			var ia = formatOrder.indexOf(a);
+			var ib = formatOrder.indexOf(b);
+
+			if (ia === -1 && ib === -1) {
+				return a < b ? -1 : 1;
+			}
+
+			return (ia === -1 ? formatOrder.length : ia) - (ib === -1 ? formatOrder.length : ib);
+		});
+
+		// A format that is no longer on disk stops being a filter, so converting the
+		// last TTF cannot leave the screen filtered to nothing by a chip that is gone.
+		state.fileFormats = state.fileFormats.filter(function (ext) {
+			return formats.indexOf(ext) !== -1;
+		});
+
+		var visibleFiles = state.files.filter(function (file) {
+			var ext = (file.ext || '').toUpperCase();
+
+			if (state.fileFormats.length && state.fileFormats.indexOf(ext) === -1) {
+				return false;
+			}
+
+			return !fileQuery || file.name.toLowerCase().indexOf(fileQuery) !== -1;
+		});
+
+		var filtering = !!fileQuery || !!state.fileFormats.length;
+
 		/*
 		 * The heading carries what the folder costs. The table lists a size per row
 		 * and never totalled them, so the one question a font folder raises -- how
-		 * much is this -- took adding up twelve lines by hand.
+		 * much is this -- took adding up twelve lines by hand. Under a filter it
+		 * counts what is on screen against the whole folder, the way the Library
+		 * already reports a search, because the total alone would describe files the
+		 * reader cannot see.
 		 */
 		contentEl.appendChild(el('h3', {
 			class: 'efm-section-title',
@@ -5688,13 +5977,75 @@
 			 * -- uploads, Google installs and anything Etch left there -- and the old
 			 * heading claimed an origin it never checked.
 			 */
-			text: s('filesTitle', 'Font files') + (state.files.length
-				? ' \u00b7 ' + formatSize(sizeOfRecords(state.files))
-				: '')
+			text: s('filesTitle', 'Font files') + ' \u00b7 ' + (filtering
+				? visibleFiles.length + ' ' + s('ofLabel', 'of') + ' ' + state.files.length +
+					' \u00b7 ' + formatSize(sizeOfRecords(visibleFiles))
+				: formatSize(sizeOfRecords(state.files)))
 		}));
 
-		if (!state.files.length) {
-			contentEl.appendChild(el('p', { class: 'efm-muted', text: s('noFiles', 'No font files on the server yet.') }));
+		var fileSearch = el('input', {
+			type: 'search',
+			class: 'efm-input',
+			'data-efm-focus': 'file-filter',
+			placeholder: s('searchFiles', 'Search font files'),
+			'aria-label': s('searchFiles', 'Search font files'),
+			value: state.fileFilter,
+			// Same split as the Library filter: read now, redraw later.
+			oninput: function (event) {
+				state.fileFilter = event.target.value;
+				queueLibraryRender();
+			}
+		});
+
+		contentEl.appendChild(el('div', { class: 'efm-toolbar' }, [
+			el('div', { class: 'efm-toolbar__lead' }, [
+				el('div', { class: 'efm-search' }, [
+					icon('search', 'sm'),
+					clearableField(fileSearch, s('clearFilter', 'Clear filter'), function () {
+						state.fileFilter = '';
+						render();
+					})
+				])
+			]),
+			/*
+			 * Toggles with no All chip: none on means everything, which is how every
+			 * other chip row in the panel already behaves. An All chip beside them
+			 * would be a second way to say the same thing.
+			 */
+			formats.length > 1
+				? chipWall('fileFormats', s('formatLabel', 'Format'), formats.map(function (ext) {
+					return {
+						label: ext,
+						count: formatCounts[ext],
+						on: state.fileFormats.indexOf(ext) !== -1,
+						onclick: function () {
+							togglePicked(state.fileFormats, ext);
+						}
+					};
+				}), CHIP_LIMIT)
+				: null
+		]));
+
+		// A selection cannot reach a file the filter is hiding, the same rule the
+		// Library applies to families.
+		state.pickedFiles = state.pickedFiles.filter(function (name) {
+			return visibleFiles.some(function (file) { return file.name === name; });
+		});
+
+		if (!visibleFiles.length) {
+			contentEl.appendChild(searchEmpty(
+				fileQuery || state.fileFormats.join(', '),
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--outline',
+					text: s('resetAll', 'Reset all'),
+					onclick: function () {
+						state.fileFilter = '';
+						state.fileFormats = [];
+						render();
+					}
+				})
+			));
 			return;
 		}
 
@@ -5718,38 +6069,40 @@
 			});
 
 			/*
-			 * Select-all lives here rather than in a table head, because the table is
-			 * three tables now and one checkbox cannot sit in three heads. The Library
-			 * already puts it in the bar for the same reason.
+			 * Select-all lives in the bar rather than in a table head, because the table
+			 * is three tables now and one control cannot sit in three heads. It selects
+			 * every file on the screen, across all three groups.
 			 */
-			contentEl.appendChild(el('div', { class: 'efm-resultbar' }, [
-				el('div', { class: 'efm-bulk' }, [
-					pickAll(state.pickedFiles, state.files.map(function (entry) { return entry.name; }), s('selectAllFiles', 'Select every file'))
-				]),
-				bulkBar(state.pickedFiles, [
-					{
-						label: s('convertSelected', 'Convert selected') + ' (' + convertable.length + ')',
-						disabled: !convertable.length || !!state.converting,
-						onclick: function () { convertPicked(convertable); }
-					},
-					{
-						label: s('addSelected', 'Add to library') + ' (' + addable.length + ')',
-						disabled: !addable.length,
-						onclick: function () {
-							var names = addable.slice();
+			// The files on screen, not the folder: Select all cannot reach past a filter.
+			var everyFile = visibleFiles.map(function (entry) { return entry.name; });
 
-							state.pickedFiles = [];
-							adoptFiles(names);
-						}
-					},
-					{
-						label: s('deleteSelected', 'Delete selected'),
-						variant: 'danger',
-						disabled: !!state.converting,
-						onclick: deletePickedFiles
+			var filesBar = bulkBar(state.pickedFiles, everyFile, [
+				{
+					label: s('convertSelected', 'Convert selected') + ' (' + convertable.length + ')',
+					disabled: !convertable.length || !!state.converting,
+					onclick: function () { convertPicked(convertable); }
+				},
+				{
+					label: s('addSelected', 'Add to library') + ' (' + addable.length + ')',
+					disabled: !addable.length,
+					onclick: function () {
+						var names = addable.slice();
+
+						state.pickedFiles = [];
+						adoptFiles(names);
 					}
-				])
-			]));
+				},
+				{
+					label: s('deleteSelected', 'Delete selected'),
+					variant: 'danger',
+					disabled: !!state.converting,
+					onclick: deletePickedFiles
+				}
+			]);
+
+			if (filesBar) {
+				contentEl.appendChild(el('div', { class: 'efm-resultbar' }, [el('span', {}), filesBar]));
+			}
 		}
 
 		/*
@@ -5783,7 +6136,7 @@
 			}
 		];
 
-		state.files.forEach(function (file) {
+		visibleFiles.forEach(function (file) {
 			var bucket = fileOrigin(file.name);
 
 			groups.forEach(function (group) {
@@ -5814,6 +6167,15 @@
 			 * screens and calling it two things.
 			 */
 			if ('loose' === group.id) {
+				/*
+				 * Counted from state.unused, not from the group on screen. The group is
+				 * a filtered view and this button is not: prune() deletes every unused
+				 * file on the server, so labelling it with a filtered count would have
+				 * it promise two files and take seven. The two sets are identical with
+				 * no filter on, which is why this only shows up once one is.
+				 */
+				var doomed = state.unused || [];
+
 				contentEl.appendChild(
 					el('button', {
 						type: 'button',
@@ -5823,18 +6185,28 @@
 						text: state.pruning
 							? s('loading', 'Loading\u2026')
 							: s('cleanupButton', 'Delete unused files') + ' \u00b7 ' +
-								group.files.length + ' ' +
-								plural(group.files.length, s('fileSingular', 'file'), s('filesLower', 'files')) +
-								' \u00b7 ' + formatSize(sizeOfRecords(group.files)),
-						disabled: state.pruning,
+								doomed.length + ' ' +
+								plural(doomed.length, s('fileSingular', 'file'), s('filesLower', 'files')) +
+								' \u00b7 ' + formatSize(sizeOfRecords(doomed)),
+						disabled: state.pruning || !doomed.length,
 						onclick: pruneFiles
 					})
 				);
 			}
 
+			/*
+			 * Each table heads its own select-all, scoped to the group it sits above.
+			 * One box could not head three tables, which is why 0.34.0 pulled it out
+			 * to a bare checkbox above the lot -- but three boxes can, one per head,
+			 * where a select-all belongs and where the Variants table already puts it.
+			 * The bar's Select all still answers for every group at once.
+			 */
+			var groupNames = group.files.map(function (file) { return file.name; });
+
 			var table = el('div', { class: 'efm-table efm-table--files' }, [
 				el('div', { class: 'efm-table__head' }, [
 					el('span', { class: 'efm-file__cell' }, [
+						pickAll(state.pickedFiles, groupNames, s('selectAllIn', 'Select every file in') + ' ' + group.title),
 						el('span', { text: s('file', 'File') })
 					]),
 					el('span', { text: s('type', 'Type') }),
@@ -6828,17 +7200,27 @@
 	 * chosen, which is what Etch's own .bulk-bar__select-all does and what stops
 	 * the box claiming the list is empty when it is half-picked.
 	 *
+	 * Scoped by membership rather than by length, because the Font files screen
+	 * heads three tables that share one selection array. Counting would have a
+	 * one-file table read as fully picked the moment two files were chosen in a
+	 * different table, and clearing the whole array would have unticking one head
+	 * wipe the other two tables' selections with it.
+	 *
 	 * @param {string[]} list  Selection array from state.
-	 * @param {string[]} all   Every selectable name currently on screen.
+	 * @param {string[]} all   Every selectable name this box answers for.
 	 * @param {string}   label Accessible name.
 	 * @return {Element}
 	 */
 	function pickAll(list, all, label) {
+		var chosen = all.filter(function (name) {
+			return list.indexOf(name) !== -1;
+		});
+
 		var box = el('input', {
 			type: 'checkbox',
 			class: 'efm-checkbox',
 			'aria-label': label,
-			checked: all.length > 0 && list.length >= all.length,
+			checked: all.length > 0 && chosen.length === all.length,
 			onchange: function (event) {
 				if (event.target.checked) {
 					all.forEach(function (name) {
@@ -6847,14 +7229,20 @@
 						}
 					});
 				} else {
-					list.length = 0;
+					all.forEach(function (name) {
+						var at = list.indexOf(name);
+
+						if (at !== -1) {
+							list.splice(at, 1);
+						}
+					});
 				}
 
 				render();
 			}
 		});
 
-		box.indeterminate = list.length > 0 && list.length < all.length;
+		box.indeterminate = chosen.length > 0 && chosen.length < all.length;
 
 		return el('label', { class: 'efm-card__pick' }, [box]);
 	}
@@ -6862,29 +7250,62 @@
 	/**
 	 * The bar that appears once something is selected.
 	 *
+	 * Select all is a word here rather than a naked checkbox above the grid. The
+	 * checkbox it replaces sat outside the cards it selected, with no label and
+	 * nothing to head, so it read as a stray control rather than a header. In the
+	 * bar it cannot be mistaken for one: the bar exists only once something is
+	 * picked, and it says what it does.
+	 *
 	 * @param {string[]} list    Selection array from state.
+	 * @param {string[]} all     Every selectable key on screen. Null on a screen whose
+	 *                           select-all sits in a table head, which already has one.
 	 * @param {Array}    actions Buttons, each { label, variant, disabled, onclick }.
 	 * @return {Element|null} Null when nothing is selected.
 	 */
-	function bulkBar(list, actions) {
+	function bulkBar(list, all, actions) {
 		if (!list.length) {
 			return null;
 		}
 
-		return el('div', { class: 'efm-bulk' }, [
+		var every = all || [];
+		var rest = every.filter(function (key) {
+			return list.indexOf(key) === -1;
+		});
+
+		var head = [
 			el('span', {
 				class: 'efm-bulk__count',
 				text: list.length + ' ' + s('selected', 'selected')
-			}),
-			el('button', {
+			})
+		];
+
+		// Hidden rather than disabled once everything is picked: the count beside it
+		// already says so, and a dead button earns no room in a bar this short.
+		if (rest.length) {
+			head.push(el('button', {
 				type: 'button',
 				class: 'efm-btn efm-btn--ghost efm-btn--sm',
+				text: s('selectAll', 'Select all') + ' (' + every.length + ')',
 				onclick: function () {
-					list.length = 0;
+					rest.forEach(function (key) {
+						list.push(key);
+					});
+
 					render();
 				}
-			}, [icon('close', 'sm'), el('span', { text: s('clearSelection', 'Clear') })])
-		].concat((actions || []).map(function (action) {
+			}));
+		}
+
+		head.push(el('button', {
+			type: 'button',
+			class: 'efm-btn efm-btn--ghost efm-btn--sm',
+			onclick: function () {
+				list.length = 0;
+				render();
+			}
+		}, [icon('close', 'sm'), el('span', { text: s('clearSelection', 'Clear') })]));
+
+		return el('div', { class: 'efm-bulk' }, head.concat((actions || []).map(function (action) {
 			return el('button', {
 				type: 'button',
 				class: 'efm-btn efm-btn--' + (action.variant || 'outline') + ' efm-btn--sm',

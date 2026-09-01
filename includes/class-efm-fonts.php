@@ -1129,6 +1129,87 @@ class EFM_Fonts {
 	const ROLES = array( 'heading', 'text' );
 
 	/**
+	 * What each role already answers for.
+	 *
+	 * A role publishes --{role}-font-family, and Automatic.css turns that into a
+	 * rule for these selectors once its Typography section is configured. A family
+	 * naming one of them in Apply to as well would have this plugin write a second
+	 * rule for the same element, settled by source order rather than by intent, so
+	 * the role wins and the duplicate is dropped.
+	 *
+	 * Tags only, and matched whole. Whether ".card h1" overlaps "h1" is a cascade
+	 * question rather than a string one, which is the same line the panel's own
+	 * clash check already draws.
+	 *
+	 * The two lists are the selectors the generated rules actually carry:
+	 *
+	 *     h1,h2,h3,h4,h5,h6 { font-family: var(--heading-font-family); }
+	 *     body, p, li, a, button { font-family: var(--text-font-family); }
+	 *
+	 * Body text is five tags rather than body alone: p, li, a and button all set a
+	 * font of their own somewhere up the cascade, so the rule names them instead of
+	 * relying on inheritance -- and each one is therefore a selector this plugin
+	 * must not write a second time.
+	 */
+	const ROLE_SELECTORS = array(
+		'heading' => array( 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' ),
+		'text'    => array( 'body', 'p', 'li', 'a', 'button' ),
+	);
+
+	/**
+	 * Every selector the roles a family holds already answer for.
+	 *
+	 * @param array $family Family record.
+	 * @return string[] Lowercase selectors.
+	 */
+	public static function role_selectors( $family ) {
+		$roles   = (array) ( $family['roles'] ?? array() );
+		$covered = array();
+
+		foreach ( self::ROLES as $role ) {
+			if ( in_array( $role, $roles, true ) ) {
+				$covered = array_merge( $covered, self::ROLE_SELECTORS[ $role ] );
+			}
+		}
+
+		return $covered;
+	}
+
+	/**
+	 * A family's Apply to list with anything its roles already cover removed.
+	 *
+	 * @param array $family Family record.
+	 * @return string Selector list, empty when the roles cover all of it.
+	 */
+	public static function applied_selector( $family ) {
+		$selector = self::sanitize_selector( $family['selector'] ?? '' );
+
+		if ( '' === $selector ) {
+			return '';
+		}
+
+		$covered = self::role_selectors( $family );
+
+		if ( ! $covered ) {
+			return $selector;
+		}
+
+		$kept = array();
+
+		foreach ( explode( ',', $selector ) as $part ) {
+			$part = trim( $part );
+
+			if ( '' === $part || in_array( strtolower( $part ), $covered, true ) ) {
+				continue;
+			}
+
+			$kept[] = $part;
+		}
+
+		return implode( ', ', $kept );
+	}
+
+	/**
 	 * Sanitise a family's token roles.
 	 *
 	 * @param mixed $roles Candidate roles.
@@ -1303,6 +1384,7 @@ class EFM_Fonts {
 		}
 
 		$lines = '';
+		$rules = '';
 
 		foreach ( self::ROLES as $role ) {
 			foreach ( $families as $family ) {
@@ -1321,6 +1403,20 @@ class EFM_Fonts {
 				}
 
 				$lines .= "\t--{$role}-font-family: var(--efm-family-{$slug});\n";
+
+				/*
+				 * The rule that makes the token mean something. Declaring the custom
+				 * property alone was the whole feature until now, and measured on a
+				 * live site nothing read it: Automatic.css only emits its own rule
+				 * once its Typography section is configured, and a site without ACSS
+				 * has nobody to read it at all. "Use for headings" was a switch that
+				 * changed no pixels.
+				 *
+				 * These are the same selectors Automatic.css uses, so on a configured
+				 * ACSS site the two rules agree and the duplicate is inert.
+				 */
+				$rules .= implode( ', ', self::ROLE_SELECTORS[ $role ] ) .
+					" {\n\tfont-family: var(--{$role}-font-family);\n}\n\n";
 				break;
 			}
 		}
@@ -1329,7 +1425,7 @@ class EFM_Fonts {
 			return '';
 		}
 
-		return "/* Typography tokens, as Etch documents them and Automatic.css reads them */\n:root {\n" . $lines . "}\n\n";
+		return "/* Typography tokens, as Etch documents them and Automatic.css reads them */\n:root {\n" . $lines . "}\n\n" . $rules;
 	}
 
 	/**
@@ -2191,7 +2287,7 @@ class EFM_Fonts {
 				continue;
 			}
 
-			$selector = self::sanitize_selector( $family['selector'] );
+			$selector = self::applied_selector( $family );
 
 			if ( '' === $selector ) {
 				continue;

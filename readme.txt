@@ -2,9 +2,9 @@
 Contributors: donkanishka
 Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
-Tested up to: 6.8
+Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.34.1
+Stable tag: 0.35.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,17 @@ Settings > Removal has the opt-out. Tick "Delete the font files when the plugin 
 Reinstalling leaves the kept stylesheet in place rather than regenerating over it, so the site carries on loading its fonts. The library itself starts empty — restore it from Import & export.
 
 == Changelog ==
+
+= 0.35.0 =
+* Fixed: the typography tokens never did anything. Ticking a role declared a custom property and left the rule that uses it to Automatic.css, which only writes one when its Typography section is configured. The block now carries the rule too, on the same selectors ACSS uses.
+* Fixed: the block meant to load after Automatic.css never did, so it could not have won the cascade it was written to win. It no longer depends on another plugin's timing.
+* Fixed: files belonging to a trashed or disabled family said they were in use. Three states now: in use, not loaded, unused. Nothing new became deletable.
+* Fixed: a select-all in one file table could report and clear the selection in the others.
+* Fixed: Apply to no longer writes a selector the family's own typography role already covers.
+* Added: a search field and format filter chips on Font files, and a select-all in each table head.
+* Added: a notice on the Plugins screen when Etch is not active, since the panel opens from the Etch Settings Bar and nowhere else.
+* Changed: the unlabelled select-all checkbox that floated above the grids is now a Select all button in the bulk bar.
+* Changed: taking a typography token from another family warns under the toggle instead of in a toast. Discard puts it back.
 
 = 0.34.1 =
 * Fixed: the Font Manager control never appeared in 0.34.0. A list the settings fingerprint depends on was declared below the code that reads it, so the panel script threw before registering its control and the plugin could not be opened.

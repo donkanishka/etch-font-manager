@@ -1,10 +1,10 @@
 {
-  "version": "0.33.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.33.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.33.0",
+  "version": "0.34.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.34.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.34.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "6.8",
-  "date": "2026-08-30",
-  "notes": "Every delete in the panel now looks like one, matching the confirmation dialog. A variable font keeps the instance you tune in the type tester, written into the stylesheet instead of copied out by hand. Converting shows the original beside the result, and Settings can delete the original once it has. Exporting no longer carries families you put in the Trash, actions that free disk say how much they would free, and the preview script chips no longer crowd the toolbar."
+  "date": "2026-09-01",
+  "notes": "A family can now be published as the site's heading or body font, writing the typography tokens Etch documents and Automatic.css reads. Uploaded variable fonts get their axes, read from the file at upload. Library is now Font library and Upload fonts is now Font files, with files grouped by where they came from. Settings joined the save bar instead of committing on their own, the variable axes sit under the preview and actually move it, and deleting a font file now names the family it would leave empty."
 }

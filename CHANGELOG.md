@@ -2,6 +2,21 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.34.1
+
+A hotfix. 0.34.0 could not be opened at all.
+
+### Fixed
+
+- **The Font Manager control never appeared.** The settings key list added in 0.34.0 was declared beside the
+  functions that read it, several hundred lines below the state object that fingerprints the settings as it is
+  built. `var` hoisting supplies the name but not the value, so the fingerprint read `undefined`, `panel.js`
+  threw before it could register its Settings Bar control, and the plugin was unreachable from the builder. The
+  list is now declared above the state it feeds.
+- **CI could not have caught it.** `node --check` parses a file and stops there, so it passed happily on a script
+  that died on its first line of real work. `tools/boot-check.js` now boots the panel against a stubbed DOM and
+  fails the build if it throws; run against 0.34.0 it reproduces the exact error.
+
 ## 0.34.0
 
 A tenth pass, sixteen items, driven a screenshot at a time. Its spine is that a screen should be named for what

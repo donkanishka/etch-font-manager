@@ -86,7 +86,15 @@ jobs:
         run: node --check assets/panel.js
 
       - name: Check the tooling parses
-        run: node --check tools/check-pot.js
+        run: |
+          node --check tools/check-pot.js
+          node --check tools/boot-check.js
+
+      # --check only parses. v0.34.0 shipped a file that parsed perfectly and
+      # threw on the first line of real work, which meant the Settings Bar
+      # control never registered and the plugin had no icon at all. This runs it.
+      - name: Check the panel boots
+        run: node tools/boot-check.js
 
       # The translation template drifted for two dozen releases because it was
       # kept by hand. This fails the build when a string is added, removed or

@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 0.34.0
+Stable tag: 0.34.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,10 @@ Settings > Removal has the opt-out. Tick "Delete the font files when the plugin 
 Reinstalling leaves the kept stylesheet in place rather than regenerating over it, so the site carries on loading its fonts. The library itself starts empty — restore it from Import & export.
 
 == Changelog ==
+
+= 0.34.1 =
+* Fixed: the Font Manager control never appeared in 0.34.0. A list the settings fingerprint depends on was declared below the code that reads it, so the panel script threw before registering its control and the plugin could not be opened.
+* Fixed: CI now boots the panel rather than only parsing it, so a script that loads and immediately throws fails the build.
 
 = 0.34.0 =
 * Added: uploaded variable fonts get their axes. The panel reads them from the file at upload, which is the only moment it can, since converting to WOFF2 happens before anything is sent.

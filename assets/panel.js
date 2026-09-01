@@ -21,6 +21,15 @@
 	var t = cfg.i18n || {};
 	var CONTROL_ID = 'efm-fonts';
 
+	/*
+	 * Declared here, above the state literal, because that literal fingerprints
+	 * the settings as it is built and the fingerprint reads this list. Left where
+	 * it reads best -- beside the functions that use it -- `var` hoisting gives it
+	 * the name but not the value, so normalizeSettings() saw undefined and the
+	 * whole panel threw on boot without ever registering its control.
+	 */
+	var SETTING_KEYS = ['inline_css', 'block_google', 'delete_source_on_convert', 'purge_files'];
+
 	function s(key, fallback) {
 		return t[key] || fallback;
 	}
@@ -729,13 +738,11 @@
 	}
 
 	/*
-	 * The four settings the panel writes, in a fixed order. Plain strings and no
-	 * translation, because the fingerprint is taken while the panel is still
-	 * booting; the labels live in settingLabel() and are only read when the save
-	 * bar has something to say.
+	 * The four settings the panel writes are declared at the top of this file,
+	 * above the state literal that fingerprints them. Their labels live here and
+	 * are only read once the save bar has something to say, so they can be
+	 * translated at the point of use.
 	 */
-	var SETTING_KEYS = ['inline_css', 'block_google', 'delete_source_on_convert', 'purge_files'];
-
 	function settingLabel(key) {
 		if ('inline_css' === key) {
 			return s('inlineCss', 'Print the CSS inline');

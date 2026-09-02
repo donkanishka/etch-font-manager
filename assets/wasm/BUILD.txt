@@ -1,13 +1,13 @@
 Built by .github/workflows/build-wasm.yml
-Run:      https://github.com/donkanishka/etch-font-manager/actions/runs/31312733551
-Date:     2026-08-09T12:14:29Z
+Run:      https://github.com/donkanishka/etch-font-manager/actions/runs/33591179769
+Date:     2026-09-02T04:33:34Z
 
 emsdk:    3.1.64
 woff2:    google/woff2 @ fb9c3379f2605b10f3e8f1d9636664ab5576775c
 brotli:   google/brotli @ v1.1.0
 
-woff2.js   11437 bytes  sha256 9d468607fe3a7921a94f4dbadd9bd1f9ba9ad17e0947e0e60ae2ccb4b762cf69
-woff2.wasm 743856 bytes  sha256 00369be597643c447c86cbea32916aa8c7af73edc3c07f46bb7f6ba115756395
+woff2.js   12692 bytes  sha256 5a1f815ea907aff6cbcfc400a6668713b0b1fbd47344be24cd396a4b8f5a8ebc
+woff2.wasm 816057 bytes  sha256 9e1cb941962f062f0989674a0dcad62ee56bb2475fd67ceb674d81a46a6741bc
 
 google/woff2 and google/brotli are both MIT. Copies of their licences
 are in assets/wasm/LICENSE-woff2.txt and assets/wasm/LICENSE-brotli.txt.

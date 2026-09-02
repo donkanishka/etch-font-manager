@@ -102,16 +102,17 @@ jobs:
       # it had just removed, which threw inside the Google Fonts section and
       # took three sections of the family editor with it. no-undef catches both.
       #
-      # Report-only for now. It has never run against this file, so it is here
-      # to be read before it is allowed to block a release; once a run comes
-      # back clean, drop continue-on-error and it becomes a real gate.
+      # es2021 is in the env list for the globals, not the syntax: ecmaVersion
+      # governs what parses, while Uint8Array and DataView -- which the WOFF and
+      # sfnt readers are built on -- only exist as known globals once the es2021
+      # environment is on. Without it the first run reported fifteen problems,
+      # all of them those two names.
       - name: Check for undefined identifiers
-        continue-on-error: true
         run: |
           npx --yes eslint@8 \
             --no-eslintrc \
             --parser-options=ecmaVersion:2021 \
-            --env browser,worker \
+            --env browser,worker,es2021 \
             --global EFMWoff2:readonly \
             --rule '{"no-undef":"error"}' \
             assets/panel.js assets/wasm/woff2-worker.js

@@ -96,6 +96,26 @@ jobs:
       - name: Check the panel boots
         run: node tools/boot-check.js
 
+      # Parsing and booting both pass on code that dies the moment it reaches a
+      # branch nothing exercised. Two releases were broken that way: 0.34.0 read
+      # a var before it was assigned, and 0.36.0 left a reference to a variable
+      # it had just removed, which threw inside the Google Fonts section and
+      # took three sections of the family editor with it. no-undef catches both.
+      #
+      # Report-only for now. It has never run against this file, so it is here
+      # to be read before it is allowed to block a release; once a run comes
+      # back clean, drop continue-on-error and it becomes a real gate.
+      - name: Check for undefined identifiers
+        continue-on-error: true
+        run: |
+          npx --yes eslint@8 \
+            --no-eslintrc \
+            --parser-options=ecmaVersion:2021 \
+            --env browser,worker \
+            --global EFMWoff2:readonly \
+            --rule '{"no-undef":"error"}' \
+            assets/panel.js assets/wasm/woff2-worker.js
+
       # The translation template drifted for two dozen releases because it was
       # kept by hand. This fails the build when a string is added, removed or
       # moved without rebuilding it.

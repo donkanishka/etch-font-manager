@@ -1,10 +1,10 @@
 {
-  "version": "0.35.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.35.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.35.0",
+  "version": "0.36.0",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.36.0/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.36.0",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
-  "date": "2026-09-01",
-  "notes": "Eight items. The typography tokens finally reach the page: ticking a role declared a custom property and left the rule that uses it to Automatic.css, which only writes one when its Typography section is configured, so on most sites the switch changed nothing. The block that was meant to load after ACSS never fired either. Also: files belonging to a trashed or disabled family no longer claim to be in use, Apply to stops writing selectors a role already covers, Font files gained a search field and format filters, and a select-all sits in each table head rather than floating above the grid."
+  "date": "2026-09-02",
+  "notes": "Two features and seven fixes. The typography tokens were restyling the Etch builder's own interface, because the builder shell is a front-end request and the token rule names bare elements; the builder and the block editor now get the font declarations without the rules that paint a page. The Google weights row deleted a weight when you unticked one, under a button that said Download. Variable axis sliders were shown for static installs. Apply to now refuses any selector a typography token covers, whichever family holds it, and its warnings update as you type. The panel no longer sits beneath overlays painted by other plugins. Added: the WOFF2 decoder, so a variable font uploaded already compressed gets its axes read; reading axes from files already on the server; and an optional metric-matched fallback so text does not shift when a font arrives."
 }

@@ -377,6 +377,11 @@ class EFM_Builder {
 				// empty when the binary has not been built, which turns the whole
 				// converter off in the panel rather than failing at click time.
 				'wasmUrl'   => file_exists( EFM_DIR . 'assets/wasm/woff2.wasm' ) ? esc_url_raw( EFM_URL . 'assets/wasm/' ) : '',
+				// Where the font files themselves are, so the panel can read one back.
+				// Reading a file it did not just receive is how a font installed before
+				// the panel could open its format gets its axes without being uploaded
+				// a second time.
+				'filesUrl'  => esc_url_raw( EFM_Fonts::url() ),
 				'state'     => EFM_Rest::state(),
 				'i18n'      => self::strings(),
 			)
@@ -598,7 +603,11 @@ class EFM_Builder {
 			'changeRoleCleared' => __( 'no longer', 'etch-font-manager' ),
 			'roleHeadingChip' => __( 'Headings', 'etch-font-manager' ),
 			'roleTextChip'   => __( 'Body text', 'etch-font-manager' ),
-			'axesUnknown'    => __( 'Nothing has read this family\'s files yet, so the panel does not know whether the font has variable axes. Upload the file again and they will be read, in any format.', 'etch-font-manager' ),
+			'axesUnknown'    => __( 'Nothing has read this family\'s files yet, so the panel does not know whether the font has variable axes.', 'etch-font-manager' ),
+			'readAxes'       => __( 'Read the files', 'etch-font-manager' ),
+			'axesRead'       => __( 'Variable axes read from the file.', 'etch-font-manager' ),
+			'axesNone'       => __( 'No variable axes in this family\'s files.', 'etch-font-manager' ),
+			'axesReadFailed' => __( 'Could not read this family\'s files.', 'etch-font-manager' ),
 			'axesHintApplied' => __( 'This family has an Apply to selector, so these change how it renders on the site as well as in this preview.', 'etch-font-manager' ),
 			'axesHintUnapplied' => __( 'These change this preview only. To use the instance on the site, give the family an Apply to selector under Delivery, or use its variation variable in your own CSS.', 'etch-font-manager' ),
 			'variationTokenHint' => __( 'The tuned instance, for font-variation-settings. Pair it with the family variable above.', 'etch-font-manager' ),

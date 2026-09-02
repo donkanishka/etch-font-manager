@@ -81,6 +81,8 @@
 		// part of the library, so neither reaches the dirty diff.
 		fileFilter: '',
 		fileFormats: [],
+		// Transient: a font file is being read back for its axes.
+		readingAxes: false,
 		query: '',
 		results: [],
 		// Transient: which page of the catalogue is on screen, counted from zero.
@@ -4673,8 +4675,26 @@
 			contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('axesTitle', 'Variable axes') }));
 			contentEl.appendChild(el('p', {
 				class: 'efm-muted',
-				text: s('axesUnknown', 'Nothing has read this family\'s files yet, so the panel does not know whether the font has variable axes. Upload the file again and they will be read, in any format.')
+				text: s('axesUnknown', 'Nothing has read this family\'s files yet, so the panel does not know whether the font has variable axes.')
 			}));
+			/*
+			 * Offered rather than done on sight. Reading means fetching the whole
+			 * font back and decompressing it, which is not something to do on every
+			 * render of every family that happens to predate the decoder.
+			 */
+			contentEl.appendChild(el('div', { class: 'efm-card__actions' }, [
+				el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--outline',
+					text: state.readingAxes
+						? s('loading', 'Loading\u2026')
+						: s('readAxes', 'Read the files'),
+					disabled: state.readingAxes || !converterAvailable(),
+					// Named, so the answer to "why can I not press this" is not a guess.
+					title: converterAvailable() ? null : s('convertBlocked', 'The converter could not start in this browser.'),
+					onclick: function () { readAxesFor(index); }
+				})
+			]));
 		}
 
 		if (tunable.length) {
@@ -5710,6 +5730,97 @@
 	 * @param {Object} family Family record.
 	 * @return {Array} Axis records, empty when there is nothing to tune.
 	 */
+	/**
+	 * Read the axes of the files a family maps, from the files themselves.
+	 *
+	 * The upload path reads a font as it arrives, which is the only moment it is
+	 * in the browser. A family installed before the panel could open its format --
+	 * every WOFF2 predating the decoder -- never had that moment, so this gives it
+	 * one by fetching the file back off the server.
+	 *
+	 * An empty list is stored when nothing is found, which is not the same as
+	 * storing nothing: it records that the file has been looked at, so the panel
+	 * stops offering to look again and stops calling the answer unknown.
+	 *
+	 * Only the file record is updated locally, never applyState(): that would
+	 * replace state.families with the server's copy and take any unsaved edit in
+	 * the open editor with it. Axes live beside the files, not on the family.
+	 *
+	 * @param {number} index Family index.
+	 */
+	function readAxesFor(index) {
+		var family = state.families[index];
+
+		if (!family || state.readingAxes) {
+			return;
+		}
+
+		var names = (family.variants || []).map(function (variant) {
+			return variant.file;
+		}).filter(function (name, at, all) {
+			if (!name || all.indexOf(name) !== at) {
+				return false;
+			}
+
+			var record = fileRecord(name);
+
+			return record && !record.axes;
+		});
+
+		if (!names.length) {
+			return;
+		}
+
+		state.readingAxes = true;
+		render();
+
+		var found = 0;
+		var failed = 0;
+
+		// One at a time. Each file is fetched whole and a WOFF2 is decompressed in
+		// the worker, and there is one worker.
+		names.reduce(function (chain, name) {
+			return chain.then(function () {
+				return window.fetch(cfg.filesUrl + encodeURIComponent(name)).then(function (response) {
+					if (!response.ok) {
+						throw new Error(String(response.status));
+					}
+
+					return response.arrayBuffer();
+				}).then(axesFromFont).then(function (axes) {
+					return request('/files/axes', {
+						method: 'POST',
+						body: { filename: name, axes: axes || [] }
+					}).then(function () {
+						var record = fileRecord(name);
+
+						if (record) {
+							record.axes = axes || [];
+						}
+
+						if (axes && axes.length) {
+							found += 1;
+						}
+					});
+				}).catch(function () {
+					// One unreadable file does not stop the others being read.
+					failed += 1;
+				});
+			});
+		}, Promise.resolve()).then(function () {
+			state.readingAxes = false;
+			render();
+
+			if (found) {
+				setStatus(s('axesRead', 'Variable axes read from the file.'), 'success');
+			} else if (failed === names.length) {
+				setStatus(s('axesReadFailed', 'Could not read this family\'s files.'), 'error');
+			} else {
+				setStatus(s('axesNone', 'No variable axes in this family\'s files.'), 'success');
+			}
+		});
+	}
+
 	function axesForFamily(family) {
 		if (family.google && (family.google.axes || []).length) {
 			return family.google.axes;

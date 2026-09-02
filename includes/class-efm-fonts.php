@@ -1005,7 +1005,107 @@ class EFM_Fonts {
 			return $fallback;
 		}
 
-		return '' === $fallback ? '"' . $name . '"' : '"' . $name . '", ' . $fallback;
+		$stack = '"' . $name . '"';
+
+		/*
+		 * The metric-matched face goes between the real font and whatever the
+		 * reader named, because it is only useful while the real font is still
+		 * arriving. It is a local face carrying this font's vertical metrics, so
+		 * the line boxes do not change height when the swap happens.
+		 */
+		if ( self::sanitize_metrics( $family['metrics'] ?? array() ) ) {
+			$stack .= ', "' . $name . ' ' . self::FALLBACK_SUFFIX . '"';
+		}
+
+		return '' === $fallback ? $stack : $stack . ', ' . $fallback;
+	}
+
+	/**
+	 * Name of the metric-matched face generated for a family.
+	 *
+	 * A suffix rather than a separate naming scheme, so the relationship is
+	 * obvious in devtools and in the generated stylesheet.
+	 */
+	const FALLBACK_SUFFIX = 'fallback';
+
+	/**
+	 * Local faces the metric-matched fallback is drawn from.
+	 *
+	 * Three rather than one, because there is no single sans-serif present on
+	 * every platform: Arial on Windows and macOS, Helvetica Neue on older macOS,
+	 * Liberation Sans on most Linux distributions. The browser takes the first it
+	 * has. Which one it lands on barely matters, because the overrides below
+	 * replace its vertical metrics anyway -- what matters is that something
+	 * resolves without a network request.
+	 */
+	const FALLBACK_LOCALS = array( 'Arial', 'Helvetica Neue', 'Liberation Sans' );
+
+	/**
+	 * Sanitize the metric overrides read out of a font file.
+	 *
+	 * Percentages, stored as plain numbers. Anything outside a sane range is
+	 * dropped rather than clamped: a bad number here would silently reshape every
+	 * line of body text, and no override at all is the safer failure.
+	 *
+	 * @param mixed $metrics Raw metrics.
+	 * @return array Empty when there is nothing usable.
+	 */
+	public static function sanitize_metrics( $metrics ) {
+		if ( ! is_array( $metrics ) ) {
+			return array();
+		}
+
+		$clean = array();
+
+		foreach ( array( 'ascent', 'descent', 'gap' ) as $key ) {
+			if ( ! isset( $metrics[ $key ] ) || ! is_numeric( $metrics[ $key ] ) ) {
+				return array();
+			}
+
+			$value = round( (float) $metrics[ $key ], 2 );
+
+			if ( $value < 0 || $value > 400 ) {
+				return array();
+			}
+
+			$clean[ $key ] = $value;
+		}
+
+		// An ascent of zero would collapse every line box to nothing.
+		if ( $clean['ascent'] <= 0 ) {
+			return array();
+		}
+
+		return $clean;
+	}
+
+	/**
+	 * The metric-matched @font-face for one family.
+	 *
+	 * @param array $family Family record.
+	 * @return string CSS, empty when the family has no stored metrics.
+	 */
+	public static function fallback_face_css( $family ) {
+		$metrics = self::sanitize_metrics( $family['metrics'] ?? array() );
+		$name    = $family['name'] ?? '';
+
+		if ( ! $metrics || '' === $name ) {
+			return '';
+		}
+
+		$sources = array();
+
+		foreach ( self::FALLBACK_LOCALS as $local ) {
+			$sources[] = 'local("' . $local . '")';
+		}
+
+		return '@font-face {' . "\n" .
+			"\tfont-family: \"" . $name . ' ' . self::FALLBACK_SUFFIX . "\";\n" .
+			"\tsrc: " . implode( ', ', $sources ) . ";\n" .
+			"\tascent-override: " . $metrics['ascent'] . "%;\n" .
+			"\tdescent-override: " . $metrics['descent'] . "%;\n" .
+			"\tline-gap-override: " . $metrics['gap'] . "%;\n" .
+			"}\n\n";
 	}
 
 	/**
@@ -1351,6 +1451,7 @@ class EFM_Fonts {
 				'trashed'  => ! empty( $family['trashed'] ),
 				'variation' => self::sanitize_variation( $family['variation'] ?? '' ),
 				'roles'    => self::sanitize_roles( $family['roles'] ?? array() ),
+				'metrics'  => self::sanitize_metrics( $family['metrics'] ?? array() ),
 			);
 
 			if ( ! empty( $google ) ) {
@@ -2200,6 +2301,14 @@ class EFM_Fonts {
 			if ( empty( $family['name'] ) || empty( $family['variants'] ) ) {
 				continue;
 			}
+
+			/*
+			 * Before the real faces, because it is the one that renders first. A
+			 * local face carrying this font's vertical metrics, so the line boxes are
+			 * already the right height while the web font is still downloading and
+			 * nothing moves when it arrives.
+			 */
+			$css .= self::fallback_face_css( $family );
 
 			foreach ( $family['variants'] as $variant ) {
 				if ( empty( $variant['file'] ) ) {

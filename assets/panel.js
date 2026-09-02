@@ -81,8 +81,9 @@
 		// part of the library, so neither reaches the dirty diff.
 		fileFilter: '',
 		fileFormats: [],
-		// Transient: a font file is being read back for its axes.
+		// Transient: a font file is being read back for its axes or its metrics.
 		readingAxes: false,
+		readingMetrics: false,
 		query: '',
 		results: [],
 		// Transient: which page of the catalogue is on screen, counted from zero.
@@ -724,6 +725,16 @@
 		out.roles = (source.roles || []).slice().sort();
 		out.enabled = isEnabled(source);
 		out.trashed = !!source.trashed;
+		/*
+		 * Through the same reader the stylesheet uses, so a stored value the server
+		 * would reject compares equal to no value at all rather than reading as an
+		 * unsaved change nobody can save away.
+		 */
+		var metrics = familyMetrics(source);
+
+		out.metrics = metrics
+			? { ascent: metrics.ascent, descent: metrics.descent, gap: metrics.gap }
+			: null;
 
 		// The server drops an empty Google block rather than storing one.
 		if (!out.google || !Object.keys(out.google).length) {
@@ -1033,8 +1044,91 @@
 		return count === 1 ? one : many;
 	}
 
-	function familyStack(name) {
-		return name ? '"' + name + '", sans-serif' : 'inherit';
+	/*
+	 * Mirrors FALLBACK_SUFFIX and FALLBACK_LOCALS in class-efm-fonts.php.
+	 */
+	var FALLBACK_SUFFIX = 'fallback';
+	var FALLBACK_LOCALS = ['Arial', 'Helvetica Neue', 'Liberation Sans'];
+
+	/**
+	 * Percentage overrides read out of a font, or null.
+	 *
+	 * Mirrors sanitize_metrics() in class-efm-fonts.php, including its refusal to
+	 * clamp: a bad number would silently reshape every line of body text, so no
+	 * override at all is the safer failure.
+	 *
+	 * @param {Object} family Family record.
+	 * @return {Object|null}
+	 */
+	function familyMetrics(family) {
+		var m = family && family.metrics;
+
+		if (!m) {
+			return null;
+		}
+
+		var out = {};
+		var ok = ['ascent', 'descent', 'gap'].every(function (key) {
+			var value = Number(m[key]);
+
+			if (!isFinite(value) || value < 0 || value > 400) {
+				return false;
+			}
+
+			out[key] = Math.round(value * 100) / 100;
+
+			return true;
+		});
+
+		return ok && out.ascent > 0 ? out : null;
+	}
+
+	/**
+	 * The metric-matched @font-face, mirroring fallback_face_css().
+	 *
+	 * @param {Object} family Family record.
+	 * @return {string} CSS, empty when there are no metrics.
+	 */
+	function fallbackFaceCss(family) {
+		var metrics = familyMetrics(family);
+		var name = (family && family.name) || '';
+
+		if (!metrics || !name) {
+			return '';
+		}
+
+		return '@font-face {\n' +
+			'\tfont-family: "' + name + ' ' + FALLBACK_SUFFIX + '";\n' +
+			'\tsrc: ' + FALLBACK_LOCALS.map(function (local) {
+				return 'local("' + local + '")';
+			}).join(', ') + ';\n' +
+			'\tascent-override: ' + metrics.ascent + '%;\n' +
+			'\tdescent-override: ' + metrics.descent + '%;\n' +
+			'\tline-gap-override: ' + metrics.gap + '%;\n' +
+			'}';
+	}
+
+	/**
+	 * The font stack for a family, mirroring family_stack().
+	 *
+	 * @param {string} name   Family name.
+	 * @param {Object} family Family record, when one is to hand.
+	 * @return {string}
+	 */
+	function familyStack(name, family) {
+		if (!name) {
+			return 'inherit';
+		}
+
+		var stack = '"' + name + '"';
+
+		// Between the real font and the generic, because it only matters while the
+		// real font is still on its way.
+		if (family && familyMetrics(family)) {
+			stack += ', "' + name + ' ' + FALLBACK_SUFFIX + '"';
+		}
+
+		return stack + ', sans-serif';
 	}
 
 	/**
@@ -4974,8 +5068,19 @@
 		 */
 		var variation = String(family.variation || '');
 
+		/*
+		 * First, mirroring build_css(): it is the face that renders while the real
+		 * one is still arriving, so it belongs at the top of what the reader is
+		 * shown as well as at the top of the stylesheet.
+		 */
+		var fallbackFace = fallbackFaceCss(family);
+
+		if (fallbackFace) {
+			blocks.unshift(fallbackFace);
+		}
+
 		if (family.slug) {
-			blocks.push(':root {\n\t--efm-family-' + family.slug + ': ' + familyStack(name) + ';\n' +
+			blocks.push(':root {\n\t--efm-family-' + family.slug + ': ' + familyStack(name, family) + ';\n' +
 				(variation ? '\t--efm-family-' + family.slug + '-variation: ' + variation + ';\n' : '') + '}');
 		}
 
@@ -5019,7 +5124,7 @@
 		if (applied) {
 			var important = family.force ? ' !important' : '';
 
-			blocks.push(applied + ' {\n\tfont-family: ' + familyStack(name) + important + ';\n' +
+			blocks.push(applied + ' {\n\tfont-family: ' + familyStack(name, family) + important + ';\n' +
 				(variation ? '\tfont-variation-settings: ' + variation + important + ';\n' : '') + '}');
 		}
 
@@ -5468,6 +5573,41 @@
 					el('span', { class: 'efm-field__hint', text: s('applyForceHint', 'Adds !important, for when a theme stylesheet loads later or wins on specificity.') })
 				])
 			]) : null,
+			/*
+			 * A local face wearing this font's vertical metrics, so the line boxes are
+			 * the right height before the web font arrives and nothing jumps when it
+			 * does. Off by default: it is measured from the file, so switching it on
+			 * has to go and read one.
+			 */
+			el('label', { class: 'efm-toggle' }, [
+				el('input', {
+					type: 'checkbox',
+					class: 'efm-checkbox',
+					checked: !!familyMetrics(family),
+					disabled: state.readingMetrics,
+					onchange: function (event) {
+						if (event.target.checked) {
+							fitFallback(index);
+							return;
+						}
+
+						state.families[index].metrics = null;
+						render();
+					}
+				}),
+				el('span', {}, [
+					el('span', {
+						class: 'efm-toggle__label',
+						text: state.readingMetrics
+							? s('loading', 'Loading\u2026')
+							: s('matchFallback', 'Hold the space while this font loads')
+					}),
+					el('span', {
+						class: 'efm-field__hint',
+						text: s('matchFallbackHint', 'Adds a local stand-in carrying this font\'s own line height, so text does not shift when the real font arrives. Measured from the file, so it needs reading once.')
+					})
+				])
+			]),
 			el('label', { class: 'efm-toggle' }, [
 				preloadInput,
 				el('span', {}, [
@@ -5818,6 +5958,62 @@
 			} else {
 				setStatus(s('axesNone', 'No variable axes in this family\'s files.'), 'success');
 			}
+		});
+	}
+
+	/**
+	 * Measure a family's font and keep the numbers a fallback face needs.
+	 *
+	 * Read from the file rather than guessed. The overrides only help if they are
+	 * this font's actual metrics; a wrong number moves the text it was meant to
+	 * hold still.
+	 *
+	 * @param {number} index Family index.
+	 */
+	function fitFallback(index) {
+		var family = state.families[index];
+
+		if (!family || state.readingMetrics) {
+			return;
+		}
+
+		var absent = state.missing || [];
+		var file = (family.variants || []).map(function (variant) {
+			return variant.file;
+		}).filter(function (name) {
+			return name && absent.indexOf(name) === -1;
+		})[0];
+
+		if (!file) {
+			setStatus(s('metricsFailed', 'Could not read the metrics from this family\'s font.'), 'error');
+			return;
+		}
+
+		state.readingMetrics = true;
+		render();
+
+		window.fetch(cfg.filesUrl + encodeURIComponent(file)).then(function (response) {
+			if (!response.ok) {
+				throw new Error(String(response.status));
+			}
+
+			return response.arrayBuffer();
+		}).then(metricsFromFont).then(function (metrics) {
+			state.readingMetrics = false;
+
+			if (!metrics) {
+				render();
+				setStatus(s('metricsFailed', 'Could not read the metrics from this family\'s font.'), 'error');
+				return;
+			}
+
+			state.families[index].metrics = metrics;
+			render();
+			setStatus(s('metricsRead', 'Fallback matched to this font.'), 'success');
+		}).catch(function () {
+			state.readingMetrics = false;
+			render();
+			setStatus(s('metricsFailed', 'Could not read the metrics from this family\'s font.'), 'error');
 		});
 	}
 
@@ -8820,6 +9016,78 @@
 	 * @param {ArrayBuffer} buffer Original file bytes.
 	 * @return {Promise} Resolves with axis records, or null when unreadable.
 	 */
+	/**
+	 * The vertical metrics a metric-matched fallback needs.
+	 *
+	 * hhea rather than OS/2: hhea's ascender and descender are what browsers use
+	 * for the line box on every platform, while the OS/2 pair are advisory and
+	 * frequently disagree with them. Read as a fraction of the em, because that is
+	 * the form ascent-override takes.
+	 *
+	 * @param {ArrayBuffer} sfnt Uncompressed font bytes.
+	 * @return {Object|null} { ascent, descent, gap } as percentages.
+	 */
+	function parseMetrics(sfnt) {
+		if (!isSfnt(sfnt)) {
+			return null;
+		}
+
+		try {
+			var head = sfntTable(sfnt, 'head');
+			var hhea = sfntTable(sfnt, 'hhea');
+
+			if (!head || !hhea) {
+				return null;
+			}
+
+			var view = new DataView(sfnt);
+			var unitsPerEm = view.getUint16(head.offset + 18);
+
+			if (!unitsPerEm) {
+				return null;
+			}
+
+			var percent = function (units) {
+				return Math.round(Math.abs(units) / unitsPerEm * 10000) / 100;
+			};
+
+			return {
+				ascent: percent(view.getInt16(hhea.offset + 4)),
+				descent: percent(view.getInt16(hhea.offset + 6)),
+				gap: percent(view.getInt16(hhea.offset + 8))
+			};
+		} catch (error) {
+			return null;
+		}
+	}
+
+	/**
+	 * Read a font's metrics, unwrapping whatever container it is in.
+	 *
+	 * The same shape as axesFromFont, and for the same reason: a WOFF or WOFF2 is
+	 * not readable until it has been unwrapped.
+	 *
+	 * @param {ArrayBuffer} buffer Font bytes.
+	 * @return {Promise} Resolves with metrics or null.
+	 */
+	function metricsFromFont(buffer) {
+		var head = new Uint8Array(buffer, 0, Math.min(4, buffer.byteLength));
+
+		if (isWoff2(head)) {
+			if (!converterAvailable()) {
+				return Promise.resolve(null);
+			}
+
+			return decodeBuffer(buffer.slice(0)).then(parseMetrics).catch(function () {
+				return null;
+			});
+		}
+
+		return toSfnt(buffer).then(parseMetrics).catch(function () {
+			return null;
+		});
+	}
+
 	function axesFromFont(buffer) {
 		var head = new Uint8Array(buffer, 0, Math.min(4, buffer.byteLength));
 

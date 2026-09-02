@@ -140,6 +140,27 @@ class EFM_Builder {
 			return;
 		}
 
+		/*
+		 * The builder shell and the block editor get the faces and nothing that
+		 * paints. Both load this stylesheet like any other page -- ?etch=magic is a
+		 * front-end request -- so a rule for a bare element lands on the editing
+		 * interface itself. Measured in the Etch builder: with a family holding the
+		 * body-text token, Etch's own body, paragraphs and buttons all rendered in
+		 * it. The fonts still have to be declared there, because the Font Manager
+		 * previews them, so what goes is the styling and not the @font-face.
+		 */
+		if ( self::is_builder_request() || is_admin() ) {
+			$faces = EFM_Fonts::build_css( null, false, true );
+
+			if ( '' !== trim( (string) $faces ) ) {
+				wp_register_style( 'efm-fonts', false, array(), EFM_Fonts::css_version() );
+				wp_enqueue_style( 'efm-fonts' );
+				wp_add_inline_style( 'efm-fonts', $faces );
+			}
+
+			return;
+		}
+
 		$settings = EFM_Fonts::settings();
 
 		/*
@@ -185,6 +206,12 @@ class EFM_Builder {
 	 * handle is a no-op, and without ACSS there is nothing to be later than.
 	 */
 	public static function bridge_acss_tokens() {
+		// The same reason enqueue_fonts() withholds them: this block paints, and
+		// the builder shell is an interface rather than a page.
+		if ( self::is_builder_request() || is_admin() ) {
+			return;
+		}
+
 		$css = EFM_Fonts::token_css();
 
 		if ( '' === trim( $css ) ) {
@@ -525,7 +552,9 @@ class EFM_Builder {
 			'cssTokenHint'   => __( 'Use this anywhere a font family is expected. It already includes the fallback stack.', 'etch-font-manager' ),
 			'googleSource'   => __( 'Google Fonts', 'etch-font-manager' ),
 			'googleSubsets'  => __( 'Subsets', 'etch-font-manager' ),
-			'applyCuts'      => __( 'Download selection', 'etch-font-manager' ),
+			'downloadCuts'   => __( 'Download', 'etch-font-manager' ),
+			'weightOne'      => __( 'weight', 'etch-font-manager' ),
+			'weightMany'     => __( 'weights', 'etch-font-manager' ),
 			'variableNote'   => __( 'Installed as a variable font: one file per subset covering every weight.', 'etch-font-manager' ),
 			'cleanupTitle'   => __( 'Unused files', 'etch-font-manager' ),
 
@@ -597,6 +626,7 @@ class EFM_Builder {
 			'roleHeldBy'     => __( 'currently', 'etch-font-manager' ),
 			'roleTakenFrom'  => __( 'Taken from', 'etch-font-manager' ),
 			'roleCoversSelector' => __( 'Not applied:', 'etch-font-manager' ),
+			'roleCoversOther' => __( 'covers these with a typography token.', 'etch-font-manager' ),
 			'roleCoversHint' => __( 'The typography token above already answers for these.', 'etch-font-manager' ),
 			'roleTakenHint'  => __( 'Unsaved: Discard puts it back.', 'etch-font-manager' ),
 			'changeRoleSet'  => __( 'set as', 'etch-font-manager' ),
@@ -605,6 +635,7 @@ class EFM_Builder {
 			'roleTextChip'   => __( 'Body text', 'etch-font-manager' ),
 			'axesUnknown'    => __( 'Nothing has read this family\'s files yet, so the panel does not know whether the font has variable axes.', 'etch-font-manager' ),
 			'readAxes'       => __( 'Read the files', 'etch-font-manager' ),
+			'alreadyInstalled' => __( 'already installed', 'etch-font-manager' ),
 			'matchFallback'  => __( 'Hold the space while this font loads', 'etch-font-manager' ),
 			'matchFallbackHint' => __( 'Adds a local stand-in carrying this font\'s own line height, so text does not shift when the real font arrives. Measured from the file, so it needs reading once.', 'etch-font-manager' ),
 			'metricsRead'    => __( 'Fallback matched to this font.', 'etch-font-manager' ),

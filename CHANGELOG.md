@@ -2,6 +2,63 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.36.0
+
+A twelfth pass. Two features that had been waiting on a binary, and seven fixes -- most of them consequences of
+0.35.0 making the typography tokens real, found by using it rather than by reading it.
+
+### Added
+
+- **The WOFF2 decoder.** Only the encoder half of google/woff2 was compiled in, so a variable font that arrived
+  already compressed carried its axes where nothing could see them and `axesFromFont()` answered null. Both
+  halves are built now. Verified by the build's own smoke test on the binary that ships: Inter 876,576 to
+  350,352 and back to 878,964 bytes with `fvar` intact, and a decoder that refuses garbage. It cost 72,201
+  bytes, about a tenth of the wasm.
+- **Reading a font already on the server.** A family whose axes are unknown offers to read its files: each is
+  fetched back, decoded and stored. An empty result is recorded as "looked, found nothing", while a file that
+  cannot be read stores nothing at all, so a failed read is never mistaken for a font without axes.
+- **Holding the space while a font loads.** A family can generate a metric-matched fallback -- a local face
+  carrying this font's own vertical metrics, sitting between it and the generic -- so line boxes are the right
+  height before the web font arrives. Read from `hhea`, which is what browsers use for the line box, rather
+  than the advisory `OS/2` pair.
+- **A search field and format filter on Font files** gained a permanent home: the format row now shows even
+  when the folder holds a single format, because one `WOFF2 8` chip says everything is already converted.
+
+### Fixed
+
+- **The typography tokens were restyling the Etch builder itself.** `?etch=magic` is a front-end request, so
+  the generated stylesheet loads in the builder shell like anywhere else -- and once the tokens started writing
+  a real rule, `body, p, li, a, button` reached into Etch's own interface. Measured there: Etch's body,
+  paragraphs and buttons all rendered in the family holding the body-text token. The same was quietly true of
+  any Apply to naming a bare element. The builder shell and the block editor now get the faces and the family
+  variables and nothing that paints; the canvas iframe and the real front end still get everything, because
+  both are the page.
+- **The Google weights row was a delete control wearing a download label.** Installing replaces a family's
+  variant list with whatever the row holds, so unticking a weight and pressing *Download selection* downloaded
+  nothing and removed that weight. Installed weights are ticked and locked now, the row only adds, and the
+  button counts what it will actually fetch. Weights are removed in the Variants table, which says so.
+- **Variable axes were offered for fonts that have none.** The axes were read from Google's catalogue, which
+  describes the family however it was fetched, so a library holding five static Open Sans weight files was
+  given sliders for an axis none of those files carry. Whether a family is variable is now read from the
+  install: a weight stored as a range, or axes actually read out of a file.
+- **Apply to now refuses a selector any typography token already covers**, not merely one this family's own
+  token covers. A second family naming `h1` used to win, because a plain selector beats a token, and quietly
+  took the heading font away from whoever held it. The two features no longer overlap: the tokens own their
+  tags and Apply to owns everything else.
+- **The warnings under Apply to were never live.** The field updated the save bar and nothing else, so the
+  lines that say which selectors are refused sat stale while the reader typed the very thing they warn about.
+- **A disabled family was treated as holding its token by the panel and as holding nothing by the stylesheet**,
+  so the panel dropped an Apply to selector that the stylesheet then wrote. `familyHolding()` applies the same
+  liveness test `token_css()` does.
+- **The panel sat below third-party overlays.** At `z-index: 60` a plugin painting into a fixed layer above it
+  -- Drypoint's CSS-editor swatches, at 900 -- drew over the manager. It sits at 950 now: above the builder's
+  decorations, below Etch's menus and toasts at 999 and 1000.
+
+### Changed
+
+- An already-installed Google weight is ticked, so "I have this" is visibly different from "I have asked for
+  this".
+
 ## 0.35.0
 
 An eleventh pass, eight items, driven a screenshot at a time. Its spine is that a control should mean what it

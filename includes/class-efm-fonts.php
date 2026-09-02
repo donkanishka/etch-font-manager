@@ -1257,18 +1257,36 @@ class EFM_Fonts {
 	);
 
 	/**
-	 * Every selector the roles a family holds already answer for.
+	 * Every selector a typography token already answers for, across the library.
 	 *
-	 * @param array $family Family record.
+	 * Whichever family holds the role. A token and a plain selector aiming at the
+	 * same element is a fight the selector wins, so the two features are kept from
+	 * overlapping at all: the tokens own these tags, and Apply to owns everything
+	 * they do not. Asking only about the family being written would have let a
+	 * second family quietly take h1 away from whoever holds the heading token.
+	 *
+	 * @param array|null $families Optional families. Defaults to stored data.
 	 * @return string[] Lowercase selectors.
 	 */
-	public static function role_selectors( $family ) {
-		$roles   = (array) ( $family['roles'] ?? array() );
+	public static function role_selectors( $families = null ) {
+		if ( null === $families ) {
+			$families = self::families();
+		}
+
 		$covered = array();
 
 		foreach ( self::ROLES as $role ) {
-			if ( in_array( $role, $roles, true ) ) {
+			foreach ( $families as $family ) {
+				if ( ! in_array( $role, (array) ( $family['roles'] ?? array() ), true ) ) {
+					continue;
+				}
+
+				if ( empty( $family['variants'] ) || empty( $family['enabled'] ) || ! empty( $family['trashed'] ) ) {
+					continue;
+				}
+
 				$covered = array_merge( $covered, self::ROLE_SELECTORS[ $role ] );
+				break;
 			}
 		}
 
@@ -1281,14 +1299,14 @@ class EFM_Fonts {
 	 * @param array $family Family record.
 	 * @return string Selector list, empty when the roles cover all of it.
 	 */
-	public static function applied_selector( $family ) {
+	public static function applied_selector( $family, $families = null ) {
 		$selector = self::sanitize_selector( $family['selector'] ?? '' );
 
 		if ( '' === $selector ) {
 			return '';
 		}
 
-		$covered = self::role_selectors( $family );
+		$covered = self::role_selectors( $families );
 
 		if ( ! $covered ) {
 			return $selector;
@@ -2285,7 +2303,7 @@ class EFM_Fonts {
 	 * @param bool       $relative Use relative file URLs (for the static stylesheet).
 	 * @return string
 	 */
-	public static function build_css( $families = null, $relative = false ) {
+	public static function build_css( $families = null, $relative = false, $faces_only = false ) {
 		if ( null === $families ) {
 			$families = self::families();
 		}
@@ -2387,6 +2405,29 @@ class EFM_Fonts {
 			$css .= "/* One custom property per family, so a family can be used as var(--efm-family-slug) */\n:root {\n" . $tokens . "}\n\n";
 		}
 
+		/*
+		 * Everything above declares fonts. Everything below styles a page with them,
+		 * and that is the difference this flag draws.
+		 *
+		 * The Etch builder shell is a front-end request, so this stylesheet loads
+		 * there like anywhere else -- and once the typography tokens started writing
+		 * a real rule, "body, p, li, a, button" reached straight into Etch's own
+		 * interface and restyled it. The same was quietly true of any Apply to that
+		 * named a bare element. The canvas iframe and the real front end still get
+		 * the lot, because both are the page; the builder chrome and the block
+		 * editor get the faces and the family variables and nothing that paints.
+		 */
+		if ( $faces_only ) {
+
+			/**
+			 * Filter the generated font CSS.
+			 *
+			 * @param string $css      Generated CSS.
+			 * @param array  $families Font families.
+			 */
+			return apply_filters( 'efm_font_css', $css, $families );
+		}
+
 		$css .= self::token_css( $families );
 
 		$applied = '';
@@ -2396,7 +2437,7 @@ class EFM_Fonts {
 				continue;
 			}
 
-			$selector = self::applied_selector( $family );
+			$selector = self::applied_selector( $family, $families );
 
 			if ( '' === $selector ) {
 				continue;

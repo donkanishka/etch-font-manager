@@ -2497,7 +2497,7 @@
 	 * can land after the later one.
 	 */
 	var queueGoogleSearch = debounce(function () { searchGoogle(); }, 320);
-	var queueLibraryRender = debounce(function () { render(); }, 200);
+	var queueRender = debounce(function () { render(); }, 200);
 
 	function render() {
 		if (!manager) {
@@ -3916,10 +3916,28 @@
 	 */
 	function roleCovering(family, part) {
 		var needle = part.toLowerCase();
+		var found = null;
 
-		return ROLE_KEYS.filter(function (role) {
-			return hasRole(family, role) && ROLE_SELECTORS[role].indexOf(needle) !== -1;
-		})[0] || '';
+		ROLE_KEYS.forEach(function (role) {
+			if (found || ROLE_SELECTORS[role].indexOf(needle) === -1) {
+				return;
+			}
+
+			/*
+			 * Whichever family holds it, not just this one. A token and a plain
+			 * selector aiming at the same element is a fight the selector wins, so
+			 * the two features are kept from overlapping: the tokens own these tags
+			 * and Apply to owns everything they do not. Asking only about this
+			 * family let a second one quietly take h1 from whoever held the token.
+			 */
+			var holder = familyHolding(role);
+
+			if (holder) {
+				found = { role: role, name: holder.name || '', mine: (holder.name || '') === (family.name || '') };
+			}
+		});
+
+		return found;
 	}
 
 	/**
@@ -3931,17 +3949,28 @@
 	function splitSelectors(family) {
 		var kept = [];
 		var covered = [];
+		var holders = [];
 
 		selectorParts(family).forEach(function (part) {
-			if (roleCovering(family, part)) {
-				covered.push(part);
-			} else {
+			var by = roleCovering(family, part);
+
+			if (!by) {
 				kept.push(part);
+
+				return;
+			}
+
+			covered.push(part);
+
+			if (!by.mine && by.name && holders.indexOf(by.name) === -1) {
+				holders.push(by.name);
 			}
 		});
 
-		return { kept: kept, covered: covered };
+		return { kept: kept, covered: covered, holders: holders };
 	}
+
+
 
 	/**
 	 * Other live families applying themselves to the same selector.
@@ -3992,8 +4021,18 @@
 	 * @return {?Object} The family, or null.
 	 */
 	function familyHolding(role) {
+		/*
+		 * The same liveness test token_css() applies before emitting anything.
+		 * A family that is trashed, switched off, or maps no file writes no token,
+		 * so it holds nothing -- and saying otherwise made the panel drop an Apply
+		 * to selector that the stylesheet went on to write, which is the two
+		 * disagreeing about what is on the page.
+		 */
 		return state.families.filter(function (family) {
-			return !isTrashed(family) && hasRole(family, role);
+			return !isTrashed(family) &&
+				isEnabled(family) &&
+				(family.variants || []).length &&
+				hasRole(family, role);
 		})[0] || null;
 	}
 
@@ -4477,7 +4516,7 @@
 			// Same split as the Google search: read now, redraw later.
 			oninput: function (event) {
 				state.filter = event.target.value;
-				queueLibraryRender();
+				queueRender();
 			}
 		});
 
@@ -5351,19 +5390,40 @@
 				available = installedCuts(family);
 			}
 
-			var chosen = state.cuts[family.name] || installedCuts(family);
+			var here = installedCuts(family);
+			var chosen = state.cuts[family.name] || here.slice();
 			state.cuts[family.name] = chosen;
 
 			rows.push(el('div', { class: 'efm-subsets' }, [
 				el('span', { class: 'efm-subsets__label', text: s('weights', 'Weights') }),
 				el('div', { class: 'efm-chips' }, available.map(function (cut) {
 					var on = chosen.indexOf(cut) !== -1;
+					/*
+					 * Already on disk, as opposed to merely ticked. The two looked
+					 * identical, which is what made a selection carrying weights you
+					 * already own read as a second download of them -- it never was one,
+					 * install() skips any file that exists, but nothing here said so.
+					 * The tick is the difference between "you have this" and "you have
+					 * asked for this".
+					 */
+					var have = here.indexOf(cut) !== -1;
+					var label = cutLabel(cut);
 
+					/*
+					 * An installed weight is fixed here. Unticking one used to be a way of
+					 * deleting it -- install() replaces the variant list with whatever this
+					 * row holds -- so a selection that only dropped a weight left the button
+					 * live and still reading "Download selection", which downloaded nothing
+					 * and removed a weight. Weights are removed in the Variants table below,
+					 * which says so; this row only adds.
+					 */
 					return el('button', {
 						type: 'button',
-						class: 'efm-chip efm-chip--toggle' + (on ? ' is-on' : ''),
+						class: 'efm-chip efm-chip--toggle' + (on ? ' is-on' : '') + (have ? ' efm-chip--have' : ''),
 						'aria-pressed': on ? 'true' : 'false',
-						text: cutLabel(cut),
+						'aria-label': have ? label + ' \u00b7 ' + s('alreadyInstalled', 'already installed') : label,
+						disabled: have,
+						title: have ? s('alreadyInstalled', 'already installed') : null,
 						onclick: function () {
 							var at = chosen.indexOf(cut);
 
@@ -5375,7 +5435,9 @@
 
 							render();
 						}
-					});
+					}, have
+						? [icon('check', 'sm'), el('span', { text: label })]
+						: [el('span', { text: label })]);
 				}))
 			]));
 		}
@@ -5390,23 +5452,32 @@
 			var picked = state.cuts[family.name] || [];
 
 			/*
-			 * There is nothing to fetch when the selection is already what is on
-			 * disk, which for a family Google publishes at one weight is every time:
-			 * the button sat live on a family whose only possible outcome was
-			 * re-downloading identical files. The converter already reads this way,
-			 * going disabled and naming the file that holds the result.
+			 * What this press would actually fetch. The button used to be enabled
+			 * whenever the selection differed from what was installed, which meant it
+			 * went live for a selection that only dropped a weight -- downloading
+			 * nothing under a label that said Download. It now counts the weights
+			 * that are not here yet, and says how many, so a disabled button means
+			 * there is nothing to fetch rather than nothing that changed.
 			 */
-			var unchanged = picked.length === installed.length && picked.every(function (cut) {
-				return installed.indexOf(cut) !== -1;
+			var adding = picked.filter(function (cut) {
+				return installed.indexOf(cut) === -1;
 			});
 
 			rows.push(el('button', {
 				type: 'button',
 				class: 'efm-btn efm-btn--outline',
-				disabled: busy || !picked.length || unchanged,
-				text: busy ? s('installing', 'Installing…') : s('applyCuts', 'Download selection'),
+				disabled: busy || !adding.length,
+				text: busy
+					? s('installing', 'Installing…')
+					: s('downloadCuts', 'Download') + ' ' + adding.length + ' ' +
+						plural(adding.length, s('weightOne', 'weight'), s('weightMany', 'weights')),
 				onclick: function () {
-					installGoogleFont(family.name, subsets, false, state.cuts[family.name] || []);
+					/*
+					 * Installed weights go with it. install() replaces the variant list
+					 * with what it is sent, so sending only the additions would delete
+					 * everything the family already had.
+					 */
+					installGoogleFont(family.name, subsets, false, installed.concat(adding));
 				}
 			}));
 
@@ -5506,11 +5577,25 @@
 					el('input', {
 						type: 'text',
 						class: 'efm-input',
+						'data-efm-focus': 'apply-to-' + index,
 						placeholder: 'h1, .site-title',
 						value: family.selector || '',
+						/*
+						 * Redrawn as you type, not only when something else happens to
+						 * redraw the pane. The warnings below this field are the whole
+						 * point of it -- they say which selectors a role already answers
+						 * for and which other family is writing the same rule -- and they
+						 * used to sit there stale while the reader typed the very thing
+						 * they warn about. The save bar alone was updating.
+						 *
+						 * Same split the Library filter uses: read now, redraw on a
+						 * debounce. The field carries data-efm-focus so render() puts the
+						 * caret back where it was.
+						 */
 						oninput: function (event) {
 							state.families[index].selector = event.target.value;
 							renderSaveBar();
+							queueRender();
 						}
 					}),
 					el('span', { class: 'efm-field__hint', text: s('applyToHint', 'Optional. A comma separated selector list this family is applied to, so you do not have to write the rule yourself.') }),
@@ -5528,16 +5613,20 @@
 					 * be unticked, at which point they come back on their own.
 					 */
 					(function () {
-						var covered = splitSelectors(family).covered;
+						var split = splitSelectors(family);
 
-						if (!covered.length) {
+						if (!split.covered.length) {
 							return null;
 						}
 
+						// Named when it is not this family, because "a token covers this"
+						// raises the question of whose, and the answer is a click away.
 						return el('span', {
 							class: 'efm-field__hint efm-field__hint--warn',
-							text: s('roleCoversSelector', 'Not applied:') + ' ' + covered.join(', ') + '. ' +
-								s('roleCoversHint', 'The typography token above already answers for these.')
+							text: s('roleCoversSelector', 'Not applied:') + ' ' + split.covered.join(', ') + '. ' +
+								(split.holders.length
+									? split.holders.join(', ') + ' ' + s('roleCoversOther', 'covers these with a typography token.')
+									: s('roleCoversHint', 'The typography token above already answers for these.'))
 						});
 					}()),
 					(function () {
@@ -6017,7 +6106,40 @@
 		});
 	}
 
+	/**
+	 * Whether the files this family actually maps are variable.
+	 *
+	 * Read from the install, not from the catalogue. Two signals, either of which
+	 * is conclusive: a variant whose weight is a range rather than a number, which
+	 * is how a variable face is stored, or a mapped file with axes read out of it.
+	 *
+	 * @param {Object} family Family record.
+	 * @return {boolean}
+	 */
+	function familyIsVariable(family) {
+		return (family.variants || []).some(function (variant) {
+			if (String(variant.weight || '').indexOf(' ') !== -1) {
+				return true;
+			}
+
+			var record = fileRecord(variant.file);
+
+			return !!(record && (record.axes || []).length);
+		});
+	}
+
 	function axesForFamily(family) {
+		/*
+		 * The catalogue describes the family, not the install. Google publishes
+		 * Open Sans as a variable font and records its axes here whichever way it
+		 * was fetched, so a library holding five static weight files was being
+		 * offered sliders for a wght axis none of those files carry: they would
+		 * write font-variation-settings into the stylesheet and move nothing.
+		 */
+		if (!familyIsVariable(family)) {
+			return [];
+		}
+
 		if (family.google && (family.google.axes || []).length) {
 			return family.google.axes;
 		}
@@ -6305,7 +6427,7 @@
 			// Same split as the Library filter: read now, redraw later.
 			oninput: function (event) {
 				state.fileFilter = event.target.value;
-				queueLibraryRender();
+				queueRender();
 			}
 		});
 
@@ -6323,8 +6445,15 @@
 			 * Toggles with no All chip: none on means everything, which is how every
 			 * other chip row in the panel already behaves. An All chip beside them
 			 * would be a second way to say the same thing.
+			 *
+			 * Shown even when there is only one format, which makes that single chip a
+			 * filter that cannot change the list. Dumal's call, and the right one: the
+			 * row reads as an inventory as much as a control -- one WOFF2 chip says
+			 * every file is already converted, which is worth knowing -- and a toolbar
+			 * that appears and disappears as the folder changes is worse than a chip
+			 * that is briefly redundant.
 			 */
-			formats.length > 1
+			formats.length
 				? chipWall('fileFormats', s('formatLabel', 'Format'), formats.map(function (ext) {
 					return {
 						label: ext,

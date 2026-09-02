@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.35.0
+Stable tag: 0.36.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,19 @@ Settings > Removal has the opt-out. Tick "Delete the font files when the plugin 
 Reinstalling leaves the kept stylesheet in place rather than regenerating over it, so the site carries on loading its fonts. The library itself starts empty — restore it from Import & export.
 
 == Changelog ==
+
+= 0.36.0 =
+* Fixed: the typography tokens were restyling the Etch builder interface itself. The builder shell and the block editor now get the font declarations without the rules that paint a page; the canvas and the front end are unchanged.
+* Fixed: the Google weights row removed weights. Unticking one and pressing Download selection downloaded nothing and deleted it. Installed weights are locked, the row only adds, and the button counts what it will fetch.
+* Fixed: variable axis sliders were shown for static installs, because the axes were read from Google's catalogue rather than from the files actually installed.
+* Fixed: Apply to now refuses any selector a typography token already covers, whichever family holds it. A second family naming h1 used to silently win.
+* Fixed: the warnings under Apply to update as you type instead of sitting stale.
+* Fixed: a disabled family counted as holding its token in the panel but not in the stylesheet, so the two disagreed about what was written.
+* Fixed: the panel sat below overlays painted by other plugins and is now above them, while staying below Etch's own menus and toasts.
+* Added: the WOFF2 decoder, so a variable font uploaded already compressed gets its axes read.
+* Added: reading the axes of files already on the server, for families installed before the panel could open their format.
+* Added: an optional metric-matched fallback per family, so text does not shift when the web font arrives.
+* Changed: the format filter on Font files shows even when there is only one format, and an already-installed Google weight is ticked.
 
 = 0.35.0 =
 * Fixed: the typography tokens never did anything. Ticking a role declared a custom property and left the rule that uses it to Automatic.css, which only writes one when its Typography section is configured. The block now carries the rule too, on the same selectors ACSS uses.

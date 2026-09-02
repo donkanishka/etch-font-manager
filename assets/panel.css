@@ -75,7 +75,21 @@
 	inset-block-end: var(--efm-inset-bottom, 48px);
 	inset-inline-start: var(--e-settings-bar-width, 48px);
 	inset-inline-end: 0;
-	z-index: 60;
+	/*
+	 * Above the builder's decorations, below its menus. Etch's own managers sit
+	 * in normal flow and are painted over by anything fixed above them, which the
+	 * builder itself never does -- but a third-party plugin does: Drypoint paints
+	 * its CSS-editor swatches into a full-screen fixed layer at z-index 900, and
+	 * at 60 this manager sat underneath it, so stray decorations floated over the
+	 * panel. They never appear over Etch's managers because opening one unmounts
+	 * the editor they belong to; this manager overlays the builder instead of
+	 * replacing it, so they survive underneath.
+	 *
+	 * 950 clears that and stays below Etch's right-click menu and CSS toolbar
+	 * menu (999), its dropdowns and toasts (1000) and this panel's own toast
+	 * (1000), all of which should still open over an open manager.
+	 */
+	z-index: 950;
 
 	display: none;
 	flex-direction: column;
@@ -1701,9 +1715,18 @@
 	transition-property: background-color, color, border-color;
 }
 
-.efm-chip--toggle:hover {
+.efm-chip--toggle:not(:disabled):hover {
 	color: var(--efm-text);
 	border-color: var(--efm-text);
+}
+
+/*
+ * A weight that is already installed. Not faded, because it is not unavailable
+ * -- it is done, and the tick says so. Only the affordances go: no pointer, no
+ * hover, nothing suggesting it is waiting to be pressed.
+ */
+.efm-chip--toggle:disabled {
+	cursor: default;
 }
 
 /*
@@ -1716,6 +1739,16 @@
 	background: var(--efm-surface-raised);
 	border-color: color-mix(in srgb, var(--efm-accent) 45%, transparent);
 	color: var(--efm-accent);
+}
+
+/*
+ * A weight already on the server. The tick does the saying, so the chip only
+ * has to make room for it -- and the gap is what stops the glyph sitting
+ * against the label.
+ */
+.efm-chip--have {
+	gap: 4px;
+	padding-inline-start: 6px;
 }
 
 /*

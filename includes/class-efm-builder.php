@@ -635,7 +635,6 @@ class EFM_Builder {
 			'roleTextChip'   => __( 'Body text', 'etch-font-manager' ),
 			'axesUnknown'    => __( 'Nothing has read this family\'s files yet, so the panel does not know whether the font has variable axes.', 'etch-font-manager' ),
 			'readAxes'       => __( 'Read the files', 'etch-font-manager' ),
-			'alreadyInstalled' => __( 'already installed', 'etch-font-manager' ),
 			'matchFallback'  => __( 'Hold the space while this font loads', 'etch-font-manager' ),
 			'matchFallbackHint' => __( 'Adds a local stand-in carrying this font\'s own line height, so text does not shift when the real font arrives. Measured from the file, so it needs reading once.', 'etch-font-manager' ),
 			'metricsRead'    => __( 'Fallback matched to this font.', 'etch-font-manager' ),

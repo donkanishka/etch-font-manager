@@ -1294,10 +1294,13 @@ class EFM_Fonts {
 	}
 
 	/**
-	 * A family's Apply to list with anything its roles already cover removed.
+	 * A family's Apply to list with anything a typography token already covers
+	 * removed.
 	 *
-	 * @param array $family Family record.
-	 * @return string Selector list, empty when the roles cover all of it.
+	 * @param array      $family   Family record.
+	 * @param array|null $families Optional families, for the token check. Defaults
+	 *                             to stored data.
+	 * @return string Selector list, empty when the tokens cover all of it.
 	 */
 	public static function applied_selector( $family, $families = null ) {
 		$selector = self::sanitize_selector( $family['selector'] ?? '' );
@@ -2299,8 +2302,12 @@ class EFM_Fonts {
 	/**
 	 * Build the @font-face CSS.
 	 *
-	 * @param array|null $families Optional families. Defaults to stored data.
-	 * @param bool       $relative Use relative file URLs (for the static stylesheet).
+	 * @param array|null $families   Optional families. Defaults to stored data.
+	 * @param bool       $relative   Use relative file URLs (for the static stylesheet).
+	 * @param bool       $faces_only Stop after the font declarations, leaving out
+	 *                               everything that styles a page. For the builder
+	 *                               shell and the block editor, which are interfaces
+	 *                               rather than pages.
 	 * @return string
 	 */
 	public static function build_css( $families = null, $relative = false, $faces_only = false ) {

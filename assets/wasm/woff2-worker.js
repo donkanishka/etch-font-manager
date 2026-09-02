@@ -10,9 +10,15 @@
  *
  * Protocol
  *   in  { id, type: 'convert', buffer }   ArrayBuffer, transferred
+ *   in  { id, type: 'decode', buffer }    ArrayBuffer, transferred
  *   out { type: 'ready' }
  *   out { id, type: 'done', buffer }      ArrayBuffer, transferred
  *   out { id, type: 'error', error }
+ *
+ * Decoding is not the converter's job and never reaches a file the user keeps:
+ * it unwraps a WOFF2 far enough to read one table out of it, because a variable
+ * font that arrives already compressed carries its axes where nothing can see
+ * them otherwise.
  *
  * woff2.js and woff2.wasm are built by .github/workflows/build-wasm.yml.
  */
@@ -48,13 +54,18 @@ function boot() {
 }
 
 /**
- * Convert one font.
+ * Run one direction of the codec.
+ *
+ * Both share an output buffer and a release call inside the module, so they
+ * share this too rather than being written twice with one word different.
  *
  * @param {Object} module Emscripten module.
  * @param {ArrayBuffer} buffer Source font bytes.
- * @return {ArrayBuffer} WOFF2 bytes.
+ * @param {string} entry Exported function name.
+ * @param {string} failure Message when it returns nothing.
+ * @return {ArrayBuffer} Result bytes.
  */
-function convert(module, buffer) {
+function run(module, buffer, entry, failure) {
 	var input = new Uint8Array(buffer);
 	var address = module._malloc(input.byteLength);
 
@@ -66,13 +77,15 @@ function convert(module, buffer) {
 
 	try {
 		module.HEAPU8.set(input, address);
-		length = module._efm_ttf_to_woff2(address, input.byteLength);
+		length = module[entry](address, input.byteLength);
 	} finally {
 		module._free(address);
 	}
 
 	if (!length) {
-		throw new Error('Conversion failed. The file may be invalid or corrupted.');
+		// The module has already released its own buffer on the failure path,
+		// so there is nothing to clean up here.
+		throw new Error(failure);
 	}
 
 	var output;
@@ -90,15 +103,27 @@ function convert(module, buffer) {
 	return output.buffer;
 }
 
+var JOBS = {
+	convert: {
+		entry: '_efm_ttf_to_woff2',
+		failure: 'Conversion failed. The file may be invalid or corrupted.'
+	},
+	decode: {
+		entry: '_efm_woff2_to_sfnt',
+		failure: 'This WOFF2 file could not be read.'
+	}
+};
+
 self.onmessage = function (event) {
 	var message = event.data;
+	var job = message && JOBS[message.type];
 
-	if (!message || 'convert' !== message.type) {
+	if (!job) {
 		return;
 	}
 
 	boot().then(function (module) {
-		var result = convert(module, message.buffer);
+		var result = run(module, message.buffer, job.entry, job.failure);
 		self.postMessage({ id: message.id, type: 'done', buffer: result }, [result]);
 	}).catch(function (error) {
 		self.postMessage({

@@ -598,7 +598,7 @@ class EFM_Builder {
 			'changeRoleCleared' => __( 'no longer', 'etch-font-manager' ),
 			'roleHeadingChip' => __( 'Headings', 'etch-font-manager' ),
 			'roleTextChip'   => __( 'Body text', 'etch-font-manager' ),
-			'axesUnknown'    => __( 'The panel cannot read this family\'s files, so it does not know whether the font has variable axes. WOFF2 cannot be opened here. Upload the original TTF, OTF or WOFF and the axes will appear.', 'etch-font-manager' ),
+			'axesUnknown'    => __( 'Nothing has read this family\'s files yet, so the panel does not know whether the font has variable axes. Upload the file again and they will be read, in any format.', 'etch-font-manager' ),
 			'axesHintApplied' => __( 'This family has an Apply to selector, so these change how it renders on the site as well as in this preview.', 'etch-font-manager' ),
 			'axesHintUnapplied' => __( 'These change this preview only. To use the instance on the site, give the family an Apply to selector under Delivery, or use its variation variable in your own CSS.', 'etch-font-manager' ),
 			'variationTokenHint' => __( 'The tuned instance, for font-variation-settings. Pair it with the family variable above.', 'etch-font-manager' ),

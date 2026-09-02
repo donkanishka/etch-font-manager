@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Etch Font Manager\n"
 "Report-Msgid-Bugs-To: https://github.com/donkanishka/etch-font-manager/issues\n"
-"POT-Creation-Date: 2026-09-01 14:30+0000\n"
+"POT-Creation-Date: 2026-09-02 04:37+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -838,7 +838,7 @@ msgid "Body text"
 msgstr ""
 
 #: includes/class-efm-builder.php:601
-msgid "The panel cannot read this family's files, so it does not know whether the font has variable axes. WOFF2 cannot be opened here. Upload the original TTF, OTF or WOFF and the axes will appear."
+msgid "Nothing has read this family's files yet, so the panel does not know whether the font has variable axes. Upload the file again and they will be read, in any format."
 msgstr ""
 
 #: includes/class-efm-builder.php:602

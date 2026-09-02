@@ -4652,23 +4652,28 @@
 		 * at 702px under the specimen, in a pane 711px tall, so reaching them scrolled
 		 * the thing they change off the screen entirely.
 		 *
-		 * Google installs only. An uploaded font's axes would have to be read back
-		 * out of the file, and the panel converts to WOFF2 with no way back, so it
-		 * cannot open one it has written.
+		 * Read at upload, from the file itself, for any format the codec can open --
+		 * which since the decoder was compiled in means WOFF2 as well as TTF, OTF and
+		 * WOFF. A family installed before that could read nothing has no stored list,
+		 * which is what the paragraph below is about.
 		 */
 		var tunable = axesForFamily(family);
 
 		/*
-		 * Said rather than left blank. A font the panel converted to WOFF2 cannot be
-		 * reopened -- the wasm encodes and does not decode -- so its axes are not
-		 * absent, they are unknown, and the way to recover them is to upload the
-		 * original again.
+		 * Said rather than left blank. Nothing has read this family's files, so its
+		 * axes are not absent, they are unknown -- a distinction worth drawing,
+		 * because an empty space looks like an answer.
+		 *
+		 * The reason used to be that the panel could not open a WOFF2 at all. It can
+		 * now, so what remains is families installed before it could, which have no
+		 * stored list rather than an unreadable one. Uploading the file again reads
+		 * it, whatever format it is in.
 		 */
 		if (!tunable.length && axesUnreadable(family)) {
 			contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('axesTitle', 'Variable axes') }));
 			contentEl.appendChild(el('p', {
 				class: 'efm-muted',
-				text: s('axesUnknown', 'The panel cannot read this family\'s files, so it does not know whether the font has variable axes. WOFF2 cannot be opened here. Upload the original TTF, OTF or WOFF and the axes will appear.')
+				text: s('axesUnknown', 'Nothing has read this family\'s files yet, so the panel does not know whether the font has variable axes. Upload the file again and they will be read, in any format.')
 			}));
 		}
 
@@ -8707,8 +8712,27 @@
 	function axesFromFont(buffer) {
 		var head = new Uint8Array(buffer, 0, Math.min(4, buffer.byteLength));
 
+		/*
+		 * A WOFF2 has to be unwrapped before its fvar table is anything but
+		 * brotli-compressed noise. This used to answer null and say so in the
+		 * interface, because only the encoder half of the codec was compiled in;
+		 * the decoder is there now, so a variable font uploaded already compressed
+		 * gets the same axes one uploaded as TTF has always got.
+		 *
+		 * A copy, because the worker takes ownership of whatever it is handed and
+		 * the caller still needs these bytes afterwards. It costs one memcpy of a
+		 * font, and it removes a dependency on a decision three functions away.
+		 */
 		if (isWoff2(head)) {
-			return Promise.resolve(null);
+			if (!converterAvailable()) {
+				return Promise.resolve(null);
+			}
+
+			return decodeBuffer(buffer.slice(0)).then(function (sfnt) {
+				return isSfnt(sfnt) ? parseFvar(sfnt) : null;
+			}).catch(function () {
+				return null;
+			});
 		}
 
 		return toSfnt(buffer).then(function (sfnt) {
@@ -8812,7 +8836,7 @@
 	 * @param {ArrayBuffer} buffer Source bytes. Transferred to the worker.
 	 * @return {Promise} Resolves with an ArrayBuffer of WOFF2 bytes.
 	 */
-	function convertBuffer(buffer) {
+	function workerJob(type, buffer) {
 		return new Promise(function (resolve, reject) {
 			var worker;
 
@@ -8835,8 +8859,29 @@
 				}, CONVERT_TIMEOUT)
 			};
 
-			worker.postMessage({ id: id, type: 'convert', buffer: buffer }, [buffer]);
+			// Transferred, not copied: the worker takes ownership of these bytes and
+			// the buffer is detached here the moment this returns.
+			worker.postMessage({ id: id, type: type, buffer: buffer }, [buffer]);
 		});
+	}
+
+	function convertBuffer(buffer) {
+		return workerJob('convert', buffer);
+	}
+
+	/**
+	 * Unwrap WOFF2 bytes back to sfnt.
+	 *
+	 * Only ever used to read a table out of the result. The reconstructed sfnt is
+	 * not byte-identical to whatever was compressed -- WOFF2 normalises table
+	 * order and drops padding -- which does not matter to a reader and would
+	 * matter a great deal to anything that kept the output.
+	 *
+	 * @param {ArrayBuffer} buffer WOFF2 bytes. Transferred to the worker.
+	 * @return {Promise} Resolves with an ArrayBuffer of sfnt bytes.
+	 */
+	function decodeBuffer(buffer) {
+		return workerJob('decode', buffer);
 	}
 
 	/**

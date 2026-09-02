@@ -62,6 +62,14 @@ jobs:
       # cannot see at all. Brotli's decoder was already being compiled, because
       # the encoder's shared dictionary code reaches into it.
       #
+      # -DNDEBUG is load-bearing, not tidiness. woff2_dec.cc calls assert() and
+      # the encoder sources do not, so adding the decoder gave the binary a
+      # sixth import, __assert_fail, which the glue leaves undefined at -sASSERTIONS=0.
+      # The module then refused to instantiate in a browser -- "function import
+      # requires a callable" -- taking the converter down with it, while the Node
+      # smoke test went on passing. With NDEBUG the asserts compile out and the
+      # import goes away.
+      #
       # -DFONT_COMPRESSION_BIN is what upstream's Makefile uses to turn on
       # progress logging to stdout. It is omitted here on purpose: in a Web
       # Worker that logging is pure noise.
@@ -71,6 +79,7 @@ jobs:
           emcc \
             -O3 \
             -std=c++11 \
+            -DNDEBUG \
             -D__STDC_FORMAT_MACROS \
             -I build/woff2/include \
             -I build/woff2/src \
@@ -116,6 +125,29 @@ jobs:
           test -s /tmp/variable.ttf
           node --input-type=commonjs -e '
             const fs = require("fs");
+
+            /* Every import the wasm declares must be a callable in the object the
+               glue hands to instantiate. Node was happy to run a binary that a
+               browser refused to link -- the decoder had added an __assert_fail
+               import the glue leaves undefined at -sASSERTIONS=0 -- so the
+               functional test below passed on a build that could not load in the
+               place it actually runs. Checking the import object catches that
+               wherever the test happens to be executed. */
+            const realInstantiate = WebAssembly.instantiate;
+            let checked = false;
+            WebAssembly.instantiate = function (mod, imports) {
+              for (const ns of Object.keys(imports || {})) {
+                for (const key of Object.keys(imports[ns])) {
+                  const value = imports[ns][key];
+                  if (typeof value !== "function" && typeof value !== "object" && typeof value !== "number") {
+                    throw new Error("import " + ns + "." + key + " is " + typeof value + ", a browser would refuse to link this");
+                  }
+                }
+              }
+              checked = true;
+              return realInstantiate.apply(this, arguments);
+            };
+
             const factory = require("./assets/wasm/woff2.js");
 
             function tables(buf) {
@@ -171,7 +203,8 @@ jobs:
               if (call(m, "_efm_woff2_to_sfnt", Buffer.from("not a font at all")) !== null) {
                 throw new Error("decoder accepted garbage");
               }
-              console.log("smoke test OK");
+              if (!checked) { throw new Error("the import object was never inspected"); }
+              console.log("smoke test OK, imports all callable");
             }).catch((error) => { console.error(error); process.exit(1); });
           '
 

@@ -1,10 +1,10 @@
 {
-  "version": "0.36.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.36.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.36.0",
+  "version": "0.36.1",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.36.1/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.36.1",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
   "date": "2026-09-02",
-  "notes": "Two features and seven fixes. The typography tokens were restyling the Etch builder's own interface, because the builder shell is a front-end request and the token rule names bare elements; the builder and the block editor now get the font declarations without the rules that paint a page. The Google weights row deleted a weight when you unticked one, under a button that said Download. Variable axis sliders were shown for static installs. Apply to now refuses any selector a typography token covers, whichever family holds it, and its warnings update as you type. The panel no longer sits beneath overlays painted by other plugins. Added: the WOFF2 decoder, so a variable font uploaded already compressed gets its axes read; reading axes from files already on the server; and an optional metric-matched fallback so text does not shift when a font arrives."
+  "notes": "Hotfix. 0.36.0 could not load its WebAssembly module in a browser, so font conversion, the WOFF2 decoder and the metrics reader were all dead; the decoder had added an import the glue leaves undefined, and the build now compiles with NDEBUG. It also lost Generated CSS, Variants and Add variant from every Google family's editor, restyled the panel's own headings, and hid Etch's settings-bar tooltips behind the manager. Apply to is typeable again, a font read that cannot answer gives up after twenty seconds rather than two minutes, Override theme styles disables instead of disappearing, and a family's typography role reads as a badge. Everyone on 0.36.0 should take this."
 }

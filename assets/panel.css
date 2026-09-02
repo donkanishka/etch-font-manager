@@ -76,20 +76,17 @@
 	inset-inline-start: var(--e-settings-bar-width, 48px);
 	inset-inline-end: 0;
 	/*
-	 * Above the builder's decorations, below its menus. Etch's own managers sit
-	 * in normal flow and are painted over by anything fixed above them, which the
-	 * builder itself never does -- but a third-party plugin does: Drypoint paints
-	 * its CSS-editor swatches into a full-screen fixed layer at z-index 900, and
-	 * at 60 this manager sat underneath it, so stray decorations floated over the
-	 * panel. They never appear over Etch's managers because opening one unmounts
-	 * the editor they belong to; this manager overlays the builder instead of
-	 * replacing it, so they survive underneath.
+	 * Below Etch's own furniture, which is where an overlay panel belongs. The
+	 * settings bar sits at 102 and renders its tooltips on that same layer, at
+	 * x43 -- over this panel's left edge -- so anything above 102 here buries the
+	 * labels for the very buttons beside us. Measured: at 950 the "Templates"
+	 * tooltip was drawn behind the manager.
 	 *
-	 * 950 clears that and stays below Etch's right-click menu and CSS toolbar
-	 * menu (999), its dropdowns and toasts (1000) and this panel's own toast
-	 * (1000), all of which should still open over an open manager.
+	 * 0.36.0 raised this to 950 to escape a third-party overlay. That was the
+	 * wrong trade: the overlay is one plugin's stray decoration, the tooltips are
+	 * Etch's. The overlay is dealt with below instead.
 	 */
-	z-index: 950;
+	z-index: 60;
 
 	display: none;
 	flex-direction: column;
@@ -102,6 +99,23 @@
 	font-size: var(--e-font-size-m, 12px);
 	font-weight: 500;
 	line-height: 1.45;
+}
+
+/*
+ * A courtesy to one specific neighbour, and the only place this stylesheet
+ * names another plugin.
+ *
+ * Drypoint paints its CSS-editor swatches into a fixed, pointer-events-free
+ * layer at z-index 900. Etch's own managers never collide with it because
+ * opening one unmounts the editor those decorations belong to; this manager
+ * overlays the builder rather than replacing it, so they survive underneath and
+ * float over the panel as stray boxes.
+ *
+ * Hidden only while the manager is open, and only that layer. If Drypoint is
+ * absent, or renames it, this rule matches nothing and costs nothing.
+ */
+.efm-open .edda-swatches {
+	display: none;
 }
 
 .efm-manager.is-open {
@@ -1652,6 +1666,24 @@
 }
 
 /*
+ * A role the reader assigned, so it reads the way every chosen thing in this
+ * panel reads: the accent as a colour with a border mixed from it, exactly as
+ * .efm-chip--toggle.is-on does. It used to be bare muted text, which put "Body
+ * text" -- the fact that this family is the site's body font -- at the same
+ * weight as a caption.
+ *
+ * No fill. The card underneath is already --efm-surface-raised, and a badge
+ * filled with that would dissolve into it; the border and the colour carry it.
+ * Shaped like the muted badge beside it, since they share a row.
+ */
+.efm-badge--role {
+	padding: 4px 10px;
+	border: 1px solid color-mix(in srgb, var(--efm-accent) 45%, transparent);
+	border-radius: 999px;
+	color: var(--efm-accent);
+}
+
+/*
  * A fault rather than a state, so it takes the warning pair the status toast
  * already uses: --e-warning on --e-warning-dark. Shaped like the muted badge it
  * sits beside, since they share a row on the card.
@@ -2044,6 +2076,19 @@
 	flex-direction: row;
 	align-items: baseline;
 	gap: 6px;
+}
+
+/*
+ * A toggle waiting on something else. Only the label dims and the pointer goes
+ * flat -- the hint keeps its normal weight, because the hint is the part that
+ * says what the toggle is waiting for and is the one thing worth reading.
+ */
+.efm-toggle:has(> .efm-checkbox:disabled) {
+	cursor: default;
+}
+
+.efm-toggle:has(> .efm-checkbox:disabled) .efm-toggle__label {
+	color: var(--efm-muted);
 }
 
 .efm-toggle__label {

@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.36.0
+Stable tag: 0.36.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,15 @@ Settings > Removal has the opt-out. Tick "Delete the font files when the plugin 
 Reinstalling leaves the kept stylesheet in place rather than regenerating over it, so the site carries on loading its fonts. The library itself starts empty — restore it from Import & export.
 
 == Changelog ==
+
+= 0.36.1 =
+* Fixed: the WebAssembly module could not load in a browser at all, so font conversion, the WOFF2 decoder and the metrics reader were all dead in 0.36.0. The decoder had added an import the glue leaves undefined; building with NDEBUG removes it.
+* Fixed: the build's smoke test ran in Node and passed on a binary browsers reject. It now checks the imports the way a browser does.
+* Fixed: Generated CSS, Variants and Add variant were missing from every Google family's editor, because the panel threw partway through drawing it.
+* Fixed: the Font Manager restyled its own headings, because the panel injected the site stylesheet into the builder as well as the canvas.
+* Fixed: Etch's settings-bar tooltips were hidden behind the panel.
+* Fixed: the Apply to field was hard to type in, and a font read that could not answer waited two minutes instead of twenty seconds.
+* Changed: Override theme styles stays visible and disabled when Apply to is empty, and a family's typography role now reads as a badge rather than plain text.
 
 = 0.36.0 =
 * Fixed: the typography tokens were restyling the Etch builder interface itself. The builder shell and the block editor now get the font declarations without the rules that paint a page; the canvas and the front end are unchanged.

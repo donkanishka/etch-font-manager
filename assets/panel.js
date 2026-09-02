@@ -1489,8 +1489,17 @@
 		}
 
 		state.families.forEach(function (family) {
-			// Enabled families are already declared, and trash draws no specimen.
-			if (isTrashed(family) || isEnabled(family) || !family.name) {
+			/*
+			 * Every family, not only the disabled ones. This used to skip anything
+			 * enabled because the generated stylesheet was injected into the builder
+			 * document and declared them -- but that stylesheet also carries the rules
+			 * that paint a page, so it restyled the builder and this panel with it.
+			 * The document is no longer given it, and the font set carries every face
+			 * the panel needs to draw a specimen.
+			 *
+			 * Trash draws no specimen, so it is still skipped.
+			 */
+			if (isTrashed(family) || !family.name) {
 				return;
 			}
 
@@ -1530,7 +1539,29 @@
 
 		var href = state.cssUrl + '?ver=' + encodeURIComponent(state.cssVersion || Date.now());
 
-		collectDocuments().forEach(function (doc) {
+		/*
+		 * The canvas only. The generated stylesheet declares fonts and also styles a
+		 * page with them -- h1 to h6 for the heading token, body and its kin for the
+		 * text one -- and the canvas is a page, so it wants both. The builder
+		 * document is an interface: given the same stylesheet it restyled Etch's
+		 * chrome and this panel's own headings, which is what 0.36.0 fixed on the
+		 * server and this had been quietly undoing on the client.
+		 *
+		 * The panel does not lose anything by it. Faces reach the builder document
+		 * through loadPreviewFaces(), which adds them to the font set directly.
+		 */
+		// A copy left in the builder document by an earlier version of this panel
+		// would go on painting after the upgrade, so it is cleared rather than
+		// merely stopped being created.
+		var stale = document.getElementById('efm-fonts-live');
+
+		if (stale && stale.parentNode) {
+			stale.parentNode.removeChild(stale);
+		}
+
+		collectDocuments().filter(function (doc) {
+			return doc !== document;
+		}).forEach(function (doc) {
 			var owned = doc.getElementById('efm-fonts-live');
 
 			var etchOwned = Array.prototype.filter.call(
@@ -1903,6 +1934,10 @@
 		isOpen = true;
 		manager.hidden = false;
 		manager.classList.add('is-open');
+		// On the root rather than the panel, so a rule can reach a sibling layer a
+		// neighbouring plugin painted outside this subtree. See .efm-open in the
+		// stylesheet.
+		document.documentElement.classList.add('efm-open');
 		syncBounds();
 
 		if (controlButton) {
@@ -1984,6 +2019,8 @@
 	 */
 	function shutPanel(restoreFocus) {
 		isOpen = false;
+
+		document.documentElement.classList.remove('efm-open');
 
 		if (manager) {
 			manager.classList.remove('is-open');
@@ -4662,10 +4699,10 @@
 						 * had been deleted and the chips could never light up.
 						 */
 						hasRole(family, 'heading')
-							? el('span', { class: 'efm-badge', text: s('roleHeadingChip', 'Headings') })
+							? el('span', { class: 'efm-badge efm-badge--role', text: s('roleHeadingChip', 'Headings') })
 							: null,
 						hasRole(family, 'text')
-							? el('span', { class: 'efm-badge', text: s('roleTextChip', 'Body text') })
+							? el('span', { class: 'efm-badge efm-badge--role', text: s('roleTextChip', 'Body text') })
 							: null,
 						/*
 						 * A family with no variants at all, which is what deleting the last
@@ -5065,6 +5102,90 @@
 		var ext = String(file || '').split('.').pop().toLowerCase();
 
 		return FILE_FORMATS[ext] || 'woff2';
+	}
+
+	/**
+	 * The sentence shown when a typography token has taken selectors over.
+	 *
+	 * @param {Object} family Family record.
+	 * @return {string} Empty when nothing is covered.
+	 */
+	function coveredWarning(family) {
+		var split = splitSelectors(family);
+
+		if (!split.covered.length) {
+			return '';
+		}
+
+		// Named when it is not this family, because "a token covers this" raises the
+		// question of whose, and the answer is a click away.
+		return s('roleCoversSelector', 'Not applied:') + ' ' + split.covered.join(', ') + '. ' +
+			(split.holders.length
+				? split.holders.join(', ') + ' ' + s('roleCoversOther', 'covers these with a typography token.')
+				: s('roleCoversHint', 'The typography token above already answers for these.'));
+	}
+
+	/**
+	 * Bring the two things an Apply to keystroke changes up to date, in place.
+	 *
+	 * Called on every keystroke, so it touches three nodes and nothing else. A
+	 * render() here would rebuild the specimen, the variants table and the CSS
+	 * preview between keystrokes, which is what made the field hard to type in.
+	 *
+	 * @param {number} index Family index.
+	 */
+	function syncApplyTo(index) {
+		var family = state.families[index];
+
+		if (!family || !contentEl) {
+			return;
+		}
+
+		var warn = contentEl.querySelector('[data-efm-covered="' + index + '"]');
+
+		if (warn) {
+			var text = coveredWarning(family);
+
+			warn.textContent = text;
+			warn.hidden = !text;
+		}
+
+		var clash = contentEl.querySelector('[data-efm-clash="' + index + '"]');
+
+		if (clash) {
+			var shared = clashWarning(index);
+
+			clash.textContent = shared;
+			clash.hidden = !shared;
+		}
+
+		// Looked up rather than captured: the Generated CSS block is appended after
+		// this section, so at build time there is nothing to hold.
+		var preview = contentEl.querySelector('.efm-code');
+
+		if (preview) {
+			preview.textContent = previewCss(family);
+		}
+	}
+
+	/**
+	 * The sentence shown when another family writes a rule for the same selector.
+	 *
+	 * @param {number} index Family index.
+	 * @return {string} Empty when nothing clashes.
+	 */
+	function clashWarning(index) {
+		var clashes = selectorClashes(index);
+
+		if (!clashes.length) {
+			return '';
+		}
+
+		return s('selectorClash', 'Also applied by') + ' ' +
+			clashes.map(function (clash) {
+				return clash.name + ' (' + clash.parts.join(', ') + ')';
+			}).join(', ') + '. ' +
+			s('selectorClashHint', 'Whichever comes last in the stylesheet wins.');
 	}
 
 	function previewCss(family) {
@@ -5467,10 +5588,14 @@
 				type: 'button',
 				class: 'efm-btn efm-btn--outline',
 				disabled: busy || !adding.length,
+				// The count only once there is one. "Download 0 weights" on a disabled
+				// button says nothing the hint below it does not say better.
 				text: busy
 					? s('installing', 'Installing…')
-					: s('downloadCuts', 'Download') + ' ' + adding.length + ' ' +
-						plural(adding.length, s('weightOne', 'weight'), s('weightMany', 'weights')),
+					: (adding.length
+						? s('downloadCuts', 'Download') + ' ' + adding.length + ' ' +
+							plural(adding.length, s('weightOne', 'weight'), s('weightMany', 'weights'))
+						: s('downloadCuts', 'Download')),
 				onclick: function () {
 					/*
 					 * Installed weights go with it. install() replaces the variant list
@@ -5481,14 +5606,14 @@
 				}
 			}));
 
-			if (unchanged && !busy) {
+			if (!adding.length && !busy) {
 				rows.push(el('p', {
 					class: 'efm-field__hint',
 					// Why it cannot be pressed, which is the only thing worth saying
 					// once it is disabled.
 					text: available.length === installed.length
 						? s('cutsAllInstalled', 'Every weight Google publishes for this family is installed.')
-						: s('cutsUnchanged', 'Change the weights to download a different selection.')
+						: s('cutsUnchanged', 'Pick a weight this family does not have yet.')
 				}));
 			}
 		}
@@ -5581,21 +5706,22 @@
 						placeholder: 'h1, .site-title',
 						value: family.selector || '',
 						/*
-						 * Redrawn as you type, not only when something else happens to
-						 * redraw the pane. The warnings below this field are the whole
-						 * point of it -- they say which selectors a role already answers
-						 * for and which other family is writing the same rule -- and they
-						 * used to sit there stale while the reader typed the very thing
-						 * they warn about. The save bar alone was updating.
+						 * Updated in place, not by re-rendering. The warnings below this
+						 * field have to keep up with the typing -- they say which selectors
+						 * a token already answers for -- but a full render rebuilds the
+						 * whole pane, specimen, variants table and CSS preview included,
+						 * and doing that between keystrokes made the field hard to type in.
+						 * The Library filter can afford it because it redraws a list; this
+						 * screen cannot.
 						 *
-						 * Same split the Library filter uses: read now, redraw on a
-						 * debounce. The field carries data-efm-focus so render() puts the
-						 * caret back where it was.
+						 * The same treatment the axis sliders already use, and for the same
+						 * reason: the three things that actually change are written to
+						 * directly, and nothing is torn down under the cursor.
 						 */
 						oninput: function (event) {
 							state.families[index].selector = event.target.value;
 							renderSaveBar();
-							queueRender();
+							syncApplyTo(index);
 						}
 					}),
 					el('span', { class: 'efm-field__hint', text: s('applyToHint', 'Optional. A comma separated selector list this family is applied to, so you do not have to write the rule yourself.') }),
@@ -5612,46 +5738,37 @@
 					 * from the field: the field is what the reader typed, and a role can
 					 * be unticked, at which point they come back on their own.
 					 */
-					(function () {
-						var split = splitSelectors(family);
-
-						if (!split.covered.length) {
-							return null;
-						}
-
-						// Named when it is not this family, because "a token covers this"
-						// raises the question of whose, and the answer is a click away.
-						return el('span', {
-							class: 'efm-field__hint efm-field__hint--warn',
-							text: s('roleCoversSelector', 'Not applied:') + ' ' + split.covered.join(', ') + '. ' +
-								(split.holders.length
-									? split.holders.join(', ') + ' ' + s('roleCoversOther', 'covers these with a typography token.')
-									: s('roleCoversHint', 'The typography token above already answers for these.'))
-						});
-					}()),
-					(function () {
-						var clashes = selectorClashes(index);
-
-						if (!clashes.length) {
-							return null;
-						}
-
-						return el('span', {
-							class: 'efm-field__hint efm-field__hint--warn',
-							text: s('selectorClash', 'Also applied by') + ' ' +
-								clashes.map(function (clash) {
-									return clash.name + ' (' + clash.parts.join(', ') + ')';
-								}).join(', ') + '. ' +
-								s('selectorClashHint', 'Whichever comes last in the stylesheet wins.')
-						});
-					}())
+					/*
+					 * Always built, hidden when it has nothing to say, so syncApplyTo has
+					 * a node to write to rather than having to insert one mid-typing.
+					 */
+					el('span', {
+						class: 'efm-field__hint efm-field__hint--warn',
+						'data-efm-covered': String(index),
+						hidden: !splitSelectors(family).covered.length,
+						text: coveredWarning(family)
+					}),
+					el('span', {
+						class: 'efm-field__hint efm-field__hint--warn',
+						'data-efm-clash': String(index),
+						hidden: !clashWarning(index),
+						text: clashWarning(index)
+					})
 				])
 			]),
-			family.selector ? el('label', { class: 'efm-toggle' }, [
+			/*
+			 * Always here, disabled until there is a rule for it to act on. It used to
+			 * render only when Apply to had something in it, which is true to what the
+			 * setting does -- !important is added to that rule and nowhere else -- but
+			 * a control that vanishes reads as a control that broke. The same call as
+			 * the format chips: inert and explained beats absent and mysterious.
+			 */
+			el('label', { class: 'efm-toggle' }, [
 				el('input', {
 					type: 'checkbox',
 					class: 'efm-checkbox',
 					checked: !!family.force,
+					disabled: !family.selector,
 					onchange: function (event) {
 						state.families[index].force = event.target.checked;
 						render();
@@ -5659,9 +5776,16 @@
 				}),
 				el('span', {}, [
 					el('span', { class: 'efm-toggle__label', text: s('applyForce', 'Override theme styles') }),
-					el('span', { class: 'efm-field__hint', text: s('applyForceHint', 'Adds !important, for when a theme stylesheet loads later or wins on specificity.') })
+					el('span', {
+						class: 'efm-field__hint',
+						// Says why it cannot be pressed, rather than leaving the reader to
+						// work out which empty field it depends on.
+						text: family.selector
+							? s('applyForceHint', 'Adds !important, for when a theme stylesheet loads later or wins on specificity.')
+							: s('applyForceNone', 'Adds !important to the Apply to rule. Fill in Apply to above to use it.')
+					})
 				])
-			]) : null,
+			]),
 			/*
 			 * A local face wearing this font's vertical metrics, so the line boxes are
 			 * the right height before the web font arrives and nothing jumps when it
@@ -8810,6 +8934,10 @@
 	// going after two minutes is not going to finish.
 	var CONVERT_TIMEOUT = 120000;
 
+	// Reading a font back is decompression, not compression. Twenty seconds is
+	// already generous for the largest variable font anyone ships.
+	var READ_TIMEOUT = 20000;
+
 	var converter = {
 		worker: null,
 		jobs: {},
@@ -9358,13 +9486,24 @@
 
 			var id = ++converter.seq;
 
+			/*
+			 * Reading waits far less than converting. Compression is the slow half --
+			 * brotli at quality 11 runs about a second per 100KB, hence two minutes --
+			 * while decoding is decompression and is done in well under a second. A
+			 * read that has not answered in twenty seconds is not going to, and until
+			 * now the interface sat on "Loading" for the full two minutes finding out.
+			 */
+			var limit = 'convert' === type ? CONVERT_TIMEOUT : READ_TIMEOUT;
+
 			converter.jobs[id] = {
 				resolve: resolve,
 				reject: reject,
 				timer: window.setTimeout(function () {
 					delete converter.jobs[id];
-					reject(new Error(s('convertTimeout', 'Converting took too long and was stopped.')));
-				}, CONVERT_TIMEOUT)
+					reject(new Error('convert' === type
+						? s('convertTimeout', 'Converting took too long and was stopped.')
+						: s('readTimeout', 'Reading this font took too long and was stopped.')));
+				}, limit)
 			};
 
 			// Transferred, not copied: the worker takes ownership of these bytes and

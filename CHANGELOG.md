@@ -2,6 +2,44 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.36.1
+
+A hotfix. 0.36.0 shipped with no working font converter and with three sections missing from every Google
+family's editor. Both were mine, and both were found by using the panel rather than by reading it.
+
+### Fixed
+
+- **The WebAssembly module could not load at all.** `woff2_dec.cc` calls `assert()` and the encoder sources
+  never did, so compiling the decoder in gave the binary a sixth import, `__assert_fail`, which the glue leaves
+  undefined at `-sASSERTIONS=0`. A browser refuses to link a module whose import is not callable, so the whole
+  module died on boot and took the converter, the decoder and the metrics reader with it. Built with `-DNDEBUG`
+  now: the asserts compile out and the import goes with them, five imports again, and it loads.
+- **The build's smoke test could not have caught it.** It runs in Node, which instantiated the same module
+  happily and reported success on a binary that was dead everywhere it actually runs. It now inspects the import
+  object before instantiating and fails if any value is not callable, which is the browser's own check.
+- **Generated CSS, Variants and Add variant were missing on every Google family.** `googleSection()` still
+  referenced a variable 0.36.0 had removed, so `render()` threw partway and everything after the Google Fonts
+  heading was never appended. Uploaded families were unaffected, which is why it survived testing.
+- **The panel restyled its own headings.** 0.36.0 stopped the server sending page rules to the builder, and the
+  panel went on injecting the whole stylesheet into the builder document itself, undoing it. The canvas gets the
+  stylesheet, because the canvas is a page; the builder document does not. Faces reach the panel through the
+  font set instead, so previews are unchanged.
+- **Etch's settings-bar tooltips were buried.** 0.36.0 raised the manager to `z-index: 950` to escape a
+  third-party overlay at 900, which also put it over the settings bar's tooltips at 102. Back to 60, and the
+  overlay is hidden while the manager is open instead.
+- **`Apply to` was hard to type in.** Its warnings were refreshed by re-rendering the whole pane -- specimen,
+  variants table and CSS preview included -- between keystrokes. It writes to the three nodes that change,
+  which is what the axis sliders already did and for the same reason.
+- **A read that could not answer waited two minutes.** The worker's timeout was written for compression; a
+  decode gets twenty seconds, so a failure says so rather than sitting on "Loading".
+
+### Changed
+
+- **Override theme styles** stays visible and goes disabled when Apply to is empty, rather than disappearing.
+  It only ever acted on that rule, but a control that vanishes reads as a control that broke.
+- A family's typography role is an accent pill on its card rather than plain muted text, so "Body text" no
+  longer sits at the weight of a caption.
+
 ## 0.36.0
 
 A twelfth pass. Two features that had been waiting on a binary, and seven fixes -- most of them consequences of

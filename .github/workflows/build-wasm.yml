@@ -56,10 +56,11 @@ jobs:
           done
           ls build/obj | wc -l
 
-      # Only the encoder half of woff2 is compiled. The plugin converts TTF and
-      # OTF to WOFF2 and never goes the other way, so woff2_dec.cc is left out.
-      # Brotli's decoder is compiled above only because the encoder's shared
-      # dictionary code reaches into it; nothing unreferenced survives -O3.
+      # Both halves of woff2 are compiled. The encoder is what the converter
+      # uses; the decoder is there so the panel can read the fvar table of a
+      # variable font that arrives already wrapped as WOFF2, which it otherwise
+      # cannot see at all. Brotli's decoder was already being compiled, because
+      # the encoder's shared dictionary code reaches into it.
       #
       # -DFONT_COMPRESSION_BIN is what upstream's Makefile uses to turn on
       # progress logging to stdout. It is omitted here on purpose: in a Web
@@ -82,6 +83,7 @@ jobs:
             build/woff2/src/transform.cc \
             build/woff2/src/variable_length.cc \
             build/woff2/src/woff2_common.cc \
+            build/woff2/src/woff2_dec.cc \
             build/woff2/src/woff2_enc.cc \
             build/woff2/src/woff2_out.cc \
             build/obj/*.o \
@@ -95,33 +97,79 @@ jobs:
             -s FILESYSTEM=0 \
             -s INVOKE_RUN=0 \
             -s ASSERTIONS=0 \
-            -s EXPORTED_FUNCTIONS='["_efm_ttf_to_woff2","_efm_output","_efm_release","_malloc","_free"]' \
+            -s EXPORTED_FUNCTIONS='["_efm_ttf_to_woff2","_efm_woff2_to_sfnt","_efm_output","_efm_release","_malloc","_free"]' \
             -s EXPORTED_RUNTIME_METHODS='["HEAPU8"]'
 
       # A build that produces a file but cannot convert a font is worse than a
       # build that fails, because it would be committed and shipped. Both
       # flavours of sfnt are exercised: TrueType outlines and CFF (.otf).
+      #
+      # The round trip is the decoder's test. A variable font is used for it on
+      # purpose: the only reason the decoder is here is to reach an fvar table,
+      # so the test asserts that fvar survives the trip rather than only that
+      # some bytes came back.
       - name: Smoke test
         run: |
           curl -sSLo /tmp/test.ttf https://raw.githubusercontent.com/adobe-fonts/source-code-pro/release/TTF/SourceCodePro-Regular.ttf
           curl -sSLo /tmp/test.otf https://raw.githubusercontent.com/adobe-fonts/source-code-pro/release/OTF/SourceCodePro-Regular.otf
+          curl -sSLo /tmp/variable.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf
+          test -s /tmp/variable.ttf
           node --input-type=commonjs -e '
             const fs = require("fs");
             const factory = require("./assets/wasm/woff2.js");
+
+            function tables(buf) {
+              const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+              const count = view.getUint16(4);
+              const out = [];
+              for (let i = 0; i < count; i++) {
+                const at = 12 + i * 16;
+                out.push(String.fromCharCode(buf[at], buf[at + 1], buf[at + 2], buf[at + 3]));
+              }
+              return out;
+            }
+
+            function call(m, fn, input) {
+              const addr = m._malloc(input.length);
+              m.HEAPU8.set(input, addr);
+              const length = m[fn](addr, input.length);
+              m._free(addr);
+              if (!length) { m._efm_release(); return null; }
+              const out = m.HEAPU8.slice(m._efm_output(), m._efm_output() + length);
+              m._efm_release();
+              return Buffer.from(out);
+            }
+
+            function run(m, fn, input) {
+              const out = call(m, fn, input);
+              if (!out) { throw new Error(fn + " returned 0"); }
+              return out;
+            }
+
             factory().then((m) => {
               for (const name of ["/tmp/test.ttf", "/tmp/test.otf"]) {
                 const input = fs.readFileSync(name);
-                const addr = m._malloc(input.length);
-                m.HEAPU8.set(input, addr);
-                const length = m._efm_ttf_to_woff2(addr, input.length);
-                m._free(addr);
-                if (!length) { throw new Error(name + ": conversion returned 0"); }
-                const out = m.HEAPU8.slice(m._efm_output(), m._efm_output() + length);
-                m._efm_release();
-                const signature = Buffer.from(out.slice(0, 4)).toString("latin1");
+                const out = run(m, "_efm_ttf_to_woff2", input);
+                const signature = out.slice(0, 4).toString("latin1");
                 if (signature !== "wOF2") { throw new Error(name + ": bad signature " + signature); }
-                if (length >= input.length) { throw new Error(name + ": output not smaller"); }
-                console.log(name, input.length, "->", length, "bytes");
+                if (out.length >= input.length) { throw new Error(name + ": output not smaller"); }
+                console.log(name, input.length, "->", out.length, "bytes");
+              }
+
+              const variable = fs.readFileSync("/tmp/variable.ttf");
+              const axesBefore = tables(variable).includes("fvar");
+              if (!axesBefore) { throw new Error("test fixture is not a variable font"); }
+
+              const packed = run(m, "_efm_ttf_to_woff2", variable);
+              if (packed.slice(0, 4).toString("latin1") !== "wOF2") { throw new Error("round trip: not WOFF2"); }
+
+              const unpacked = run(m, "_efm_woff2_to_sfnt", packed);
+              const found = tables(unpacked);
+              if (!found.includes("fvar")) { throw new Error("round trip: fvar did not survive, got " + found.join(" ")); }
+              console.log("round trip", variable.length, "->", packed.length, "->", unpacked.length, "bytes, fvar present");
+
+              if (call(m, "_efm_woff2_to_sfnt", Buffer.from("not a font at all")) !== null) {
+                throw new Error("decoder accepted garbage");
               }
               console.log("smoke test OK");
             }).catch((error) => { console.error(error); process.exit(1); });

@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.36.2
+Stable tag: 0.36.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,11 @@ Settings > Removal has the opt-out. Tick "Delete the font files when the plugin 
 Reinstalling leaves the kept stylesheet in place rather than regenerating over it, so the site carries on loading its fonts. The library itself starts empty — restore it from Import & export.
 
 == Changelog ==
+
+= 0.36.3 =
+* Fixed: opening Google Fonts switched the font library's preview to Latin and left it there. The library shows each family in its own script again, which is what makes a missing subset visible.
+* Fixed: a font already in the library could be converted and uploaded a second time before the server refused it, because the check compared the picked file against names the server had rewritten.
+* Fixed: the Generated CSS preview showed a fallback the stylesheet does not contain, and ignored the family's own fallback stack.
 
 = 0.36.2 =
 * Changed: uploading a file that is already WOFF2 now says so in the upload report instead of passing without comment.

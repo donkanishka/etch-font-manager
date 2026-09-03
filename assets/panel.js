@@ -355,9 +355,36 @@
 	 * @param {object} font Index record or family record.
 	 * @return {string}
 	 */
+	/**
+	 * The preview text in force for whatever is on screen.
+	 *
+	 * Google Fonts prefers Latin over Auto: browsing two thousand mixed-script
+	 * families is the one place where a single sample across all of them is what
+	 * makes them comparable. The library is the opposite -- those are your fonts,
+	 * and a Sinhala family should preview in Sinhala.
+	 *
+	 * Computed rather than stored, which 0.36.2 got wrong. Writing Latin into
+	 * state.previewCustom on the way into Google switched the **library** too, for
+	 * the rest of the session and permanently as soon as anything saved prefs --
+	 * defeating the Auto default that exists so a family missing a subset shows it
+	 * (gotcha #4: a Latin pangram renders the same whether or not the glyphs are
+	 * really there).
+	 *
+	 * @return {string} Custom text, or '' to let each family pick its own script.
+	 */
+	function previewInForce() {
+		if (!state.previewTouched && 'google' === state.view) {
+			return s('preview', 'The quick brown fox');
+		}
+
+		return state.previewCustom;
+	}
+
 	function sampleFor(font) {
-		if (state.previewCustom) {
-			return state.previewCustom;
+		var forced = previewInForce();
+
+		if (forced) {
+			return forced;
 		}
 
 		var subsets = (font && font.subsets) || [];
@@ -1138,7 +1165,20 @@
 			stack += ', "' + name + ' ' + FALLBACK_SUFFIX + '"';
 		}
 
-		return stack + ', sans-serif';
+		/*
+		 * The family's own fallback, and nothing when it has none -- which is what
+		 * family_stack() writes. This used to append ", sans-serif" unconditionally,
+		 * so the preview claimed a generic the stylesheet does not contain, and
+		 * showed "sans-serif" even for a family whose stack was set to something
+		 * else entirely. Third time previewCss() has drifted from build_css();
+		 * change the two together (gotcha #15).
+		 *
+		 * The specimen calls this with a bare name and no record, which is why the
+		 * lookup is guarded rather than assumed.
+		 */
+		var fallback = family && family.fallback ? String(family.fallback).trim() : '';
+
+		return fallback ? stack + ', ' + fallback : stack;
 	}
 
 	/**
@@ -2480,20 +2520,6 @@
 		state.filtersOpen = false;
 		state.openMenu = '';
 
-		/*
-		 * Google Fonts opens on Latin rather than Auto. Auto renders each family in
-		 * its own script, which is right for the library -- those are your fonts,
-		 * and a Sinhala family should preview in Sinhala. Browsing two thousand
-		 * families is the opposite case: the scripts are mixed, so one sample text
-		 * across all of them is what makes them comparable.
-		 *
-		 * Only before the row has been touched, so a script picked deliberately
-		 * survives leaving the screen and coming back.
-		 */
-		if ('google' === view && !state.previewTouched) {
-			state.previewCustom = s('preview', 'The quick brown fox');
-		}
-
 		state.view = view;
 		state.editing = null;
 		render();
@@ -2935,7 +2961,7 @@
 		var textInput = el('input', {
 			type: 'text',
 			class: 'efm-input',
-			value: state.previewCustom,
+			value: previewInForce(),
 			'aria-label': s('previewText', 'Preview text'),
 			placeholder: s('previewAuto', 'Each family in its own script'),
 			/*
@@ -2995,7 +3021,7 @@
 				type: 'button',
 				class: 'efm-chip efm-chip--toggle',
 				'data-efm-preset': preset.id,
-				'aria-pressed': state.previewCustom === preset.text ? 'true' : 'false',
+				'aria-pressed': previewInForce() === preset.text ? 'true' : 'false',
 				text: preset.label,
 				onclick: function () {
 					state.previewTouched = true;
@@ -3053,7 +3079,7 @@
 			var buried = 0;
 
 			presetButtons.forEach(function (node, i) {
-				var on = state.previewCustom === presets[i].text;
+				var on = previewInForce() === presets[i].text;
 				var show = open || i < CHIP_LIMIT || on;
 
 				node.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -10106,10 +10132,36 @@
 	 * @param {File} file Picked file.
 	 * @return {string} The file already held, or ''.
 	 */
+	/**
+	 * A file name reduced to what survives the trip to the server.
+	 *
+	 * sanitize_file_name() rewrites a name on the way in -- whitespace and runs of
+	 * separators become a single dash -- so "Atlas Test Sans Regular.ttf" is stored
+	 * as "Atlas-Test-Sans-Regular.woff2". Comparing a picked file against the
+	 * library by raw name therefore never matched for any name WordPress rewrites,
+	 * which defeated both checks below: the same font could be picked again, spend
+	 * a second or two converting and a whole upload, and only then be turned away
+	 * by the server. On a re-picked folder that is minutes.
+	 *
+	 * Normalising both sides is enough here and avoids reimplementing WordPress's
+	 * sanitiser, which we would only get subtly wrong.
+	 *
+	 * @param {string} name File name.
+	 * @return {string} Comparison key, without extension.
+	 */
+	function nameKey(name) {
+		return String(name)
+			.toLowerCase()
+			.replace(/\.[a-z0-9]+$/, '')
+			.replace(/[\s._-]+/g, '-');
+	}
+
 	function alreadyHeld(file) {
 		var held = state.files || [];
+		var key = nameKey(file.name);
+		var ext = extensionOf(file.name);
 		var same = held.filter(function (entry) {
-			return entry.name === file.name && entry.size === file.size;
+			return nameKey(entry.name) === key && extensionOf(entry.name) === ext && entry.size === file.size;
 		})[0];
 
 		if (same) {
@@ -10120,9 +10172,8 @@
 			return '';
 		}
 
-		var twin = woff2Name(file.name);
 		var converted = held.filter(function (entry) {
-			return entry.name === twin;
+			return 'woff2' === extensionOf(entry.name) && nameKey(entry.name) === key;
 		})[0];
 
 		return converted ? converted.name : '';

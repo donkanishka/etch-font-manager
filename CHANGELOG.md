@@ -2,6 +2,49 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.36.3
+
+Three faults found by working through every screen of a fresh install on a site with no fonts on it. One is a
+regression from 0.36.2; the other two had been there a while and needed a clean library to show themselves.
+
+### Fixed
+
+- **Opening Google Fonts changed the library's preview.** 0.36.2 made that screen prefer Latin over Auto, but it
+  did so by **writing** Latin into shared state, and nothing put it back. The library therefore stopped using
+  Auto for the rest of the session, and permanently as soon as anything saved preferences.
+
+  That defeats the reason Auto exists: a Latin pangram renders identically whether or not a family actually
+  carries the glyphs, so Auto is what makes a missing subset visible at a glance. The preference is now computed
+  per view rather than stored, so Google Fonts shows Latin, the library still shows each family in its own
+  script, and only a deliberate choice changes either.
+
+- **A font already in the library could be converted and uploaded all over again.** The check that catches a
+  re-picked file compared it against the library by raw name, but the server stores names through
+  `sanitize_file_name()` -- so `Atlas Test Sans Regular.ttf` sits on disk as `Atlas-Test-Sans-Regular.woff2` and
+  the comparison never matched. Picking it again spent a second or two converting and a whole upload before the
+  server turned it away, which on a re-picked folder is minutes. Both sides are now normalised before
+  comparing, for the same-file case and for the WOFF2 twin of a convertible one.
+
+  Same root cause as the missing-family bug fixed in 0.36.2: the panel trusting a name the server rewrites.
+
+- **The Generated CSS preview showed a fallback the stylesheet does not contain.** `familyStack()` in the panel
+  always appended `, sans-serif` and ignored the family's own fallback, while `family_stack()` on the server
+  uses that fallback and writes nothing at all when it is empty. So the preview claimed a generic that was never
+  written, and would have shown `sans-serif` for a family whose stack was set to `Georgia, serif`. The two now
+  agree, checked against five records including metric-matched ones.
+
+  Third time the preview has drifted from the generator. **Change `previewCss()` and `build_css()` in the same
+  commit.**
+
+### Notes
+
+Everything else on that fresh install behaved: the converter (TTF 210,312 to 73,816 bytes, 65% smaller),
+Google search, filters, pagination and the type tester, install with chosen weights and subsets, the 0.36.2
+Reinstall guard opening on what is installed and confirming before dropping anything, duplicate detection by
+file contents, enable, disable, trash, restore, the derived dirty flag, settings including inline CSS, the
+export and import dry run, preload, and the typography tokens reaching the front end -- `body` computes to the
+installed family, and only the preloaded cut is fetched.
+
 ## 0.36.2
 
 A hotfix for the hotfix. 0.36.1 shipped a working converter that browsers could not reach.

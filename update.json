@@ -1,11 +1,11 @@
 {
-  "version": "0.36.2",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.36.2/etch-font-manager.zip",
+  "version": "0.36.3",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.36.3/etch-font-manager.zip",
   "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.36.1",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
   "date": "2026-09-02",
-  "notes": "If conversion still did not work after 0.36.1, this is why: the converter was correct but your browser never loaded it. Nothing in its directory carried a cache key, so a browser kept the worker, the Emscripten glue and the binary from whichever release it saw first, and a current binary against an old glue cannot boot. All three are versioned now. Reinstall no longer replaces an installed family with the card's own defaults, which could swap five static weights for one variable file without asking. An upload whose file name the server rewrites, such as one containing spaces, now creates its family instead of landing as a loose file. Add variant keeps the row you just made in view. Google Fonts opens on Latin, the Font files toolbar drops a redundant label, and a WOFF2 upload says it was left alone.",
+  "notes": "Three faults found by working through every screen of a fresh install. Opening Google Fonts used to switch the font library's preview to Latin and leave it there, which removed the signal that a family is missing a subset; the preference is computed per view now. A font already in the library could be converted and uploaded a second time before the server refused it, because the check compared the picked file against names the server had rewritten. The Generated CSS preview showed a fallback the stylesheet does not contain and ignored the family's own stack. Everything else on that install behaved, including the converter, the Reinstall guard, trash and restore, import and export, preload, and the typography tokens reaching the front end.",
   "last_updated": "2026-09-03"
 }

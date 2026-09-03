@@ -1608,6 +1608,20 @@
 	text-overflow: clip;
 }
 
+/*
+ * The card's state badges, on their own line under the head.
+ *
+ * Wraps, because a family can carry both roles and a warning at once and a
+ * narrow column should stack them rather than squeeze them. The row is only
+ * rendered when it has something on it, so cards without state are unchanged.
+ */
+.efm-card__badges {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+}
+
 .efm-card__actions {
 	display: flex;
 	align-items: center;
@@ -1652,6 +1666,17 @@
 	gap: 4px;
 	font-size: var(--e-font-size-s, 11px);
 	color: var(--efm-muted);
+	/*
+	 * A badge is a label, so it never breaks across lines and never gets squeezed.
+	 * These sit in the card head beside the title, which is the flexible element
+	 * there -- it truncates with an ellipsis by design. Without this the flex
+	 * algorithm shrank the badges instead, and a two-word one such as "Body text"
+	 * wrapped, standing 42px tall against its 26px neighbour and pulling the whole
+	 * head out of alignment. The tooltip on a --warn badge is unaffected: it sets
+	 * its own white-space on ::after.
+	 */
+	white-space: nowrap;
+	flex: 0 0 auto;
 }
 
 /*

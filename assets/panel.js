@@ -4743,6 +4743,47 @@
 			var enabled = isEnabled(family);
 			var gone = missingFor(family);
 
+			/*
+			 * Everything that describes the family's state, gathered so the row below
+			 * the head can be left out entirely when there is nothing to say.
+			 */
+			var cardBadges = [
+				enabled ? null : el('span', { class: 'efm-badge efm-badge--muted', text: s('disabledLabel', 'Disabled') }),
+				/*
+				 * The role chips 0.17.0 removed, back because something can be assigned
+				 * again. They went then because nothing could: the mapping had been
+				 * deleted and the chips could never light up.
+				 */
+				hasRole(family, 'heading')
+					? el('span', { class: 'efm-badge efm-badge--role', text: s('roleHeadingChip', 'Headings') })
+					: null,
+				hasRole(family, 'text')
+					? el('span', { class: 'efm-badge efm-badge--role', text: s('roleTextChip', 'Body text') })
+					: null,
+				/*
+				 * A family with no variants at all, which is what deleting the last file
+				 * it mapped leaves behind. The footer counted "0 variants" and nothing
+				 * else said the card was inert -- it still named a family and still
+				 * published a CSS variable, while generating no @font-face.
+				 */
+				variants.length ? null : el('span', {
+					class: 'efm-badge efm-badge--warn efm-tooltip efm-tooltip--wrap',
+					'data-efm-tooltip': s('emptyNotice', 'This family maps no font files, so it loads nothing. Add a variant from Manage, or move the family to the trash.'),
+					text: s('emptyLabel', 'No files')
+				}),
+				/*
+				 * Nothing else said so. The specimen renders in whatever the browser
+				 * falls back to, which on the machine that did the export is often the
+				 * real face out of its own cache, so the card looked correct and the site
+				 * loaded nothing.
+				 */
+				gone.length ? el('span', {
+					class: 'efm-badge efm-badge--warn efm-tooltip efm-tooltip--wrap',
+					'data-efm-tooltip': s('missingNotice', 'These files are not on the server, so this family loads nothing. Upload them, or reinstall the family from Google Fonts.') + ' ' + gone.join(', '),
+					text: s('missingLabel', 'Files missing')
+				}) : null
+			].filter(Boolean);
+
 			grid.appendChild(
 				el('article', { class: 'efm-card' + (enabled ? '' : ' is-disabled') + (picked ? ' is-picked' : '') }, [
 					el('div', { class: 'efm-card__head' }, [
@@ -4758,47 +4799,6 @@
 							})
 						]),
 						el('h2', { class: 'efm-card__title', text: family.name }),
-						/*
-						 * A badge, not the full-width notice this used to be. That
-						 * notice sat between the title and the specimen, so in the
-						 * grid every disabled card pushed its specimen down and the
-						 * row stopped lining up. The wording moves to the button's
-						 * title, where it is still reachable.
-						 */
-						enabled ? null : el('span', { class: 'efm-badge efm-badge--muted', text: s('disabledLabel', 'Disabled') }),
-						/*
-						 * The role chips 0.17.0 removed, back because something can be
-						 * assigned again. They went then because nothing could: the mapping
-						 * had been deleted and the chips could never light up.
-						 */
-						hasRole(family, 'heading')
-							? el('span', { class: 'efm-badge efm-badge--role', text: s('roleHeadingChip', 'Headings') })
-							: null,
-						hasRole(family, 'text')
-							? el('span', { class: 'efm-badge efm-badge--role', text: s('roleTextChip', 'Body text') })
-							: null,
-						/*
-						 * A family with no variants at all, which is what deleting the last
-						 * file it mapped leaves behind. The footer counted "0 variants" and
-						 * nothing else said the card was inert -- it still named a family and
-						 * still published a CSS variable, while generating no @font-face.
-						 */
-						variants.length ? null : el('span', {
-							class: 'efm-badge efm-badge--warn efm-tooltip efm-tooltip--wrap',
-							'data-efm-tooltip': s('emptyNotice', 'This family maps no font files, so it loads nothing. Add a variant from Manage, or move the family to the trash.'),
-							text: s('emptyLabel', 'No files')
-						}),
-						/*
-						 * Nothing else said so. The specimen renders in whatever the
-						 * browser falls back to, which on the machine that did the
-						 * export is often the real face out of its own cache, so the
-						 * card looked correct and the site loaded nothing.
-						 */
-						gone.length ? el('span', {
-							class: 'efm-badge efm-badge--warn efm-tooltip efm-tooltip--wrap',
-							'data-efm-tooltip': s('missingNotice', 'These files are not on the server, so this family loads nothing. Upload them, or reinstall the family from Google Fonts.') + ' ' + gone.join(', '),
-							text: s('missingLabel', 'Files missing')
-						}) : null,
 						el('div', { class: 'efm-card__actions' }, [
 							el('button', {
 								type: 'button',
@@ -4832,6 +4832,24 @@
 							}, [icon('trash', 'sm')])
 						])
 					]),
+					/*
+					 * Badges on their own row rather than in the head beside the title.
+					 *
+					 * They were siblings of the title, so the flex row squeezed them and a
+					 * two-word one such as "Body text" wrapped, standing 42px tall against
+					 * its 26px neighbour. Making them nowrap fixed the wrap but not the
+					 * cause: with three action buttons beside it, a name as ordinary as
+					 * "Poppins" was truncated to "Poppi...". Measured on their own row, the
+					 * title goes from 132px to 353px and stops truncating, and the weights
+					 * line in the footer keeps the 259px it needs -- which putting the
+					 * badges there would have taken.
+					 *
+					 * The row only exists when something is on it, so an ordinary family
+					 * card is exactly as tall as before. Cards that do carry one grow by
+					 * 34px, and the grid still lines up because the footer is pinned with
+					 * margin-block-start: auto and the row stretches to its tallest card.
+					 */
+					cardBadges.length ? el('div', { class: 'efm-card__badges' }, cardBadges) : null,
 					// Carries the tuned instance too, so the card previews the face the
 					// site renders rather than the default cut.
 					specimen(family.name, subsetList, '', family.variation),
@@ -5753,6 +5771,16 @@
 			oninput: function (event) {
 				state.families[index].fallback = event.target.value;
 				renderSaveBar();
+
+				/*
+				 * The fallback goes into every rule this family writes, so the
+				 * Generated CSS box has to follow it. Only the save bar was redrawn,
+				 * which left the box showing the previous stack until something else
+				 * caused a full render -- picking from Common stacks did, typing did
+				 * not, so the same field disagreed with itself depending on how it was
+				 * filled in. syncApplyTo() already refreshes that box in place.
+				 */
+				syncApplyTo(index);
 			}
 		});
 

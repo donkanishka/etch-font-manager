@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.36.3
+Stable tag: 0.36.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,11 @@ Settings > Removal has the opt-out. Tick "Delete the font files when the plugin 
 Reinstalling leaves the kept stylesheet in place rather than regenerating over it, so the site carries on loading its fonts. The library itself starts empty — restore it from Import & export.
 
 == Changelog ==
+
+= 0.36.4 =
+* Changed: a family card's state badges sit on their own row under the name instead of competing with it for width, so the name no longer truncates on an ordinary card.
+* Fixed: role badges broke across two lines when the name was long, leaving one pill taller than its neighbour and the card head out of alignment.
+* Fixed: typing a fallback stack left the Generated CSS preview showing the previous one, while picking the same stack from the menu updated it.
 
 = 0.36.3 =
 * Fixed: opening Google Fonts switched the font library's preview to Latin and left it there. The library shows each family in its own script again, which is what makes a missing subset visible.

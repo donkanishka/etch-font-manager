@@ -2,6 +2,36 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.36.4
+
+The card head stops crushing the family name, and the Generated CSS box stops going stale.
+
+### Fixed
+
+- **Typing a fallback stack left the Generated CSS box showing the previous one.** The field updated the family
+  and the save bar but never refreshed the preview, while picking the same stack from Common stacks did -- so the
+  one field disagreed with itself depending on how it was filled in. It now refreshes the box in place, the way
+  `Apply to` already did.
+
+- **Role badges wrapped, and crowded out the family name.** They were siblings of the title in the card head
+  with nothing stopping the flex row from squeezing them, so a two-word badge such as "Body text" broke across
+  two lines and stood 42px tall against its 26px neighbour, pulling the head out of alignment.
+
+  A badge is a label: it now never wraps and never shrinks. That fixed the break but not the cause -- with three
+  action buttons beside it, a name as ordinary as "Poppins" was still truncated to "Poppi...".
+
+### Changed
+
+- **The card's state badges moved to their own row under the head.** `Disabled`, the two role badges, `No files`
+  and `Files missing` all sat in the head competing with the title for width. Measured: the title goes from
+  132px to 353px and stops truncating, while the footer keeps the 259px the weights list needs -- which putting
+  the badges *there* would have taken, and 9 weights fits that by a single pixel.
+
+  The row is only rendered when something is on it, so an ordinary family card is exactly as tall as before.
+  Cards that carry state grow by 34px, and a grid row still lines up because the footer is pinned with
+  `margin-block-start: auto` and the row stretches to its tallest card -- checked with a mixed grid, all cards
+  level at 182px, and in the row layout as well.
+
 ## 0.36.3
 
 Three faults found by working through every screen of a fresh install on a site with no fonts on it. One is a

@@ -1,10 +1,11 @@
 {
-  "version": "0.36.1",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.36.1/etch-font-manager.zip",
+  "version": "0.36.2",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.36.2/etch-font-manager.zip",
   "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.36.1",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
   "date": "2026-09-02",
-  "notes": "Hotfix. 0.36.0 could not load its WebAssembly module in a browser, so font conversion, the WOFF2 decoder and the metrics reader were all dead; the decoder had added an import the glue leaves undefined, and the build now compiles with NDEBUG. It also lost Generated CSS, Variants and Add variant from every Google family's editor, restyled the panel's own headings, and hid Etch's settings-bar tooltips behind the manager. Apply to is typeable again, a font read that cannot answer gives up after twenty seconds rather than two minutes, Override theme styles disables instead of disappearing, and a family's typography role reads as a badge. Everyone on 0.36.0 should take this."
+  "notes": "If conversion still did not work after 0.36.1, this is why: the converter was correct but your browser never loaded it. Nothing in its directory carried a cache key, so a browser kept the worker, the Emscripten glue and the binary from whichever release it saw first, and a current binary against an old glue cannot boot. All three are versioned now. Reinstall no longer replaces an installed family with the card's own defaults, which could swap five static weights for one variable file without asking. An upload whose file name the server rewrites, such as one containing spaces, now creates its family instead of landing as a loose file. Add variant keeps the row you just made in view. Google Fonts opens on Latin, the Font files toolbar drops a redundant label, and a WOFF2 upload says it was left alone.",
+  "last_updated": "2026-09-03"
 }

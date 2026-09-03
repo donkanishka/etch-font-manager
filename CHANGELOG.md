@@ -2,6 +2,34 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.0
+
+First stable release.
+
+**The code is byte-identical to 0.36.4.** Nothing was added for the occasion: this is the build that was
+installed, run and reported clean, with the version number changed to say so. The `0.x` numbering existed
+because only the author had ever installed it; that is no longer true, so the number stops claiming otherwise.
+
+What it does, for anyone arriving here first:
+
+- **Self-hosted fonts inside the Etch builder.** Upload TTF, OTF, WOFF or WOFF2, or install from Google Fonts
+  without the browser ever calling Google on the front end. Files live in `wp-content/fonts` on your own server.
+- **WOFF2 conversion in the browser.** TTF, OTF and WOFF are compressed locally before upload -- typically 40 to
+  65% smaller -- so the font is never sent anywhere but your own site. Variable axes and OpenType features are
+  untouched; only the container changes.
+- **Typography tokens.** Publish a family as the site's heading or body font under the names Etch documents and
+  Automatic.css reads, so a framework picks it up without you writing a rule.
+- **Per-family delivery.** `font-display`, a fallback stack, a selector list to apply the family to, metric
+  overrides to stop layout shift while the font loads, and preload for the cut a page renders first.
+- **Variable font support.** Axes are read from the file itself, with a tester for tuning an instance and a
+  `font-variation-settings` value the site actually uses.
+- **The library as a library.** Enable, disable, trash and restore without losing files; a trash that is
+  reversible; import and export with a genuine dry run; and a stylesheet you can keep if the plugin is ever
+  removed.
+
+Updates ship through GitHub releases. The plugin checks a manifest on the raw CDN and offers the update in
+wp-admin like any other.
+
 ## 0.36.4
 
 The card head stops crushing the family name, and the Generated CSS box stops going stale.

@@ -1,11 +1,11 @@
 {
-  "version": "0.36.3",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.36.3/etch-font-manager.zip",
+  "version": "0.36.4",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v0.36.4/etch-font-manager.zip",
   "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.36.1",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
   "date": "2026-09-02",
-  "notes": "Three faults found by working through every screen of a fresh install. Opening Google Fonts used to switch the font library's preview to Latin and leave it there, which removed the signal that a family is missing a subset; the preference is computed per view now. A font already in the library could be converted and uploaded a second time before the server refused it, because the check compared the picked file against names the server had rewritten. The Generated CSS preview showed a fallback the stylesheet does not contain and ignored the family's own stack. Everything else on that install behaved, including the converter, the Reinstall guard, trash and restore, import and export, preload, and the typography tokens reaching the front end.",
+  "notes": "A family card was crushing its own name to make room for two labels. Role badges wrapped when the name was long, leaving one pill taller than its neighbour and the card head out of alignment; badges never wrap or shrink now. That fixed the break but not the cause, so every state badge moved to its own row under the title, which takes the name from 132px to 353px and stops it truncating while leaving the weights list the room it needs. Also fixed: typing a fallback stack left the Generated CSS preview showing the previous one, while picking the same stack from the menu updated it.",
   "last_updated": "2026-09-03"
 }

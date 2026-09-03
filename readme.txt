@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.36.1
+Stable tag: 0.36.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,15 @@ Settings > Removal has the opt-out. Tick "Delete the font files when the plugin 
 Reinstalling leaves the kept stylesheet in place rather than regenerating over it, so the site carries on loading its fonts. The library itself starts empty — restore it from Import & export.
 
 == Changelog ==
+
+= 0.36.2 =
+* Changed: uploading a file that is already WOFF2 now says so in the upload report instead of passing without comment.
+* Changed: the Font files toolbar no longer prints a "Format" label over chips that already read WOFF2 and TTF.
+* Changed: the Google Fonts screen opens on Latin rather than Auto, so families in different scripts can be compared against the same sample. Your own choice is kept once you use the script row.
+* Fixed: Reinstall on the Google Fonts screen replaced an installed family with the card's own defaults, so a family carrying five static weights could lose them all to a single variable file. The card now opens on what is installed, and asks before dropping anything.
+* Fixed: a font whose file name the server rewrote, such as one with spaces in it, uploaded without ever creating its family.
+* Fixed: adding a variant scrolled the view away from the row you had just created, on families small enough that the Generated CSS block above it was still growing.
+* Fixed: font conversion still did not work after 0.36.1, because nothing in the converter's directory carried a cache key. Browsers kept the worker, the Emscripten glue and the binary from whichever release they had seen first, and a new binary against an old glue cannot boot. All three are versioned now.
 
 = 0.36.1 =
 * Fixed: the WebAssembly module could not load in a browser at all, so font conversion, the WOFF2 decoder and the metrics reader were all dead in 0.36.0. The decoder had added an import the glue leaves undefined; building with NDEBUG removes it.

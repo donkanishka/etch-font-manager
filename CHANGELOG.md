@@ -2,6 +2,84 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 0.36.2
+
+A hotfix for the hotfix. 0.36.1 shipped a working converter that browsers could not reach.
+
+### Fixed
+
+- **Nothing in the WASM directory carried a cache key.** The worker, the Emscripten glue and the binary are a
+  matched set -- the glue holds the import table the binary declares -- and none of the three was versioned, so
+  a browser that had run an earlier release kept whichever copies it already had. Measured on a real install
+  after 0.36.1: a current 815,926-byte binary paired with an 11,437-byte glue from 0.35.0, which cannot boot.
+  Conversion looked exactly as broken as it had before the fix.
+
+  All three now carry the binary's own mtime. The panel puts it on the worker URL, and the worker forwards the
+  same query to `importScripts()` and to `locateFile()`, because resolving a bare filename against the worker's
+  own URL drops the query and would have left the binary uncached-busted on its own.
+
+  The mtime rather than the plugin version, so the key changes when the thing being cached changes.
+
+- **Add variant threw you off the row you had just made.** Generated CSS sits directly above the variants
+  table and gains a face with every variant, growing until it reaches its 320px cap. The redraw restores the
+  scroll position as a number, which is right when nothing above the viewport changed height -- but here the
+  block above had grown, so the table and the button were pushed down by however much it gained. Measured on a
+  family with one variant: 278px, which put the new row below the fold and left the view sitting on the CSS
+  block instead.
+
+  Nothing moves once that block is capped, which is why this happened on smaller families and never on larger
+  ones. The new row is now scrolled into view, by the smallest amount that works, so a row already on screen
+  stays exactly where it is.
+
+- **An upload whose file name the server rewrote never got a family.** The panel adopts each stored file by
+  name, but it recorded the name it *sent* rather than the one that was *written*, and `adoptUploads()` skips a
+  name it cannot find without saying so. `sanitize_file_name()` turns spaces into dashes, so `Acme Sans
+  Regular.ttf` lands as `Acme-Sans-Regular.ttf`; `store_upload()` also adds a suffix when a different font
+  already holds the name. Either way the font uploaded, appeared under Font files, and no family was created --
+  which is why it looked as though only some uploads worked. Fonts already named without spaces were never
+  affected, and Google installs never were, since the plugin names those itself.
+
+- **Reinstall could quietly take weights away.** The server sets a family's variant list to what it just
+  downloaded rather than merging into it, while the Google Fonts card chose its own defaults from the
+  catalogue: the variable cut whenever one existed, and weights 400 and 700. For a family installed as five
+  static weights, the card therefore opened with `Variable` ticked, and pressing `Reinstall` replaced all five
+  files with one variable file without a word. Measured on a real library: five variants dropped with the
+  variable default, three with the static one.
+
+  An installed family now opens on what it actually has -- its subsets, its weights, and whether it was
+  installed as variable or static -- so `Reinstall` means the same again and drops nothing. Changing the
+  selection first is still allowed, and now asks, naming the variants that would go and saying that their files
+  stay on the server.
+
+  The family editor's own `Download` was never affected: it sends the union of what is installed and what is
+  newly ticked, so it only ever adds.
+
+### Changed
+
+- **A WOFF2 upload says it was left alone.** Conversion correctly skips a file that is already WOFF2 -- there
+  is nothing to do and the worker is never started -- but the report only speaks when something converted or
+  failed, so uploading WOFF2 with the toggle on produced no mention of it at all and left the toggle looking as
+  though it had not run. It now reads "Already WOFF2, uploaded unchanged", and only when conversion was
+  actually asked for and available.
+
+- **The Font files toolbar drops its "Format" label.** The chip row has three callers and the other two need
+  theirs -- "400i" and "latin" name nothing on their own -- but a chip reading WOFF2 has already said what it
+  is, and that row sits in a toolbar beside the search field, where the script chips carry no label either. The
+  label is kept as the group's accessible name, so the buttons still announce what they filter, and the chips
+  now align with the field above them instead of sitting 64px in from it.
+
+- **Google Fonts opens on Latin instead of Auto.** Auto renders each family in its own script, which is right
+  for the library -- those are your fonts, and a Sinhala family should preview in Sinhala. Browsing two thousand
+  mixed-script families is the opposite case, where one sample across all of them is what makes them
+  comparable. Applied only until the script row is touched, and that choice is remembered between sessions, so
+  it is offered once rather than re-applied over a decision already made.
+
+### Notes
+
+The shipped pair was verified correct before this was written: booted in a real browser worker with both
+entry points present, and Source Code Pro converted 210,312 to 73,816 bytes, 65% smaller, signature `wOF2`.
+The binary was never the problem in 0.36.1; reaching it was.
+
 ## 0.36.1
 
 A hotfix. 0.36.0 shipped with no working font converter and with three sections missing from every Google

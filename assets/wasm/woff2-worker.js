@@ -28,7 +28,16 @@
 
 'use strict';
 
-self.importScripts('woff2.js');
+/*
+ * The cache key the panel put on this worker's own URL, forwarded to the two
+ * files it pulls in. The glue and the binary are a matched set with this script
+ * -- the glue carries the import table the binary declares -- so versioning the
+ * worker alone would still let a browser pair a new binary with a glue it had
+ * cached from an older release, which is exactly what happened after 0.36.1.
+ */
+var EFM_VER = self.location.search || '';
+
+self.importScripts('woff2.js' + EFM_VER);
 
 var modulePromise = null;
 
@@ -45,7 +54,9 @@ function boot() {
 	if (!modulePromise) {
 		modulePromise = EFMWoff2({
 			locateFile: function (file) {
-				return new URL(file, self.location.href).href;
+				// The query has to be added here too: resolving a bare name against
+				// this worker's URL drops it.
+				return new URL(file + EFM_VER, self.location.href).href;
 			}
 		});
 	}

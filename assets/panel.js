@@ -135,6 +135,9 @@
 		// Empty means "no custom text", which is what lets each card fall back to
 		// a sample in its own script instead of Latin.
 		previewCustom: '',
+		// Set once a script chip is pressed or the text is typed in, so opening
+		// Google Fonts stops choosing Latin for you.
+		previewTouched: false,
 		layout: 'grid',
 		subset: '',
 		variableOnly: '',
@@ -228,6 +231,10 @@
 			state.previewCustom = saved.previewCustom;
 		}
 
+		if (typeof saved.previewTouched === 'boolean') {
+			state.previewTouched = saved.previewTouched;
+		}
+
 		if (typeof saved.convert === 'boolean') {
 			state.convert = saved.convert;
 		}
@@ -239,6 +246,9 @@
 				layout: state.layout,
 				previewSize: state.previewSize,
 				previewCustom: state.previewCustom,
+				// Carried across sessions so the Latin default is offered once, not
+				// re-applied over a choice already made.
+				previewTouched: state.previewTouched,
 				convert: state.convert
 			}));
 		} catch (e) {
@@ -2470,6 +2480,20 @@
 		state.filtersOpen = false;
 		state.openMenu = '';
 
+		/*
+		 * Google Fonts opens on Latin rather than Auto. Auto renders each family in
+		 * its own script, which is right for the library -- those are your fonts,
+		 * and a Sinhala family should preview in Sinhala. Browsing two thousand
+		 * families is the opposite case: the scripts are mixed, so one sample text
+		 * across all of them is what makes them comparable.
+		 *
+		 * Only before the row has been touched, so a script picked deliberately
+		 * survives leaving the screen and coming back.
+		 */
+		if ('google' === view && !state.previewTouched) {
+			state.previewCustom = s('preview', 'The quick brown fox');
+		}
+
 		state.view = view;
 		state.editing = null;
 		render();
@@ -2922,6 +2946,7 @@
 			 * which touches every specimen on screen, waits.
 			 */
 			oninput: function (event) {
+				state.previewTouched = true;
 				state.previewCustom = event.target.value;
 				queuePreview();
 			}
@@ -2933,6 +2958,8 @@
 		 * only way back to that.
 		 */
 		var textField = clearableField(textInput, s('clearPreview', 'Clear preview text'), function () {
+			// Clearing asks for Auto, so Google Fonts must stop overriding it.
+			state.previewTouched = true;
 			state.previewCustom = '';
 			savePrefs();
 			repaintSpecimens();
@@ -2971,6 +2998,7 @@
 				'aria-pressed': state.previewCustom === preset.text ? 'true' : 'false',
 				text: preset.label,
 				onclick: function () {
+					state.previewTouched = true;
 					state.previewCustom = preset.text;
 					textInput.value = preset.text;
 					// A preset fills the field too, so the clear stays in step.
@@ -3160,13 +3188,15 @@
 	 * Any chip that is currently on stays visible regardless of where it falls in
 	 * the list, so a selection can never end up hidden behind the disclosure.
 	 *
-	 * @param {string}   key    Identity for the expanded flag, unique per card and row.
-	 * @param {string}   label  Row label.
-	 * @param {Array}    items  { label, on, onclick } for each chip.
-	 * @param {number}   limit  How many to show while collapsed.
-	 * @param {Array}    [tail] Extra chips always pinned after the list.
+	 * @param {string}   key     Identity for the expanded flag, unique per card and row.
+	 * @param {string}   label   Row label. Always the group's accessible name; shown
+	 *                           on screen unless quiet is set.
+	 * @param {Array}    items   { label, on, onclick } for each chip.
+	 * @param {number}   limit   How many to show while collapsed.
+	 * @param {Array}    [tail]  Extra chips always pinned after the list.
+	 * @param {boolean}  [quiet] Hide the label, for a row whose chips name themselves.
 	 */
-	function chipWall(key, label, items, limit, tail) {
+	function chipWall(key, label, items, limit, tail, quiet) {
 		var open = !!state.chipsOpen[key];
 		var shown = open ? items : items.filter(function (item, i) {
 			return i < limit || item.on;
@@ -3227,9 +3257,26 @@
 			}));
 		}
 
+		/*
+		 * The label names the row for a screen reader either way; quiet drops it
+		 * from the screen. Weights and Subsets need theirs -- "400i" and "latin"
+		 * mean nothing on their own -- but a chip reading WOFF2 has already said
+		 * what it is, and that row sits in a toolbar next to the search field,
+		 * where the script chips carry no label either.
+		 */
+		var row = el('div', {
+			class: 'efm-chips',
+			role: 'group',
+			'aria-label': label
+		}, chips.concat(tail || []));
+
+		if (quiet) {
+			return el('div', { class: 'efm-subsets' }, [row]);
+		}
+
 		return el('div', { class: 'efm-subsets' }, [
 			el('span', { class: 'efm-subsets__label', text: label }),
-			el('div', { class: 'efm-chips' }, chips.concat(tail || []))
+			row
 		]);
 	}
 
@@ -5032,7 +5079,8 @@
 				]));
 			}
 
-			var table = el('div', { class: 'efm-table' }, [
+			// Named so the row added below can be found again after the redraw.
+			var table = el('div', { class: 'efm-table efm-table--variants' }, [
 				el('div', { class: 'efm-table__head' }, [
 					el('span', { class: 'efm-file__cell' }, [
 						pickAll(picks, everyVariant, s('selectAllVariants', 'Select every variant')),
@@ -5067,6 +5115,27 @@
 						style: next && next.style ? next.style : 'normal'
 					});
 					render();
+
+					/*
+					 * render() puts the scroll position back as a number, which is right
+					 * when a redraw changes nothing above the viewport. This one does:
+					 * Generated CSS sits above the variants table and gains a face with
+					 * every variant, growing until it reaches its 320px cap. The table
+					 * and this button are pushed down by however much it grew --
+					 * measured at 278px on a family that had one variant -- so the row
+					 * just created lands below the fold and the click reads as a jump.
+					 *
+					 * Nothing moves once that block is capped, which is why families with
+					 * a few variants did this and larger ones never did.
+					 *
+					 * 'nearest' scrolls the least it can, so a row already on screen
+					 * stays where it is.
+					 */
+					var added = contentEl.querySelectorAll('.efm-table--variants .efm-table__row');
+
+					if (added.length) {
+						added[added.length - 1].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+					}
 				}
 			}, [icon('plus', 'sm'), el('span', { text: s('addVariant', 'Add variant') })])
 		);
@@ -6587,7 +6656,7 @@
 							togglePicked(state.fileFormats, ext);
 						}
 					};
-				}), CHIP_LIMIT)
+				}), CHIP_LIMIT, null, true)
 				: null
 		]));
 
@@ -7215,7 +7284,7 @@
 		});
 		var chosen = selectedSubsets(font);
 		var available = font.subsets && font.subsets.length ? font.subsets : ['latin'];
-		var useVariable = hasVariable && state.variable[font.family] !== false;
+		var useVariable = wantsVariable(font, hasVariable);
 		var allCuts = availableCuts(font);
 		var cuts = selectedCuts(font);
 		var pickCuts = !useVariable && allCuts.length > 1;
@@ -7536,7 +7605,7 @@
 			var available = font.subsets && font.subsets.length ? font.subsets : ['latin'];
 			var chosen = selectedSubsets(font);
 			var hasVariable = !!(font.wght && font.wght.min);
-			var useVariable = hasVariable && state.variable[font.family] !== false;
+			var useVariable = wantsVariable(font, hasVariable);
 			var allCuts = availableCuts(font);
 			var cuts = selectedCuts(font);
 			// A variable cut spans every weight in one file, so the weight picker
@@ -7929,7 +7998,7 @@
 			}
 
 			var hasVariable = !!(font.wght && font.wght.min);
-			var useVariable = hasVariable && state.variable[font.family] !== false;
+			var useVariable = wantsVariable(font, hasVariable);
 
 			state.busy = 'install:' + family;
 			setStatus(s('installing', 'Installing…') + ' ' + family + ' (' + (done + 1) + '/' + state.picked.length + ')', 'progress');
@@ -7989,9 +8058,22 @@
 			 */
 			var asked = state.subset || '';
 
-			state.subsets[font.family] = available.filter(function (sub) {
-				return sub === 'latin' || (own && sub === own) || (asked && sub === asked);
-			});
+			/*
+			 * An installed family opens on the subsets it was installed with, for the
+			 * same reason as the weights above: the install replaces the family rather
+			 * than merging into it, so a Reinstall carrying the generic default would
+			 * quietly drop a script the family already had.
+			 */
+			var mine = installedFamily(font.family);
+			var had = (mine && mine.google && mine.google.subsets) || [];
+
+			state.subsets[font.family] = had.length
+				? available.filter(function (sub) {
+					return had.indexOf(sub) !== -1;
+				})
+				: available.filter(function (sub) {
+					return sub === 'latin' || (own && sub === own) || (asked && sub === asked);
+				});
 
 			if (!state.subsets[font.family].length) {
 				state.subsets[font.family] = available.slice(0, 1);
@@ -8071,13 +8153,79 @@
 	 * @param {object} font Search result.
 	 * @return {string[]}
 	 */
+	/**
+	 * The library's copy of a Google family, by name.
+	 *
+	 * @param {string} name Family name from the catalogue.
+	 * @return {Object|null} The installed family, or null.
+	 */
+	function installedFamily(name) {
+		var found = null;
+
+		state.families.forEach(function (family) {
+			if (!isTrashed(family) && String(family.name || '').toLowerCase() === String(name || '').toLowerCase()) {
+				found = family;
+			}
+		});
+
+		return found;
+	}
+
+	/**
+	 * Whether the variable cut is chosen for a family.
+	 *
+	 * An installed family follows how it was installed. Defaulting to variable
+	 * regardless meant a family carrying static weights showed the variable box
+	 * ticked, and since the install replaces the variant list rather than merging
+	 * into it, Reinstall swapped every static file for one variable one without
+	 * saying so.
+	 *
+	 * @param {Object}  font        Catalogue entry.
+	 * @param {boolean} hasVariable Whether a variable cut exists at all.
+	 * @return {boolean} True when the variable cut should be selected.
+	 */
+	function wantsVariable(font, hasVariable) {
+		if (!hasVariable) {
+			return false;
+		}
+
+		if (typeof state.variable[font.family] === 'boolean') {
+			return state.variable[font.family];
+		}
+
+		var mine = installedFamily(font.family);
+
+		if (mine && mine.google && typeof mine.google.variable === 'boolean') {
+			return mine.google.variable;
+		}
+
+		return true;
+	}
+
 	function selectedCuts(font) {
 		if (!state.cuts[font.family]) {
 			var available = availableCuts(font);
+			var mine = installedFamily(font.family);
+			var here = mine ? installedCuts(mine) : [];
 
-			state.cuts[font.family] = available.filter(function (cut) {
-				return cut === '400' || cut === '700';
-			});
+			/*
+			 * An installed family opens on the weights it actually has, so Reinstall
+			 * means the same again. It used to preselect 400 and 700 from the
+			 * catalogue no matter what was on disk, and the install replaces the
+			 * variant list rather than merging into it -- so pressing Reinstall on a
+			 * family carrying five weights silently left it with two.
+			 */
+			if (here.length) {
+				state.cuts[font.family] = here.filter(function (cut) {
+					return available.indexOf(cut) !== -1;
+				});
+			}
+
+			if (!state.cuts[font.family] || !state.cuts[font.family].length) {
+				state.cuts[font.family] = available.filter(function (cut) {
+					return cut === '400' || cut === '700';
+				});
+			}
 
 			if (!state.cuts[font.family].length) {
 				state.cuts[font.family] = available.slice(0, 1);
@@ -9410,7 +9558,15 @@
 			return converter.worker;
 		}
 
-		var worker = new window.Worker(cfg.wasmUrl + 'woff2-worker.js');
+		/*
+		 * Versioned, and the worker passes the same query on to the glue and the
+		 * binary it loads. All three are a matched set and none of them used to
+		 * carry a cache key, so a browser that had run an older release kept its
+		 * copies: after 0.36.1 that meant a current binary against a glue from
+		 * 0.35.0, which cannot boot, and the converter looked broken again.
+		 */
+		var worker = new window.Worker(cfg.wasmUrl + 'woff2-worker.js' +
+			(cfg.wasmVer ? '?ver=' + encodeURIComponent(cfg.wasmVer) : ''));
 
 		worker.onmessage = function (event) {
 			var message = event.data || {};
@@ -9563,6 +9719,21 @@
 				plain.axes = axes;
 
 				if (!state.convert || !convertible(file.name) || !converterAvailable()) {
+					/*
+					 * A file that is already WOFF2 says so. Conversion is skipped for it
+					 * correctly -- there is nothing to do and the worker is never started --
+					 * but the report only speaks when something converted or failed, so
+					 * uploading WOFF2 with the toggle on produced no mention of it at all
+					 * and left the toggle looking as though it had not run.
+					 *
+					 * Only when conversion was actually asked for and possible. A note
+					 * saying "already WOFF2" on a run with the converter switched off would
+					 * be answering a question nobody asked.
+					 */
+					if (state.convert && converterAvailable() && 'woff2' === extensionOf(file.name)) {
+						logNote(file.name, s('convertNotNeeded', 'Already WOFF2, uploaded unchanged'));
+					}
+
 					return plain;
 				}
 
@@ -10067,7 +10238,19 @@
 						return;
 					}
 
-					stored.push(item.filename);
+					/*
+					 * The name the server wrote, which is not always the one asked for.
+					 * sanitize_file_name() turns spaces into dashes, so "Acme Sans
+					 * Regular.ttf" lands as "Acme-Sans-Regular.ttf", and store_upload()
+					 * adds a suffix when a different font already holds the name.
+					 *
+					 * Adopting the name we sent looked it up in a list that does not
+					 * contain it, and adoptUploads() skips a name it cannot find without
+					 * saying so. The file uploaded, appeared under Font files, and no
+					 * family was ever created for it -- which is why only some uploads
+					 * seemed to arrive properly.
+					 */
+					stored.push((result && result.file && result.file.name) || item.filename);
 					done++;
 				});
 			});
@@ -10461,11 +10644,74 @@
 	 * @param {boolean}  variable Install the variable file.
 	 * @param {string[]} cuts     Chosen weights, ignored for a variable install.
 	 */
+	/**
+	 * Variants an install would take away.
+	 *
+	 * The server sets the family's variant list to what it just downloaded rather
+	 * than merging into it, so anything the family holds that the new selection
+	 * does not cover is dropped -- including variants added by hand. The files stay
+	 * on disk and can be adopted back, but the family, its CSS and the site change
+	 * straight away, so it is worth asking first.
+	 *
+	 * @param {string}   family   Family name.
+	 * @param {boolean}  variable Whether the variable cut was chosen.
+	 * @param {string[]} cuts     Weights chosen, for a static install.
+	 * @return {string[]} File names that would go.
+	 */
+	function installWouldDrop(family, variable, cuts) {
+		var mine = installedFamily(family);
+
+		if (!mine) {
+			return [];
+		}
+
+		return (mine.variants || []).filter(function (variant) {
+			var weight = String(variant.weight || '400');
+			var isRange = weight.indexOf(' ') !== -1;
+
+			// A variable install covers the range and nothing else; a static one
+			// covers the weights ticked and drops the variable file.
+			if (variable) {
+				return !isRange;
+			}
+
+			if (isRange) {
+				return true;
+			}
+
+			return (cuts || []).indexOf(weight + ('italic' === variant.style ? 'i' : '')) === -1;
+		}).map(function (variant) {
+			return variant.file;
+		}).filter(Boolean);
+	}
+
 	function installGoogleFont(family, subsets, variable, cuts) {
+		var dropping = installWouldDrop(family, variable, cuts);
+
 		withSavedBuffer(
 			s('confirmInstallDirty', 'Installing writes this family to the server, which replaces anything unsaved in the panel.'),
 			function () {
-				runInstall(family, subsets, variable, cuts);
+				if (!dropping.length) {
+					runInstall(family, subsets, variable, cuts);
+
+					return;
+				}
+
+				askConfirm({
+					title: s('reinstall', 'Reinstall'),
+					// 'refresh', not 'download': the question is about replacing what is
+					// there, and there is no download glyph in PATHS.
+					icon: 'refresh',
+					message: s('confirmReplaceVariants', 'This replaces the family with the selection above, so these variants go:') +
+						' ' + dropping.join(', ') + ' ' +
+						s('confirmReplaceKept', 'Their files stay on the server and can be added back from Import & export.'),
+					confirm: s('reinstall', 'Reinstall'),
+					danger: true
+				}).then(function (answer) {
+					if ('confirm' === answer) {
+						runInstall(family, subsets, variable, cuts);
+					}
+				});
 			}
 		);
 	}

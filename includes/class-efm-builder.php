@@ -404,6 +404,21 @@ class EFM_Builder {
 				// empty when the binary has not been built, which turns the whole
 				// converter off in the panel rather than failing at click time.
 				'wasmUrl'   => file_exists( EFM_DIR . 'assets/wasm/woff2.wasm' ) ? esc_url_raw( EFM_URL . 'assets/wasm/' ) : '',
+
+				/*
+				 * Cache key for the three files in that directory. The worker, the
+				 * Emscripten glue and the binary are a matched set -- the glue holds the
+				 * import table the binary declares -- and none of them was versioned, so
+				 * a browser upgrading the plugin kept whichever it already had. Measured
+				 * on a real install after 0.36.1: a fresh 815,926-byte binary paired with
+				 * an 11,437-byte glue from 0.35.0, which is a set that cannot run.
+				 *
+				 * The binary's own mtime rather than the plugin version, so it changes
+				 * when the thing being cached changes and not on every release.
+				 */
+				'wasmVer'   => file_exists( EFM_DIR . 'assets/wasm/woff2.wasm' )
+					? (string) filemtime( EFM_DIR . 'assets/wasm/woff2.wasm' )
+					: '',
 				// Where the font files themselves are, so the panel can read one back.
 				// Reading a file it did not just receive is how a font installed before
 				// the panel could open its format gets its axes without being uploaded
@@ -603,6 +618,8 @@ class EFM_Builder {
 			'commonStacks'   => __( 'Common stacks', 'etch-font-manager' ),
 			'fallbackHint'   => __( 'Shown while the font loads, and if it fails. A close match reduces layout shift.', 'etch-font-manager' ),
 			'reinstall'      => __( 'Reinstall', 'etch-font-manager' ),
+			'confirmReplaceVariants' => __( 'This replaces the family with the selection above, so these variants go:', 'etch-font-manager' ),
+			'confirmReplaceKept'     => __( 'Their files stay on the server and can be added back from Import & export.', 'etch-font-manager' ),
 			'inUse'          => __( 'in use', 'etch-font-manager' ),
 			'confirmDeleteUsed'         => __( 'It is mapped by:', 'etch-font-manager' ),
 			'confirmDeleteUsedHint'     => __( 'Those variants will be removed too.', 'etch-font-manager' ),
@@ -689,6 +706,7 @@ class EFM_Builder {
 			'readTimeout'    => __( 'Reading this font took too long and was stopped.', 'etch-font-manager' ),
 			'convertBlocked' => __( 'The converter could not start in this browser.', 'etch-font-manager' ),
 			'convertNoRead'  => __( 'Could not read the file from the fonts folder.', 'etch-font-manager' ),
+			'convertNotNeeded' => __( 'Already WOFF2, uploaded unchanged', 'etch-font-manager' ),
 			'convertBadWoff' => __( 'This WOFF file is damaged and could not be read.', 'etch-font-manager' ),
 			'filesTitle'     => __( 'Font files', 'etch-font-manager' ),
 			'groupUploaded'  => __( 'Uploaded', 'etch-font-manager' ),

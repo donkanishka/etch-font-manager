@@ -704,13 +704,21 @@
 }
 
 .efm-filters__count {
-	padding: 1px 5px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-inline-size: 20px;
+	block-size: 20px;
+	margin-inline-start: 2px;
+	padding-inline: 6px;
 	border-radius: 999px;
 	background: var(--efm-text);
 	color: var(--efm-surface);
+	font-family: var(--etch-font-code, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: var(--e-font-size-s, 11px);
 	font-weight: 500;
-	line-height: 1.4;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
 }
 
 .efm-popover {

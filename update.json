@@ -1,11 +1,11 @@
 {
-  "version": "1.0.0",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.0/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v0.36.1",
+  "version": "1.0.1",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.1/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.1",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
-  "date": "2026-09-02",
-  "notes": "First stable release. The code is identical to 0.36.4 - this is the build that was installed, run across every screen and reported clean, with the version number changed to say so. Self-hosted fonts inside the Etch builder: upload TTF, OTF, WOFF or WOFF2 or install from Google Fonts without your visitors' browsers calling Google, convert to WOFF2 in your own browser, publish a family as the site's heading or body font, and control delivery per family with fallback stacks, metric overrides and preload. Variable axes are read from the file itself. Nothing here is new; the number simply stops calling it pre-release.",
-  "last_updated": "2026-09-03"
+  "date": "2026-09-04",
+  "notes": "The active Google Fonts filter count now renders as a true 20px circle and sits slightly farther from the Filters label, matching the other count badges.",
+  "last_updated": "2026-09-04"
 }

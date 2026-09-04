@@ -2,7 +2,9 @@
 
 Manage self-hosted custom fonts **inside the Etch builder**. No trips back to the WordPress dashboard.
 
-The plugin registers a **Fonts** control in the Etch Settings Bar using Etch's official
+**Stable, v1.0.0.** [![Latest release](https://img.shields.io/github/v/release/donkanishka/etch-font-manager?label=release)](https://github.com/donkanishka/etch-font-manager/releases/latest)
+
+The plugin registers a **Font Manager** control in the Etch Settings Bar using Etch's official
 [Controls API](https://docs.etchwp.com/integrations/controls) and opens a docked panel that follows the
 builder's own panel conventions (sizing, tokens, typography, focus styles, light/dark scheme).
 
@@ -10,21 +12,22 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 
 - **Native Settings Bar control** — registered through `window.etchControls.builder.settingsBar`, grouped with Etch's own managers at the end of the top section.
 - **Full-screen manager** — mirrors Etch's native manager pattern (Content Hub, Style Manager, Asset Manager): a takeover surface beside the settings bar, a 40px header and a 256px inner navigation column, all built from Etch's own design tokens so it follows the builder's colour scheme.
-- **Specimen-first browsing** — Library and Google Fonts render in your choice of **Row**, **Grid** or **Compact** layout, with editable preview text, a 14-72px size slider, and each family previewed in its own script rather than a Latin pangram.
-- **Upload fonts** — drag and drop `.woff2`, `.woff`, `.ttf`, `.otf` files.
-- **Built-in WOFF2 converter** — drop a `.ttf`, `.otf` or `.woff` and it is converted to WOFF2 before it is uploaded. Source Code Pro goes 205 KB → 72 KB from TTF and 128 KB → 74 KB from OTF; WOFF saves less (17-23%) because it is already compressed. WOFF is unwrapped back to sfnt with the browser's own `DecompressionStream` before compressing, which is byte-exact and needs no extra download. Files already on the server can be converted from the Uploaded files list, with every family variant repointed at the new file automatically. It runs entirely in your browser — `google/woff2` compiled to WebAssembly, in a Web Worker — so **no font is ever sent to a third-party service**. The conversion is lossless: variable axes, named instances and OpenType features are carried through untouched. It is not a subsetter.
-- **Google Fonts** — search, live preview, and one-click install. Files are downloaded locally, so the frontend makes no requests to Google.
-- **Subset support** — choose which subsets to download (latin, latin-ext, sinhala, tamil, cyrillic, greek, vietnamese and so on). Each `@font-face` gets a matching `unicode-range`, so browsers only fetch the scripts a page actually uses.
-- **Filename detection** — weight and style are read from uploaded file names (`Inter-SemiBoldItalic.woff2`, `Roboto-300.woff2`, variable axes) and applied when the file is mapped.
-- **Delivery controls** — per-family `font-display`, a preload toggle for above-the-fold fonts, and a fallback stack that is carried into the family's own CSS variable.
-- **Enable, disable and trash** — switch a family off without deleting it (no `@font-face`, no custom property, no preload, but files and mapping are kept), or move it to a trash you can restore from. Deleting permanently drops the record only; font files are always removed by a separate explicit action.
-- **Guard rails** — warnings before closing with unsaved edits, or deleting a file that variants still map.
-- **Family and variant mapping** — assign files to weights and styles, all inline in the panel.
+- **Specimen-first browsing** — Library and Google Fonts render in your choice of **Row** or **Grid**, with editable preview text, a 14-72px size slider, and each family previewed in its own script rather than a Latin pangram (Google Fonts prefers Latin, since a search page mixes scripts by nature).
+- **Upload fonts** — drag and drop `.woff2`, `.woff`, `.ttf`, `.otf` files. A file already in the library, including a convertible original whose WOFF2 twin you already hold, is refused before it is even sent.
+- **Built-in WOFF2 converter** — drop a `.ttf`, `.otf` or `.woff` and it is converted to WOFF2 before it is uploaded. Source Code Pro goes 205 KB → 72 KB from TTF and 128 KB → 74 KB from OTF; WOFF saves less (17-23%) because it is already compressed. WOFF is unwrapped back to sfnt with the browser's own `DecompressionStream` before compressing, which is byte-exact and needs no extra download. Files already on the server can be converted from the Uploaded files list, with every family variant repointed at the new file automatically. It runs entirely in your browser — `google/woff2` compiled to WebAssembly, in a Web Worker — so **no font is ever sent to a third-party service**. The conversion is lossless: variable axes, named instances and OpenType features are carried through untouched. It is not a subsetter. The same WebAssembly module also **decodes** a WOFF2 just far enough to read its `fvar` table, which is how an uploaded variable WOFF2 gets working axis sliders without ever leaving your browser.
+- **Google Fonts** — search, filter by category or writing system, sort, and one-click install. Files are downloaded locally, so the frontend makes no requests to Google.
+- **Subset support** — choose which subsets to download (latin, latin-ext, sinhala, tamil, cyrillic, greek, vietnamese and so on). Each `@font-face` gets a matching `unicode-range`, so browsers only fetch the scripts a page actually uses. A family's own script is preselected alongside latin, so installing e.g. Noto Sans Sinhala from a single click does not silently produce a font with no Sinhala glyphs.
+- **Filename detection** — weight and style are read from uploaded file names (`Inter-SemiBoldItalic.woff2`, `Roboto-300.woff2`) and applied when the file is mapped.
+- **Variable font support** — axes are read straight from the file, including a WOFF2. A tester lets you tune an instance per family; the chosen `font-variation-settings` value is written into the family's own CSS and is what the site actually renders, not the default cut.
+- **Typography tokens** — publish a family as the site's heading or body font under the `--heading-font-family` / `--text-font-family` custom properties Etch documents and Automatic.css reads, so a framework picks it up without you writing a rule. Each token belongs to exactly one family at a time.
+- **Delivery controls** — per-family `font-display`, a preload toggle for the cut a page renders first, a fallback stack, an `Apply to` selector list, and an optional metric-matched local fallback face that holds the line height steady while the real font loads.
+- **Enable, disable and trash** — switch a family off without deleting it (no `@font-face`, no custom property, no preload, but files and mapping are kept), or move it to a trash you can restore from. Deleting permanently drops the record only; font files are always removed by a separate explicit action, and are never touched at all when the plugin itself is deleted unless you opt into that in Settings.
+- **Guard rails** — warnings before closing with unsaved edits, before an install would replace variants you already have, or before deleting a file that variants still map.
+- **Family and variant mapping** — assign files to weights and styles, all inline in the panel. Files already on the server but not mapped to any family can be adopted into one.
 - **A CSS variable per family** — every family is published as `--efm-family-{slug}`, so `"Noto Sans Sinhala"` is usable as `var(--efm-family-noto-sans-sinhala)` in an Etch style record, an ACSS override or any stylesheet. The value carries the family's fallback stack, and the family editor shows the variable ready to copy. This is the intended way to wire a family into Automatic.css: set `--heading-font-family: var(--efm-family-inter)` in ACSS itself, where the rest of your typography already lives.
-- **Portable import and export** — export chosen families as JSON, optionally with the font files bundled in, and preview exactly what an import will add, overwrite and remove before applying it. Bundled files are validated by their format signature before being written.
+- **Portable import and export** — export chosen families as JSON, optionally with the font files bundled in, and preview exactly what an import will add, overwrite and remove before applying it — a genuine dry run that writes nothing until you confirm. Bundled files are validated by their format signature before being written.
 - **Stylesheet delivery** — the generated CSS is cached to a file and enqueued, or printed inline if you prefer one less request. Shows when it was last built, with a regenerate action.
 - **Blocks other plugins' Google Fonts** — an optional privacy setting that dequeues any stylesheet pointing at `fonts.googleapis.com` and strips the matching preconnect hints.
-- **Apply to your own selectors** — give a family a selector list such as `h1, .site-title` and the rule is written for you.
 - **Generated CSS preview** — see exactly what a family contributes, live as you edit it.
 - **Instant canvas refresh** — the generated stylesheet is reloaded in the builder shell and canvas iframe after every change; no page reload.
 - **Self-hosted and GDPR friendly** — everything is served from your own fonts directory.
@@ -41,7 +44,7 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 
 1. Download the zip from the [latest release](https://github.com/donkanishka/etch-font-manager/releases/latest).
 2. In WordPress go to **Plugins > Add New > Upload Plugin**, upload it and activate.
-3. Open the Etch builder. The **Fonts** icon appears in the Settings Bar with Etch's other managers.
+3. Open the Etch builder. The **Font Manager** icon appears in the Settings Bar with Etch's other managers.
 
 ## Updates
 
@@ -67,29 +70,52 @@ On activation, existing data from the older *Etch Custom Fonts* plugin is import
 
 ## Usage
 
-The manager opens from the **Fonts** icon in the Settings Bar and has four sections.
+The manager opens from the **Font Manager** icon in the Settings Bar and has six sections: Font library, Font
+files, Google Fonts, Settings, Import & export and Trash.
 
-**Library** — a specimen grid of your font families with a filter box. *Manage* opens a family editor for
-renaming the family and mapping files to weights and styles. Edits are buffered; Save and Discard appear in
-the header while there are unsaved changes.
+**Font library** — a specimen grid or row list of your font families with a filter box. *Manage* opens a family
+editor for renaming the family, mapping files to weights and styles, typography tokens, delivery and the
+variable-axis tester. Edits are buffered; Save and Discard appear in the header while there are unsaved changes,
+and closing the panel with unsaved edits asks first.
 
-**Upload fonts** — drag and drop `.woff2`, `.woff`, `.ttf` or `.otf` files, and review everything currently in
-the fonts folder with type, size and delete.
+**Font files** — drag and drop `.woff2`, `.woff`, `.ttf` or `.otf` files, with a running conversion report, and
+review everything currently in the fonts folder with type, size, a search box, format chips and a way to adopt a
+file already on the server into a family. Multi-select and bulk-delete are available on every table here.
 
-**Google Fonts** — browse the whole library by category, writing system, technology, popularity, trending or date added, or search it. The writing-system filter is the only reliable way to answer questions like "which families can set Sinhala" — the answer is eight. Select several families and install them in one action. Results page in 24 at a time and specimen webfonts load lazily as cards scroll into view. Families with a weight axis can be installed as a **variable** cut: one file per subset instead of one per weight. Pick the
-subsets you need first: `latin` is preselected, and families that carry other scripts expose them as toggles.
-Installing downloads every weight and style for the chosen subsets locally and wires the family up for you.
-Already installed? Use **Reinstall** to add a subset later.
+**Google Fonts** — browse the whole library by category or writing system, sort by popularity, trending, newest
+or A to Z, or search it. The writing-system filter is the only reliable way to answer questions like "which families can set
+Sinhala". Select several families and install them in one action. Results page in 24 at a time. Families with a
+weight axis can be installed as a **variable** cut: one file per subset instead of one per weight. Pick the
+subsets you need first: `latin` is preselected alongside the family's own script, and other scripts it carries
+are offered as toggles. Installing downloads every weight and style for the chosen subsets locally and wires the
+family up for you.
+
+**Reinstall**, on a family you already have, opens on exactly what is installed — the same subsets, the same
+weights, static or variable — so pressing it with nothing changed does nothing. Change the selection and it
+asks first, naming which variants would be dropped, because installing replaces a family's variant list rather
+than merging into it.
 
 > Subsets matter. A family such as Noto Sans Sinhala carries `sinhala`, `latin-ext` and `latin`. Installing
 > latin alone gives you a font with no Sinhala glyphs, and the browser silently falls back to a system font.
 
-**Family editor → Delivery** — set `font-display`, opt a family into preloading, and give it a fallback stack.
+**Family editor → Delivery** — set `font-display`, opt a family into preloading, give it a fallback stack, an
+`Apply to` selector list, and optionally a metric-matched local fallback face so text does not shift when the
+real font arrives.
 
-**Import & export** — download the whole configuration as JSON and load it on another site, in replace or merge mode. Any font file a family references but that is missing from the destination is listed after the import.
+**Family editor → Typography tokens** — publish a family as the site's heading or body font. Each token belongs
+to one family; assigning it to a new family unassigns the old one.
 
-**Settings** — choose whether the generated stylesheet is enqueued as a file or printed inline, see when it was
-last built, regenerate it on demand, and optionally block Google Fonts loaded by other themes and plugins.
+**Import & export** — download the whole configuration as JSON and load it on another site, in replace or merge
+mode, with a genuine dry run (`preview: true`) that reports what would change before anything is written. Any
+font file a family references but that is missing from the destination is listed after the import.
+
+**Trash** — a family moved here keeps its files; restore undoes it completely, and deleting permanently removes
+only the record. Deleted files can be recovered separately from Import & export while they are still on disk.
+
+**Settings** — choose whether the generated stylesheet is enqueued as a file or printed inline, regenerate it on
+demand, optionally block Google Fonts loaded by other themes and plugins, delete a converted original after it
+is converted, and choose whether uninstalling the plugin also deletes the font files and stylesheet it created
+(off by default — removing the plugin never removes your fonts unless you ask it to).
 
 ## How fonts are delivered
 
@@ -145,7 +171,7 @@ if an entry for the stylesheet is already present.
 
 Namespace `etch-font-manager/v1`:
 
-`GET /state`, `POST /families`, `POST /settings`, `POST /upload`, `POST /files/delete`,
+`GET /state`, `POST /families`, `POST /settings`, `POST /upload`, `POST /files/axes`, `POST /files/delete`,
 `POST /files/prune`, `POST /css/regenerate`, `GET /export`, `POST /import`,
 `GET /google/search`, `POST /google/install`.
 
@@ -161,23 +187,29 @@ Namespace `etch-font-manager/v1`:
 
 ```bash
 composer global require squizlabs/php_codesniffer wp-coding-standards/wpcs:^3
-phpcs                # coding standards, configured by phpcs.xml.dist
-php tests/run.php    # behavioural tests, no dependencies
+phpcs                     # coding standards, configured by phpcs.xml.dist
+php tests/run.php         # behavioural tests, no dependencies
 node --check assets/panel.js
+node tools/boot-check.js  # actually runs the panel's setup code, not just a syntax check
+node tools/check-pot.js   # fails if the translation template has drifted from the source
 ```
 
-The same checks run in CI on every push.
+The same checks run in CI on every push, along with `eslint --rule '{"no-undef":"error"}'` over `panel.js` and
+the WOFF2 worker, and a check that `update.json` is valid JSON.
 
 ### The WOFF2 binary
 
 `assets/wasm/woff2.js` and `assets/wasm/woff2.wasm` are compiled artefacts, not hand-written source. They are
 built by `.github/workflows/build-wasm.yml` from `src/woff2/api.cpp` linked against pinned revisions of
 [google/woff2](https://github.com/google/woff2) and [google/brotli](https://github.com/google/brotli), both MIT.
-The workflow smoke-tests every build against a real TTF **and** a real OTF before committing it, and records the
-emsdk version, upstream commits, file sizes and SHA-256 sums in `assets/wasm/BUILD.txt`.
+The workflow smoke-tests every build against a real TTF **and** a real OTF before committing it — including
+checking that every import the binary declares is actually callable, since a binary that merely instantiates in
+Node can still fail to link in a browser — and records the emsdk version, upstream commits, file sizes and
+SHA-256 sums in `assets/wasm/BUILD.txt`.
 
 Run it by hand from the Actions tab after changing a pin. Do not edit the artefacts; they will be overwritten.
-Only the encoder is compiled — the plugin never converts WOFF2 back to TTF.
+Both directions are compiled: encoding for the converter, and decoding far enough to read a WOFF2's `fvar` table
+for variable-axis detection. Neither direction ever writes a WOFF2 back out as a TTF.
 
 The test suite is deliberately dependency free — no Composer, no PHPUnit, no WordPress test suite — so it runs
 anywhere PHP does. It stubs only the handful of WordPress functions the tested methods actually reach, and

@@ -2,7 +2,7 @@
 
 Manage self-hosted custom fonts **inside the Etch builder**. No trips back to the WordPress dashboard.
 
-**Stable, v1.0.0.** [![Latest release](https://img.shields.io/github/v/release/donkanishka/etch-font-manager?label=release)](https://github.com/donkanishka/etch-font-manager/releases/latest)
+**Stable, v1.0.1.** [![Latest release](https://img.shields.io/github/v/release/donkanishka/etch-font-manager?label=release)](https://github.com/donkanishka/etch-font-manager/releases/latest)
 
 The plugin registers a **Font Manager** control in the Etch Settings Bar using Etch's official
 [Controls API](https://docs.etchwp.com/integrations/controls) and opens a docked panel that follows the

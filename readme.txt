@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,9 @@ Settings > Removal has the opt-out. Tick "Delete the font files when the plugin 
 Reinstalling leaves the kept stylesheet in place rather than regenerating over it, so the site carries on loading its fonts. The library itself starts empty — restore it from Import & export.
 
 == Changelog ==
+
+= 1.0.1 =
+* Fixed: the active Google Fonts filter count now renders as a true circle and sits slightly farther from the Filters label, matching the other count badges.
 
 = 1.0.0 =
 * First stable release. The code is identical to 0.36.4 — this is the build that was installed, run and reported clean, with the version number changed to say so.

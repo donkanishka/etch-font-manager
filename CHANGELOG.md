@@ -2,6 +2,15 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.1
+
+### Fixed
+
+- **The Google Fonts filter count looked oval instead of circular.** It was sized only by text padding, so a
+  single digit rendered at about 14.6 by 17.4px. It now uses the same fixed 20px badge geometry and code-font
+  treatment as the other counters, with a little more space after the Filters label. Measured live: 20 by 20px
+  with a 6px label gap.
+
 ## 1.0.0
 
 First stable release.

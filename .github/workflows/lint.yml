@@ -161,4 +161,9 @@ jobs:
           wp core multisite-install --url=example.test --title=Isolation --admin_user=network-admin --admin_password=disposable-test-only --admin_email=network@example.test --skip-email --path="$WP"
           ln -s "$GITHUB_WORKSPACE" "$WP/wp-content/plugins/etch-font-manager"
           wp plugin activate etch-font-manager --network --path="$WP"
-          wp eval-file "$GITHUB_WORKSPACE/tests/multisite-live.php" --path="$WP"
+          set -o pipefail
+          wp eval-file "$GITHUB_WORKSPACE/tests/multisite-live.php" --path="$WP" 2>&1 | tee "$RUNNER_TEMP/efm-multisite.log"
+          if grep -Ei 'WordPress database error|PHP (Warning|Fatal error|Notice)' "$RUNNER_TEMP/efm-multisite.log"; then
+            echo 'Runtime errors are release blockers, even when assertions pass.'
+            exit 1
+          fi

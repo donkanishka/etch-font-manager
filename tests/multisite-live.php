@@ -3,11 +3,10 @@
 if ( ! defined( 'WP_CLI' ) || ! WP_CLI || ! is_multisite() || '1' !== getenv( 'EFM_DISPOSABLE_TEST' ) ) {
 	throw new RuntimeException( 'Disposable multisite test environment required.' );
 }
-$passed = 0;
+$GLOBALS['efm_live_passed'] = 0;
 function efm_live_assert( $value, $message ) {
-	global $passed;
 	if ( ! $value ) { throw new RuntimeException( $message ); }
-	++$passed;
+	++$GLOBALS['efm_live_passed'];
 	WP_CLI::log( 'PASS ' . $message );
 }
 function efm_live_family( $name ) {
@@ -73,4 +72,4 @@ define( 'WP_UNINSTALL_PLUGIN', true );
 require WP_PLUGIN_DIR . '/etch-font-manager/uninstall.php';
 efm_live_assert( file_exists( $other_dir . 'shared.woff2' ) && file_exists( $shared . 'shared.woff2' ), 'opt-in uninstall preserves other site and legacy fonts' );
 efm_live_assert( file_get_contents( $other_dir . 'efm-fonts.css' ) === $other_css && file_get_contents( $shared . 'efm-fonts.css' ) === 'LEGACY SHARED CSS', 'uninstall preserves other site and legacy CSS' );
-WP_CLI::success( $passed . ' real multisite assertions passed.' );
+WP_CLI::success( $GLOBALS['efm_live_passed'] . ' real multisite assertions passed.' );

@@ -157,6 +157,12 @@ class EFM_Fonts {
 	 * Regenerate the stylesheet after a plugin update.
 	 */
 	public static function maybe_upgrade() {
+		// Site creation switches blogs before their options tables exist.
+		// Defer migration until the site's first normal request or later switch.
+		if ( is_multisite() && ( doing_action( 'wp_insert_site' ) || doing_action( 'wp_initialize_site' ) ) ) {
+			return;
+		}
+
 		// Storage upgrades must run even when the plugin version has not changed.
 		if ( ! self::migrate_multisite_storage() ) {
 			return;
@@ -287,7 +293,7 @@ class EFM_Fonts {
 		$root = realpath( self::storage_root() );
 		$pending = array();
 		foreach ( (array) ( $state['pending'] ?? array() ) as $name ) {
-			if ( $name !== sanitize_file_name( $name ) || ! isset( self::FORMATS[ strtolower( pathinfo( $name, PATHINFO_EXTENSION ) ) ] ) ) {
+			if ( sanitize_file_name( $name ) !== $name || ! isset( self::FORMATS[ strtolower( pathinfo( $name, PATHINFO_EXTENSION ) ) ] ) ) {
 				continue;
 			}
 			$source = self::storage_root() . $name;
@@ -303,7 +309,14 @@ class EFM_Fonts {
 		if ( $done ) {
 			$done = self::write_css_unless_kept();
 		}
-		update_option( self::OPTION_STORAGE, array( 'pending' => $pending, 'done' => $done ), false );
+		update_option(
+			self::OPTION_STORAGE,
+			array(
+				'pending' => $pending,
+				'done'    => $done,
+			),
+			false
+		);
 
 		return $done;
 	}

@@ -11,6 +11,7 @@ define( 'WP_CONTENT_DIR', $efm_test_root );
 define( 'FS_CHMOD_FILE', 0644 );
 define( 'WEEK_IN_SECONDS', 604800 );
 function is_multisite() { return $GLOBALS['efm_test_multisite']; }
+function doing_action( $hook ) { return ( $GLOBALS['efm_test_active_action'] ?? '' ) === $hook; }
 function get_current_blog_id() { return $GLOBALS['efm_test_blog']; }
 function trailingslashit( $s ) { return rtrim( $s, '/\\' ) . '/'; }
 function content_url( $s = '' ) { return 'https://example.test/wp-content' . $s; }
@@ -56,6 +57,13 @@ try {
  efm_ok( in_array( array( 'EFM_Fonts', 'maybe_upgrade' ), $efm_test_hooks['switch_blog'], true ), 'switch_blog runs storage upgrade' );
  update_option( EFM_Fonts::OPTION_FAMILIES, efm_storage_family( 'shared.woff2' ) );
  update_option( 'efm_version', EFM_VERSION );
+ foreach ( array( 'wp_insert_site', 'wp_initialize_site' ) as $action ) {
+  $efm_test_active_action = $action;
+  EFM_Fonts::maybe_upgrade();
+  efm_is( false, get_option( EFM_Fonts::OPTION_STORAGE ), 'migration defers during ' . $action );
+  efm_ok( ! is_dir( EFM_Fonts::dir() ), 'no storage writes during ' . $action );
+ }
+ $efm_test_active_action = '';
  EFM_Fonts::maybe_upgrade();
  $site1 = EFM_Fonts::dir();
  efm_is( $shared . 'efm-sites/1/', $site1, 'main network site is isolated too' );

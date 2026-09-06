@@ -1,11 +1,11 @@
 {
-  "version": "1.0.1",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.1/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.1",
+  "version": "1.0.2",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.2/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.2",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
-  "date": "2026-09-04",
-  "notes": "The active Google Fonts filter count now renders as a true 20px circle and sits slightly farther from the Filters label, matching the other count badges.",
-  "last_updated": "2026-09-04"
+  "date": "2026-09-07",
+  "notes": "Security update: isolate multisite font storage and generated CSS with non-destructive legacy migration; validate and bound WOFF reconstruction with a 64 MiB output limit and small native decompression input chunks.",
+  "last_updated": "2026-09-07"
 }

@@ -2,6 +2,24 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.2
+
+### Security
+
+- **Isolate multisite storage.** Every site, including blog 1, gets its own font directory and generated CSS.
+  Ordinary site administrators can no longer mutate another site's font files or stylesheet through shared
+  plugin storage. Legacy mapped files are copied with atomic publication; shared originals and CSS remain
+  untouched. Interrupted migrations retry safely, and migration waits until new-site tables exist.
+- **Bound WOFF reconstruction.** Validate the complete directory, ranges, overlaps and reconstructed size
+  before allocation. Cap reconstructed output at 64 MiB, process tables sequentially, cancel excess output,
+  and limit compressed input chunks to 1 KiB to constrain native decompressor bursts. Larger reconstructed
+  WOFFs are not converted; use TTF, OTF or WOFF2. The cap is not a total browser-memory guarantee.
+
+### Tests
+
+- Add storage lifecycle and interrupted-publication regressions, bounded WOFF decoding tests, and a
+  disposable real WordPress multisite test. Database errors and PHP runtime warnings now fail that job.
+
 ## 1.0.1
 
 ### Fixed

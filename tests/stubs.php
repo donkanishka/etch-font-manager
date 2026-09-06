@@ -92,6 +92,6 @@ if ( ! function_exists( 'apply_filters' ) ) {
 	 * @return mixed
 	 */
 	function apply_filters( $hook_name, $value ) {
-		return $value;
+		return $GLOBALS['efm_test_filters'][ $hook_name ] ?? $value;
 	}
 }

@@ -27,7 +27,7 @@ function extract(name) {
 }
 
 function decoder() {
-	var stats = { allocations: [], copies: 0, slices: 0, streams: 0, active: 0, peak: 0, reads: 0, bytes: 0, cancels: 0 };
+	var stats = { allocations: [], copies: 0, slices: 0, inputs: 0, maxInput: 0, streams: 0, active: 0, peak: 0, reads: 0, bytes: 0, cancels: 0 };
 	class Bytes extends Uint8Array {
 		constructor(...args) {
 			if (typeof args[0] === 'number') {
@@ -38,6 +38,17 @@ function decoder() {
 		}
 		set(...args) { stats.copies++; return super.set(...args); }
 		slice(...args) { stats.slices++; return super.slice(...args); }
+	}
+	function InputStream(source, strategy) {
+		assert.equal(strategy.highWaterMark, 0, 'no compressed input read-ahead');
+		return new ReadableStream({
+			pull: function (controller) {
+				return source.pull({
+					enqueue: function (chunk) { stats.inputs++; stats.maxInput = Math.max(stats.maxInput, chunk.length); controller.enqueue(chunk); },
+					close: function () { controller.close(); }
+				});
+			}
+		}, strategy);
 	}
 	function Stream(format) {
 		stats.streams++;
@@ -69,7 +80,7 @@ function decoder() {
 		return match[0];
 	}).join('\n');
 	var context = vm.createContext({
-		Uint8Array: Bytes, DataView: DataView, Blob: Blob, Response: Response,
+		Uint8Array: Bytes, DataView: DataView, Blob: Blob, Response: Response, ReadableStream: InputStream,
 		window: { DecompressionStream: Stream }, s: function (key, fallback) { return fallback; }
 	});
 	vm.runInContext(constants + '\n' + ['isWoff', 'inflate', 'assembleSfnt', 'woffToSfnt', 'toSfnt'].map(extract).join('\n'), context);
@@ -187,6 +198,15 @@ test('valid metadata/private data dropped without inflation', async function () 
 	d = decoder();
 	await assert.rejects(d.run(buffer));
 	assert.equal(d.stats.allocations.length + d.stats.streams + d.stats.copies, 0);
+});
+test('compressed input feeds native inflate in bounded slices', async function () {
+	var data = require('node:crypto').randomBytes(16 * 1024);
+	var f = fixture([{ compressed: true, data: Buffer.concat([data, data]) }]);
+	assert.ok(f.entries[0].bytes.length > 1024);
+	var d = decoder();
+	await d.run(f.buffer);
+	assert.ok(d.stats.inputs > 1, 'input must be split');
+	assert.ok(d.stats.maxInput <= 1024, 'each native inflate burst starts with at most 1 KiB');
 });
 test('bounded small decompression bomb cancels on first excess chunk', async function () {
 	var f = fixture([{ compressed: true, data: Buffer.alloc(256 * 1024, 1), original: 512 }]);

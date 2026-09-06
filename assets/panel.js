@@ -9187,7 +9187,22 @@
 	 * @return {Promise}
 	 */
 	function inflate(bytes, target) {
-		var reader = new Blob([bytes]).stream().pipeThrough(new window.DecompressionStream('deflate')).getReader();
+		// Bound each native inflate burst too: Blob streams may feed large chunks
+		// that expand before the reader can reject them. Backpressure keeps only
+		// one 1 KiB compressed slice in flight (DEFLATE expansion is finite).
+		var cursor = 0;
+		var input = new ReadableStream({
+			pull: function (controller) {
+				if (cursor === bytes.length) {
+					controller.close();
+					return;
+				}
+				var end = Math.min(cursor + 1024, bytes.length);
+				controller.enqueue(bytes.subarray(cursor, end));
+				cursor = end;
+			}
+		}, { highWaterMark: 0 });
+		var reader = input.pipeThrough(new window.DecompressionStream('deflate')).getReader();
 		var written = 0;
 
 		function read() {

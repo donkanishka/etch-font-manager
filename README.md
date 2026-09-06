@@ -2,7 +2,7 @@
 
 Manage self-hosted custom fonts **inside the Etch builder**. No trips back to the WordPress dashboard.
 
-**Stable, v1.0.1.** [![Latest release](https://img.shields.io/github/v/release/donkanishka/etch-font-manager?label=release)](https://github.com/donkanishka/etch-font-manager/releases/latest)
+**Stable, v1.0.2.** [![Latest release](https://img.shields.io/github/v/release/donkanishka/etch-font-manager?label=release)](https://github.com/donkanishka/etch-font-manager/releases/latest)
 
 The plugin registers a **Font Manager** control in the Etch Settings Bar using Etch's official
 [Controls API](https://docs.etchwp.com/integrations/controls) and opens a docked panel that follows the
@@ -32,6 +32,19 @@ builder's own panel conventions (sizing, tokens, typography, focus styles, light
 - **Instant canvas refresh** — the generated stylesheet is reloaded in the builder shell and canvas iframe after every change; no page reload.
 - **Self-hosted and GDPR friendly** — everything is served from your own fonts directory.
 - **Block editor aware** — family names are registered in `theme.json` so Gutenberg font pickers list them (without duplicate `@font-face` output).
+
+## Multisite storage and WOFF limits
+
+On multisite, each site stores fonts and generated CSS beneath `wp-content/fonts/efm-sites/{blog_id}/`,
+including the main site. Custom storage-directory and URL filters remain base locations; the site namespace
+is appended afterwards. Existing mapped fonts are copied without deleting shared originals or overwriting
+legacy shared CSS. Unmapped legacy files are not automatically adopted. Migration requires local filesystem
+locking and hard-link support for atomic publication; failed copies retry without accepting partial files.
+
+WOFF reconstruction validates table ranges and sizes before allocating output, processes tables sequentially,
+and feeds the native decompressor in small bounded chunks. Reconstructed fonts larger than 64 MiB are not
+converted; supply TTF, OTF or WOFF2 instead. This is an output limit, not a cap on total browser memory.
+Single-site storage paths are unchanged.
 
 ## Requirements
 

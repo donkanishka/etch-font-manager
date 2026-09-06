@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,11 @@ Settings > Removal has the opt-out. Tick "Delete the font files when the plugin 
 Reinstalling leaves the kept stylesheet in place rather than regenerating over it, so the site carries on loading its fonts. The library itself starts empty — restore it from Import & export.
 
 == Changelog ==
+
+= 1.0.2 =
+* Security: isolate multisite font files and generated CSS per site, with non-destructive migration of mapped legacy files.
+* Security: validate WOFF layouts before allocation, cap reconstructed fonts at 64 MiB, and bound native decompression input chunks.
+* Fixed: defer migration while WordPress is creating a new site.
 
 = 1.0.1 =
 * Fixed: the active Google Fonts filter count now renders as a true circle and sits slightly farther from the Filters label, matching the other count badges.

@@ -96,6 +96,9 @@ jobs:
       - name: Check the panel boots
         run: node tools/boot-check.js
 
+      - name: Check bounded WOFF reconstruction
+        run: node tools/woff-check.js
+
       # Parsing and booting both pass on code that dies the moment it reaches a
       # branch nothing exercised. Two releases were broken that way: 0.34.0 read
       # a var before it was assigned, and 0.36.0 left a reference to a variable
@@ -125,3 +128,37 @@ jobs:
 
       - name: Check the update manifest is valid JSON
         run: node -e "JSON.parse(require('fs').readFileSync('update.json','utf8')); console.log('update.json OK')"
+
+  multisite:
+    name: Real WordPress multisite isolation
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: disposable-test-only
+          MYSQL_DATABASE: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pdisposable-test-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mysqli
+          tools: wp-cli
+      - name: Create disposable network and test real site permissions
+        env:
+          EFM_DISPOSABLE_TEST: '1'
+        run: |
+          WP="$RUNNER_TEMP/efm-wordpress"
+          mkdir -p "$WP"
+          wp core download --version=7.0 --path="$WP"
+          wp config create --dbname=wordpress --dbuser=root --dbpass=disposable-test-only --dbhost=127.0.0.1:3306 --path="$WP"
+          wp core multisite-install --url=example.test --title=Isolation --admin_user=network-admin --admin_password=disposable-test-only --admin_email=network@example.test --skip-email --path="$WP"
+          ln -s "$GITHUB_WORKSPACE" "$WP/wp-content/plugins/etch-font-manager"
+          wp plugin activate etch-font-manager --network --path="$WP"
+          wp eval-file "$GITHUB_WORKSPACE/tests/multisite-live.php" --path="$WP"

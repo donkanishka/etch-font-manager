@@ -16,6 +16,7 @@ class EFM_Fonts {
 
 	const OPTION_FAMILIES = 'efm_font_families';
 	const OPTION_SETTINGS = 'efm_settings';
+	const OPTION_STORAGE = 'efm_multisite_storage_v1';
 
 	/*
 	 * Variable axes read out of a font file, keyed by the name it was stored
@@ -114,6 +115,7 @@ class EFM_Fonts {
 	 */
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'maybe_upgrade' ) );
+		add_action( 'switch_blog', array( __CLASS__, 'maybe_upgrade' ) );
 	}
 
 	/**
@@ -141,18 +143,25 @@ class EFM_Fonts {
 	 *
 	 * A fresh install still gets its file, since there is nothing there to lose.
 	 *
-	 * @return void
+	 * @return bool Whether the existing stylesheet was kept or a write succeeded.
 	 */
 	public static function write_css_unless_kept() {
 		if ( self::has_library() || ! file_exists( self::css_path() ) ) {
-			self::write_css_file();
+			return self::write_css_file();
 		}
+
+		return true;
 	}
 
 	/**
 	 * Regenerate the stylesheet after a plugin update.
 	 */
 	public static function maybe_upgrade() {
+		// Storage upgrades must run even when the plugin version has not changed.
+		if ( ! self::migrate_multisite_storage() ) {
+			return;
+		}
+
 		if ( get_option( 'efm_version' ) === EFM_VERSION ) {
 			return;
 		}
@@ -180,11 +189,12 @@ class EFM_Fonts {
 		 * Etch Font Manager deliberately uses wp-content/fonts rather than
 		 * wp_get_font_dir(). WordPress may resolve that API to uploads/fonts,
 		 * while Etch and the legacy Etch Custom Fonts plugin use content/fonts.
-		 * A stable shared path also makes legacy imports immediately usable.
+		 * Single-site paths remain unchanged. On multisite this filter selects
+		 * a base; efm-sites/{blog_id}/ is appended after filtering.
 		 *
 		 * @param string $dir Absolute directory path.
 		 */
-		return trailingslashit( apply_filters( 'efm_fonts_dir', WP_CONTENT_DIR . '/fonts' ) );
+		return self::storage_root() . self::site_suffix();
 	}
 
 	/**
@@ -198,7 +208,175 @@ class EFM_Fonts {
 		 *
 		 * @param string $url Fonts directory URL.
 		 */
-		return trailingslashit( apply_filters( 'efm_fonts_url', content_url( '/fonts' ) ) );
+		return trailingslashit( apply_filters( 'efm_fonts_url', content_url( '/fonts' ) ) ) . self::site_suffix();
+	}
+
+	/**
+	 * Filters choose the base; multisite isolation is always appended afterwards.
+	 *
+	 * @return string
+	 */
+	protected static function storage_root() {
+		return trailingslashit( apply_filters( 'efm_fonts_dir', WP_CONTENT_DIR . '/fonts' ) );
+	}
+
+	/**
+	 * Resolve the current blog on every call, including switch_to_blog().
+	 *
+	 * @return string
+	 */
+	protected static function site_suffix() {
+		return is_multisite() ? 'efm-sites/' . get_current_blog_id() . '/' : '';
+	}
+
+	/**
+	 * A symlink must not turn a site's namespace back into shared storage.
+	 * The filtered base itself is trusted configuration and may be a mount/link.
+	 *
+	 * @return bool
+	 */
+	protected static function storage_is_safe() {
+		if ( ! is_multisite() ) {
+			return true;
+		}
+
+		$root = self::storage_root();
+		foreach ( array( $root . 'efm-sites', rtrim( self::dir(), '/\\' ) ) as $path ) {
+			if ( is_link( $path ) || ( file_exists( $path ) && ! is_dir( $path ) ) ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Copy a snapshot of legacy references into this site's isolated directory.
+	 * Records prove a reference, never exclusive ownership: shared originals and
+	 * shared CSS are never changed. Missing/invalid files remain visibly missing.
+	 * Failed copies retry from the saved snapshot, not later mutable records.
+	 *
+	 * @return bool Whether all eligible copies have completed.
+	 */
+	public static function migrate_multisite_storage() {
+		if ( ! is_multisite() ) {
+			return true;
+		}
+
+		$state = get_option( self::OPTION_STORAGE, null );
+		if ( null === $state ) {
+			$pending = array();
+			foreach ( self::sanitize_families( self::families() ) as $family ) {
+				foreach ( $family['variants'] as $variant ) {
+					$pending[] = $variant['file'];
+				}
+			}
+			$state = array( 'pending' => array_values( array_unique( $pending ) ) );
+			// First writer wins if two requests encounter an automatic upgrade.
+			add_option( self::OPTION_STORAGE, $state, '', false );
+			$state = get_option( self::OPTION_STORAGE );
+		}
+		if ( ! empty( $state['done'] ) ) {
+			return true;
+		}
+		if ( ! self::storage_is_safe() ) {
+			return false;
+		}
+
+		self::ensure_dir();
+		$root = realpath( self::storage_root() );
+		$pending = array();
+		foreach ( (array) ( $state['pending'] ?? array() ) as $name ) {
+			if ( $name !== sanitize_file_name( $name ) || ! isset( self::FORMATS[ strtolower( pathinfo( $name, PATHINFO_EXTENSION ) ) ] ) ) {
+				continue;
+			}
+			$source = self::storage_root() . $name;
+			$target = self::dir() . $name;
+			if ( is_link( $source ) || ! is_file( $source ) || false === $root || dirname( realpath( $source ) ) !== $root || filesize( $source ) > self::MAX_FILE_SIZE || ! self::validate_magic_bytes( $source, strtolower( pathinfo( $name, PATHINFO_EXTENSION ) ) ) ) {
+				continue;
+			}
+			if ( ! self::publish_migration_file( $source, $target ) ) {
+				$pending[] = $name;
+			}
+		}
+		$done = empty( $pending ) && is_dir( self::dir() );
+		if ( $done ) {
+			$done = self::write_css_unless_kept();
+		}
+		update_option( self::OPTION_STORAGE, array( 'pending' => $pending, 'done' => $done ), false );
+
+		return $done;
+	}
+
+	/**
+	 * Publish a fully validated private copy without replacing a destination.
+	 * The deterministic staging name and lock also recover a killed writer,
+	 * including a kill between link() and unlink(). Shared sources are read-only.
+	 *
+	 * @param string $source Shared source file.
+	 * @param string $target Site-isolated destination file.
+	 * @return bool Whether a safe destination exists.
+	 */
+	protected static function publish_migration_file( $source, $target ) {
+		$temp = self::dir() . '.efm-migrate-' . hash( 'sha256', basename( $target ) ) . '.tmp';
+		if ( ! self::storage_is_safe() || is_link( $temp ) || is_link( $target ) || realpath( dirname( $target ) ) !== realpath( self::dir() ) ) {
+			return false;
+		}
+		$handle = @fopen( $temp, 'c+b' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen, WordPress.PHP.NoSilencedErrors.Discouraged
+		if ( false === $handle ) {
+			return false;
+		}
+		try {
+			if ( ! flock( $handle, LOCK_EX | LOCK_NB ) ) {
+				return false;
+			}
+			clearstatcache();
+			$staged = fstat( $handle );
+			$named = is_file( $temp ) && ! is_link( $temp ) ? stat( $temp ) : false;
+			$dest = is_file( $target ) && ! is_link( $target ) ? stat( $target ) : false;
+
+			// Only the exact staged inode with exactly two links can be recovered.
+			// An arbitrary hard-linked target remains forbidden by path_is_inside().
+			if ( $named && $dest && $staged && $named['ino'] === $staged['ino'] && $named['dev'] === $staged['dev'] && $dest['ino'] === $staged['ino'] && $dest['dev'] === $staged['dev'] && 2 === $staged['nlink'] ) {
+				wp_delete_file( $temp );
+				clearstatcache();
+
+				return self::path_is_inside( $target );
+			}
+			if ( file_exists( $target ) || is_link( $target ) ) {
+				return self::path_is_inside( $target );
+			}
+			if ( ! $named || ! $staged || $named['ino'] !== $staged['ino'] || $named['dev'] !== $staged['dev'] || 1 !== $staged['nlink'] || ! self::path_is_inside( $temp ) || ! self::path_is_inside( $target ) ) {
+				return false;
+			}
+			$bytes = file_get_contents( $source, false, null, 0, self::MAX_FILE_SIZE + 1 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			$ext = strtolower( pathinfo( $target, PATHINFO_EXTENSION ) );
+			if ( false === $bytes || strlen( $bytes ) > self::MAX_FILE_SIZE || ! self::looks_like_font( $bytes, $ext ) || ! static::write_migration_bytes( $handle, $bytes ) || hash( 'sha256', $bytes ) !== hash_file( 'sha256', $temp ) ) {
+				return false;
+			}
+
+			// link() is atomic and refuses an existing name; rename() would overwrite it.
+			if ( ! @link( $temp, $target ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+				return file_exists( $target ) && self::path_is_inside( $target );
+			}
+			wp_delete_file( $temp );
+			clearstatcache();
+
+			return self::path_is_inside( $target );
+		} finally {
+			fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		}
+	}
+
+	/**
+	 * Replace and flush staging bytes; a short/failed write must never publish.
+	 *
+	 * @param resource $handle Locked staging handle.
+	 * @param string   $bytes  Complete font contents.
+	 * @return bool Whether every byte was written and flushed.
+	 */
+	protected static function write_migration_bytes( $handle, $bytes ) {
+		return ftruncate( $handle, 0 ) && rewind( $handle ) && strlen( $bytes ) === fwrite( $handle, $bytes ) && fflush( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
 	}
 
 	/**
@@ -295,6 +473,10 @@ class EFM_Fonts {
 	 * Create the fonts directory and protect it from listing.
 	 */
 	public static function ensure_dir() {
+		if ( ! self::storage_is_safe() ) {
+			return;
+		}
+
 		$dir = self::dir();
 
 		if ( ! file_exists( $dir ) ) {
@@ -315,6 +497,10 @@ class EFM_Fonts {
 	 * @return bool
 	 */
 	protected static function write_file( $path, $content ) {
+		if ( ! self::path_is_inside( $path ) ) {
+			return false;
+		}
+
 		global $wp_filesystem;
 
 		if ( ! $wp_filesystem ) {
@@ -336,6 +522,16 @@ class EFM_Fonts {
 	 * @return bool
 	 */
 	public static function path_is_inside( $path ) {
+		if ( ! self::storage_is_safe() || ( is_multisite() && is_link( $path ) ) ) {
+			return false;
+		}
+		if ( is_multisite() && is_file( $path ) ) {
+			$stat = stat( $path );
+			if ( false === $stat || $stat['nlink'] > 1 ) {
+				return false;
+			}
+		}
+
 		$base = realpath( self::dir() );
 		if ( false === $base ) {
 			return false;
@@ -1863,7 +2059,7 @@ class EFM_Fonts {
 	public static function files() {
 		$dir = self::dir();
 
-		if ( ! is_dir( $dir ) ) {
+		if ( ! self::storage_is_safe() || ! is_dir( $dir ) ) {
 			return array();
 		}
 
@@ -1871,7 +2067,7 @@ class EFM_Fonts {
 		$files = array();
 
 		foreach ( new DirectoryIterator( $dir ) as $file ) {
-			if ( $file->isDot() || $file->isDir() ) {
+			if ( $file->isDot() || $file->isDir() || ! self::path_is_inside( $file->getPathname() ) ) {
 				continue;
 			}
 
@@ -2130,7 +2326,8 @@ class EFM_Fonts {
 	 * moving anything. So a full removal cannot simply empty the folder: it would
 	 * take another plugin's typography with it.
 	 *
-	 * What can be proved is what the stored families map. Anything else in there
+	 * On multisite only isolated site copies are eligible; mapping a shared
+	 * original never proves exclusive ownership. Anything else in there
 	 * may be ours, may be Etch's, and there is no way to tell from the outside, so
 	 * it stays. Unused uploads are cleared from Import & export instead, where the
 	 * list is on screen and the choice is deliberate.
@@ -2138,7 +2335,7 @@ class EFM_Fonts {
 	 * @return string[] Absolute paths, the generated stylesheet included.
 	 */
 	public static function owned_files() {
-		$paths = array( self::css_path() );
+		$paths = self::path_is_inside( self::css_path() ) ? array( self::css_path() ) : array();
 
 		foreach ( self::families() as $family ) {
 			foreach ( (array) ( $family['variants'] ?? array() ) as $variant ) {

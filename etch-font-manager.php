@@ -58,6 +58,7 @@ function efm_activate() {
 
 	EFM_Fonts::ensure_dir();
 	EFM_Fonts::maybe_import_legacy();
+	EFM_Fonts::migrate_multisite_storage();
 
 	/*
 	 * Not write_css_file(). A reinstall lands with no library, and regenerating

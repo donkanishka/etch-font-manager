@@ -64,7 +64,7 @@ delete_transient( 'efm_google_fonts_index_v2' );
 delete_transient( 'efm_inline_css' );
 
 foreach ( $efm_doomed as $efm_file ) {
-	if ( file_exists( $efm_file ) ) {
+	if ( EFM_Fonts::path_is_inside( $efm_file ) && file_exists( $efm_file ) ) {
 		wp_delete_file( $efm_file );
 	}
 }

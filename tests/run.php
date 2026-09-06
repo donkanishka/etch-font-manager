@@ -332,6 +332,8 @@ efm_is( 'upload', EFM_Fonts::derive_source( array() ), 'a record with nothing to
 
 /* ---------------------------------------------------------------------- */
 
+require __DIR__ . '/storage.php';
+
 echo "\n" . $efm_passed . " passed, " . $efm_failed . " failed\n";
 
 exit( $efm_failed > 0 ? 1 : 0 );

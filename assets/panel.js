@@ -9178,76 +9178,50 @@
 	}
 
 	/**
-	 * Inflate one zlib stream.
+	 * Inflate one zlib stream directly into a validated, bounded table view.
+	 * WOFF uses RFC 1950 ('deflate'), not RFC 1951 ('deflate-raw').
+	 * Never collect chunks: cancel as soon as output exceeds the declared size.
 	 *
-	 * WOFF table data is zlib (RFC 1950), so the format here is 'deflate'.
-	 * 'deflate-raw' is RFC 1951 and would choke on the two byte zlib header.
-	 *
-	 * @param {Uint8Array} bytes Compressed bytes.
-	 * @return {Promise} Resolves with a Uint8Array.
+	 * @param {Uint8Array} bytes  Compressed bytes.
+	 * @param {Uint8Array} target Table view inside the bounded sfnt output.
+	 * @return {Promise}
 	 */
-	function inflate(bytes) {
-		var stream = new Blob([bytes]).stream().pipeThrough(new window.DecompressionStream('deflate'));
+	function inflate(bytes, target) {
+		var reader = new Blob([bytes]).stream().pipeThrough(new window.DecompressionStream('deflate')).getReader();
+		var written = 0;
 
-		return new Response(stream).arrayBuffer().then(function (buffer) {
-			return new Uint8Array(buffer);
+		function read() {
+			return reader.read().then(function (chunk) {
+				if (chunk.done) {
+					if (written !== target.length) {
+						throw new Error('Invalid WOFF table length.');
+					}
+					return;
+				}
+				if (chunk.value.length > target.length - written) {
+					throw new Error('Invalid WOFF table length.');
+				}
+				target.set(chunk.value, written);
+				written += chunk.value.length;
+				return read();
+			});
+		}
+
+		return read().catch(function (error) {
+			return reader.cancel().catch(function () {}).then(function () {
+				throw error;
+			});
 		});
-	}
-
-	/**
-	 * Rebuild an sfnt from its flavour, table directory and table data.
-	 *
-	 * @param {number} flavor  sfnt version from the WOFF header.
-	 * @param {Array}  entries Table directory entries, sorted by tag.
-	 * @param {Array}  tables  Uncompressed table data, matching entries.
-	 * @return {ArrayBuffer}
-	 */
-	function assembleSfnt(flavor, entries, tables) {
-		var count = entries.length;
-		var offsets = [];
-		var offset = 12 + count * 16;
-		var i;
-
-		for (i = 0; i < count; i++) {
-			offsets.push(offset);
-
-			// Tables are aligned to four bytes, with the padding counted in the
-			// next offset but not in the recorded length.
-			offset += (tables[i].length + 3) & ~3;
-		}
-
-		var out = new Uint8Array(offset);
-		var view = new DataView(out.buffer);
-		var exponent = Math.floor(Math.log(count) / Math.LN2);
-		var searchRange = Math.pow(2, exponent) * 16;
-
-		view.setUint32(0, flavor);
-		view.setUint16(4, count);
-		view.setUint16(6, searchRange);
-		view.setUint16(8, exponent);
-		view.setUint16(10, count * 16 - searchRange);
-
-		for (i = 0; i < count; i++) {
-			var at = 12 + i * 16;
-			view.setUint32(at, entries[i].tag);
-			view.setUint32(at + 4, entries[i].checksum);
-			view.setUint32(at + 8, offsets[i]);
-			view.setUint32(at + 12, tables[i].length);
-			out.set(tables[i], offsets[i]);
-		}
-
-		return out.buffer;
 	}
 
 	/**
 	 * Unwrap a WOFF into the plain sfnt inside it.
 	 *
-	 * WOFF is not a format the WOFF2 encoder understands. It is an sfnt whose
-	 * tables have each been deflated separately, so rebuilding the sfnt is
-	 * header parsing plus inflate — no extra binary, just DecompressionStream.
-	 *
-	 * The metadata and private data blocks are dropped deliberately. They carry
-	 * no glyph data, WOFF2 stores them differently, and nothing here reads them.
+	 * Validate the entire directory before allocating or inflating. The 64 MiB
+	 * reconstructed-sfnt cap allows large CJK/variable fonts while bounding this
+	 * main-thread operation. Larger fonts should be supplied as TTF/OTF/WOFF2.
+	 * Tables stream sequentially into one output, not retained per-table copies.
+	 * Metadata/private blocks are range-checked but dropped without inflation.
 	 *
 	 * @param {ArrayBuffer} buffer WOFF bytes.
 	 * @return {Promise} Resolves with an ArrayBuffer of sfnt bytes.
@@ -9264,14 +9238,30 @@
 		var view = new DataView(buffer);
 		var flavor = view.getUint32(4);
 		var count = view.getUint16(12);
+		var directoryEnd = WOFF_HEADER + count * WOFF_ENTRY;
+		var limit = 64 * 1024 * 1024;
+		var total = 12 + count * 16;
 
-		if (!count || WOFF_HEADER + count * WOFF_ENTRY > buffer.byteLength) {
+		// sfnt searchRange/rangeShift are uint16: 4096 tables cannot fit.
+		if (view.getUint32(0) !== 0x774f4646 || view.getUint32(8) !== buffer.byteLength ||
+			view.getUint16(14) !== 0 || !count || count > 4095 || directoryEnd > buffer.byteLength) {
 			return Promise.reject(damaged());
 		}
 
-		var source = new Uint8Array(buffer);
 		var entries = [];
+		var ranges = [];
 		var i;
+
+		function range(offset, length) {
+			if (offset % 4 || offset < directoryEnd || offset > buffer.byteLength ||
+				length > buffer.byteLength - offset) {
+				return false;
+			}
+			if (length) {
+				ranges.push({ start: offset, end: offset + length });
+			}
+			return true;
+		}
 
 		for (i = 0; i < count; i++) {
 			var at = WOFF_HEADER + i * WOFF_ENTRY;
@@ -9282,44 +9272,76 @@
 				origLength: view.getUint32(at + 12),
 				checksum: view.getUint32(at + 16)
 			};
-
-			// Refuse anything that points outside the file or claims to inflate
-			// to less than it occupies, rather than trusting it and allocating.
-			if (entry.compLength > entry.origLength ||
-				entry.offset + entry.compLength > buffer.byteLength) {
+			// Arithmetic padding, not signed bitwise rounding of attacker lengths.
+			var padded = Math.ceil(entry.origLength / 4) * 4;
+			if (entry.compLength > entry.origLength || (!entry.compLength && entry.origLength) ||
+				padded > limit - total || !range(entry.offset, Math.ceil(entry.compLength / 4) * 4)) {
 				return Promise.reject(damaged());
 			}
-
+			total += padded;
 			entries.push(entry);
 		}
 
-		// The sfnt directory must be in ascending tag order. WOFF requires that
-		// too, but a file that got it wrong would otherwise produce a font no
-		// shaper will read.
-		entries.sort(function (a, b) {
-			return a.tag - b.tag;
-		});
+		var metaOffset = view.getUint32(24);
+		var metaLength = view.getUint32(28);
+		var metaOriginal = view.getUint32(32);
+		var privateOffset = view.getUint32(36);
+		var privateLength = view.getUint32(40);
+		if ((metaOffset ? (!metaLength || !metaOriginal || !range(metaOffset, metaLength)) : (metaLength || metaOriginal)) ||
+			(privateOffset ? (!privateLength || !range(privateOffset, privateLength)) : privateLength) ||
+			total !== view.getUint32(16)) {
+			return Promise.reject(damaged());
+		}
 
-		return Promise.all(entries.map(function (item) {
-			var slice = source.subarray(item.offset, item.offset + item.compLength);
-
-			// A table is stored as-is when deflating it did not help. The spec
-			// signals that by making compLength equal to origLength.
-			if (item.compLength === item.origLength) {
-				return Promise.resolve(slice.slice());
+		ranges.sort(function (a, b) { return a.start - b.start; });
+		for (i = 1; i < ranges.length; i++) {
+			if (ranges[i].start < ranges[i - 1].end) {
+				return Promise.reject(damaged());
 			}
+		}
+		entries.sort(function (a, b) { return a.tag - b.tag; });
+		for (i = 1; i < count; i++) {
+			if (entries[i].tag === entries[i - 1].tag) {
+				return Promise.reject(damaged());
+			}
+		}
 
-			return inflate(slice).then(function (data) {
-				if (data.length !== item.origLength) {
-					throw damaged();
-				}
-				return data;
-			});
-		})).then(function (tables) {
-			return assembleSfnt(flavor, entries, tables);
-		}, function () {
-			// A failed inflate throws its own DOM exception, which says nothing
-			// useful to someone who just dropped a font on the page.
+		var source = new Uint8Array(buffer);
+		var out = new Uint8Array(total);
+		var outputView = new DataView(out.buffer);
+		var exponent = Math.floor(Math.log(count) / Math.LN2);
+		var searchRange = Math.pow(2, exponent) * 16;
+		outputView.setUint32(0, flavor);
+		outputView.setUint16(4, count);
+		outputView.setUint16(6, searchRange);
+		outputView.setUint16(8, exponent);
+		outputView.setUint16(10, count * 16 - searchRange);
+		var offset = 12 + count * 16;
+		var index = 0;
+
+		function next() {
+			if (index === count) {
+				return Promise.resolve(out.buffer);
+			}
+			var item = entries[index];
+			var at = 12 + index * 16;
+			outputView.setUint32(at, item.tag);
+			outputView.setUint32(at + 4, item.checksum);
+			outputView.setUint32(at + 8, offset);
+			outputView.setUint32(at + 12, item.origLength);
+			var target = out.subarray(offset, offset + item.origLength);
+			var slice = source.subarray(item.offset, item.offset + item.compLength);
+			offset += Math.ceil(item.origLength / 4) * 4;
+			index++;
+			if (item.compLength === item.origLength) {
+				target.set(slice);
+				return Promise.resolve().then(next);
+			}
+			return inflate(slice, target).then(next);
+		}
+
+		return Promise.resolve().then(next).catch(function () {
+			// Keep native stream failures in the existing translated error path.
 			throw damaged();
 		});
 	}

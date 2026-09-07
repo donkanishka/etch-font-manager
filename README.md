@@ -2,7 +2,7 @@
 
 Manage self-hosted custom fonts **inside the Etch builder**. No trips back to the WordPress dashboard.
 
-[![WordPress 6.0+](https://img.shields.io/badge/WordPress-6.0%2B-21759B?logo=wordpress&logoColor=white)](https://wordpress.org/) [![PHP 7.4+](https://img.shields.io/badge/PHP-7.4%2B-777BB4?logo=php&logoColor=white)](https://www.php.net/) [![Etch 1.6+](https://img.shields.io/badge/Etch-1.6%2B-202124)](https://docs.etchwp.com/) [![License GPL-2.0](https://img.shields.io/badge/license-GPL--2.0-3DA639)](LICENSE) [![Latest release](https://img.shields.io/github/v/release/donkanishka/etch-font-manager?label=release)](https://github.com/donkanishka/etch-font-manager/releases/latest)
+[![WordPress 6.0+](https://img.shields.io/badge/WordPress-6.0%2B-21759B?logo=wordpress&logoColor=white)](https://wordpress.org/) [![PHP 7.4+](https://img.shields.io/badge/PHP-7.4%2B-777BB4?logo=php&logoColor=white)](https://www.php.net/) [![Etch 1.6+](https://img.shields.io/badge/Etch-1.6%2B-202124)](https://etchwp.com/) [![License GPL-2.0](https://img.shields.io/badge/license-GPL--2.0-3DA639)](LICENSE) [![Latest release](https://img.shields.io/github/v/release/donkanishka/etch-font-manager?label=release)](https://github.com/donkanishka/etch-font-manager/releases/latest)
 
 ![Etch Font Manager showing a grid of locally hosted font families inside the Etch builder](assets/readme/font-manager-overview.jpg)
 

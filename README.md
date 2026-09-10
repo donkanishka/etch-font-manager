@@ -50,9 +50,11 @@ Single-site storage paths are unchanged.
 
 ## Requirements
 
-- WordPress 6.0+
-- PHP 7.4+
-- Etch 1.6+ (the Controls API is required for the in-builder panel)
+- WordPress 6.0+ (Font Manager's declared minimum; Etch itself requires WordPress 5.9)
+- PHP 7.4+ for Font Manager itself; PHP 8.1+ for the in-builder panel because [Etch requires PHP 8.1](https://docs.etchwp.com/getting-started/requirements)
+- Etch 1.6+ for the in-builder panel as Font Manager's supported baseline; the required [Settings Bar Controls API](https://docs.etchwp.com/integrations/controls) predates Etch 1.6
+- WordPress memory limit 64 MB; Etch recommends 128 MB
+- Compatibility verified with WordPress 7.0 and Etch 1.6.7
 - Automatic.css is optional; families are exposed as CSS variables you can feed into it
 
 ## Installation

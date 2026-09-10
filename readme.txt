@@ -33,9 +33,13 @@ Features:
 
 == Frequently Asked Questions ==
 
+= What are the minimum requirements? =
+
+Etch Font Manager declares WordPress 6.0 and PHP 7.4. For the in-builder panel, the effective requirements are WordPress 6.0, PHP 8.1, Etch 1.6 and a 64 MB WordPress memory limit; Etch recommends 128 MB. Etch 1.6 is Font Manager's supported baseline, not the release that introduced the Controls API. Etch Font Manager 1.0.2 is verified with WordPress 7.0 and Etch 1.6.7.
+
 = Does this require Etch? =
 
-The in-builder panel requires Etch 1.6 or newer. Font delivery on the frontend works regardless.
+The in-builder panel supports Etch 1.6 or newer. Font delivery on the frontend works regardless.
 
 = Are fonts self-hosted? =
 

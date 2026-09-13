@@ -1387,6 +1387,21 @@
 }
 
 /*
+ * Variable controls belong to the specimen above them, but still form one
+ * section of their own. The raised box keeps the explanation, every axis and
+ * the reset action together whether the family exposes one axis or several.
+ */
+.efm-axes-panel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--e-space-m, 12px);
+	padding: var(--efm-section-pad);
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+	background: var(--efm-surface-raised);
+}
+
+/*
  * Capped, not 1fr. A 1fr track stretched an axis across half the pane, which
  * left a 120px slider adrift in 490px of column with its own value parked a few
  * hundred pixels away at the far edge -- the label read as belonging to the axis
@@ -2090,6 +2105,33 @@
 	flex-direction: column;
 	gap: 4px;
 	min-inline-size: 0;
+}
+
+/*
+ * A saved family adds the generated CSS variable, so its identity row takes
+ * the space two controls need while Availability remains a compact third
+ * column. Minimum measures make the controls wrap before either becomes hard
+ * to read in a narrow builder panel.
+ */
+.efm-family-details--saved > .efm-field-row {
+	flex: 1 1 780px;
+	gap: var(--e-space-xl, 24px);
+}
+
+.efm-family-details--saved > .efm-field-row > .efm-field {
+	min-inline-size: 280px;
+}
+
+.efm-family-details--saved > .efm-field-row > .efm-field:first-child {
+	flex: 0 1 340px;
+}
+
+.efm-family-details--saved > .efm-field-row > .efm-field:last-child {
+	flex: 1 1 420px;
+}
+
+.efm-family-details--saved > .efm-family-details__availability {
+	flex-basis: 360px;
 }
 
 /* ------------------------------- Delivery ------------------------------ */

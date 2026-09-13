@@ -4939,27 +4939,29 @@
 		 */
 		if (!tunable.length && axesUnreadable(family)) {
 			contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('axesTitle', 'Variable axes') }));
-			contentEl.appendChild(el('p', {
-				class: 'efm-muted',
-				text: s('axesUnknown', 'Nothing has read this family\'s files yet, so the panel does not know whether the font has variable axes.')
-			}));
-			/*
-			 * Offered rather than done on sight. Reading means fetching the whole
-			 * font back and decompressing it, which is not something to do on every
-			 * render of every family that happens to predate the decoder.
-			 */
-			contentEl.appendChild(el('div', { class: 'efm-card__actions' }, [
-				el('button', {
-					type: 'button',
-					class: 'efm-btn efm-btn--outline',
-					text: state.readingAxes
-						? s('loading', 'Loading\u2026')
-						: s('readAxes', 'Read the files'),
-					disabled: state.readingAxes || !converterAvailable(),
-					// Named, so the answer to "why can I not press this" is not a guess.
-					title: converterAvailable() ? null : s('convertBlocked', 'The converter could not start in this browser.'),
-					onclick: function () { readAxesFor(index); }
-				})
+			contentEl.appendChild(el('div', { class: 'efm-axes-panel' }, [
+				el('p', {
+					class: 'efm-muted',
+					text: s('axesUnknown', 'Nothing has read this family\'s files yet, so the panel does not know whether the font has variable axes.')
+				}),
+				/*
+				 * Offered rather than done on sight. Reading means fetching the whole
+				 * font back and decompressing it, which is not something to do on every
+				 * render of every family that happens to predate the decoder.
+				 */
+				el('div', { class: 'efm-card__actions' }, [
+					el('button', {
+						type: 'button',
+						class: 'efm-btn efm-btn--outline',
+						text: state.readingAxes
+							? s('loading', 'Loading\u2026')
+							: s('readAxes', 'Read the files'),
+						disabled: state.readingAxes || !converterAvailable(),
+						// Named, so the answer to "why can I not press this" is not a guess.
+						title: converterAvailable() ? null : s('convertBlocked', 'The converter could not start in this browser.'),
+						onclick: function () { readAxesFor(index); }
+					})
+				])
 			]));
 		}
 
@@ -4973,19 +4975,22 @@
 			 * and nothing consumes it. A blanket "this changes your site" was wrong
 			 * for the default case, which is the case most families are in.
 			 */
-			contentEl.appendChild(el('p', {
-				class: 'efm-muted',
-				text: family.selector
-					? s('axesHintApplied', 'This family has an Apply to selector, so these change how it renders on the site as well as in this preview.')
-					: s('axesHintUnapplied', 'These change this preview only. To use the instance on the site, give the family an Apply to selector under Delivery, or use its variation variable in your own CSS.')
-			}));
-			contentEl.appendChild(familyAxes(index, tunable));
+			contentEl.appendChild(el('div', { class: 'efm-axes-panel' }, [
+				el('p', {
+					class: 'efm-muted',
+					text: family.selector
+						? s('axesHintApplied', 'This family has an Apply to selector, so these change how it renders on the site as well as in this preview.')
+						: s('axesHintUnapplied', 'These change this preview only. To use the instance on the site, give the family an Apply to selector under Delivery, or use its variation variable in your own CSS.')
+				}),
+				familyAxes(index, tunable)
+			]));
 		}
 
 		/*
-		 * A saved family pairs its name with the generated token, because both hold
-		 * a short value. A new family has no token yet, so its name instead shares a
-		 * compact details box with the availability control below.
+		 * Identity and availability use the same compact details box before and
+		 * after the first save. A saved family adds its generated token between the
+		 * name and availability; the modifier gives those three columns useful
+		 * measures without letting the short name field stretch across the pane.
 		 */
 		var familyNameRow = el('div', { class: 'efm-field-row' }, [
 			el('label', { class: 'efm-field' }, [
@@ -5018,19 +5023,16 @@
 			])
 		]);
 
-		if (family.slug) {
-			contentEl.appendChild(familyNameRow);
-			contentEl.appendChild(familyEnabledToggle);
-		} else {
-			contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('familyDetails', 'Family details') }));
-			contentEl.appendChild(el('div', { class: 'efm-family-details' }, [
-				familyNameRow,
-				el('div', { class: 'efm-family-details__availability' }, [
-					el('span', { class: 'efm-field__label', text: s('availability', 'Availability') }),
-					familyEnabledToggle
-				])
-			]));
-		}
+		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('familyDetails', 'Family details') }));
+		contentEl.appendChild(el('div', {
+			class: 'efm-family-details' + (family.slug ? ' efm-family-details--saved' : '')
+		}, [
+			familyNameRow,
+			el('div', { class: 'efm-family-details__availability' }, [
+				el('span', { class: 'efm-field__label', text: s('availability', 'Availability') }),
+				familyEnabledToggle
+			])
+		]));
 
 		/*
 		 * The two names Etch's documentation tells people to declare and Automatic.css

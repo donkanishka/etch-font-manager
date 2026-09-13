@@ -1,11 +1,11 @@
 {
-  "version": "1.0.3",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.3/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.3",
+  "version": "1.0.4",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.4/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.4",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
   "date": "2026-09-13",
-  "notes": "Group New Family details in a compact responsive box and update the family heading live while typing, with a safe blank-name fallback.",
+  "notes": "Group saved family identity and availability in a compact responsive details panel, and keep variable-axis controls together in their own raised panel.",
   "last_updated": "2026-09-13"
 }

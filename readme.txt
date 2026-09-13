@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,7 +35,7 @@ Features:
 
 = What are the minimum requirements? =
 
-Etch Font Manager declares WordPress 6.0 and PHP 7.4. For the in-builder panel, the effective requirements are WordPress 6.0, PHP 8.1, Etch 1.6 and a 64 MB WordPress memory limit; Etch recommends 128 MB. Etch 1.6 is Font Manager's supported baseline, not the release that introduced the Controls API. Etch Font Manager 1.0.3 is verified with WordPress 7.0 and Etch 1.6.7.
+Etch Font Manager declares WordPress 6.0 and PHP 7.4. For the in-builder panel, the effective requirements are WordPress 6.0, PHP 8.1, Etch 1.6 and a 64 MB WordPress memory limit; Etch recommends 128 MB. Etch 1.6 is Font Manager's supported baseline, not the release that introduced the Controls API. Etch Font Manager 1.0.4 is verified with WordPress 7.0 and Etch 1.6.7.
 
 = Does this require Etch? =
 
@@ -54,6 +54,10 @@ Settings > Removal has the opt-out. Tick "Delete the font files when the plugin 
 Reinstalling leaves the kept stylesheet in place rather than regenerating over it, so the site carries on loading its fonts. The library itself starts empty — restore it from Import & export.
 
 == Changelog ==
+
+= 1.0.4 =
+* Changed: saved families now group the compact name field, CSS variable and availability control in one raised Family details box that wraps on narrow panels.
+* Changed: variable-axis guidance, sliders and reset action now stay together in their own raised panel.
 
 = 1.0.3 =
 * Changed: the New Family name field now stays compact beside the availability control, with both grouped in a raised details box that wraps on narrow panels.

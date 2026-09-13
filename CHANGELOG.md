@@ -2,6 +2,17 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.4
+
+### Changed
+
+- **Managed family details now stay together.** Saved families group the compact name field, generated CSS
+  variable and availability control in the same raised details box used before the first save. The name keeps a
+  340px reading width, the token uses the remaining space, and the controls wrap before either becomes cramped.
+- **Variable axes form one responsive panel.** Guidance, every available axis and the reset action now share a
+  raised box directly under the specimen. Families with unread axis data use the same surface for their
+  explanation and Read the files action.
+
 ## 1.0.3
 
 ### Changed

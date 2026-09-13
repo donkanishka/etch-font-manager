@@ -1,11 +1,11 @@
 {
-  "version": "1.0.2",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.2/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.2",
+  "version": "1.0.3",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.3/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.3",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
-  "date": "2026-09-07",
-  "notes": "Security update: isolate multisite font storage and generated CSS with non-destructive legacy migration; validate and bound WOFF reconstruction with a 64 MiB output limit and small native decompression input chunks.",
-  "last_updated": "2026-09-07"
+  "date": "2026-09-13",
+  "notes": "Group New Family details in a compact responsive box and update the family heading live while typing, with a safe blank-name fallback.",
+  "last_updated": "2026-09-13"
 }

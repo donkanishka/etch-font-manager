@@ -2061,6 +2061,37 @@
 	min-inline-size: 0;
 }
 
+/*
+ * Before its first save a family has no generated token to share the name row,
+ * so that short field used to stretch across the entire pane. Pair the basics
+ * in one raised box instead: the name keeps a useful reading width and the
+ * availability explanation uses the space beside it. Flex wrapping makes the
+ * same block stack naturally when the panel cannot hold both columns.
+ */
+.efm-family-details {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: var(--e-space-xl, 24px);
+	padding: var(--efm-section-pad);
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+	background: var(--efm-surface-raised);
+}
+
+.efm-family-details > .efm-field-row {
+	flex: 0 1 420px;
+	min-inline-size: 280px;
+}
+
+.efm-family-details__availability {
+	display: flex;
+	flex: 1 1 320px;
+	flex-direction: column;
+	gap: 4px;
+	min-inline-size: 0;
+}
+
 /* ------------------------------- Delivery ------------------------------ */
 
 .efm-delivery {

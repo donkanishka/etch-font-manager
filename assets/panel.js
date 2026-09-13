@@ -4898,7 +4898,12 @@
 		 * with the button before, which meant the rule could only run as far as the
 		 * word did.
 		 */
-		contentEl.appendChild(el('h2', { class: 'efm-detail__title', text: family.name }));
+		var detailTitle = el('h2', {
+			class: 'efm-detail__title',
+			text: (family.name || '').trim() || s('newFamily', 'New family')
+		});
+
+		contentEl.appendChild(detailTitle);
 
 		contentEl.appendChild(previewToolbar(null));
 		contentEl.appendChild(specimen(family.name, null, '', family.variation));
@@ -4978,44 +4983,54 @@
 		}
 
 		/*
-		 * Paired on one row. Both hold a short value, so a full-width input each
-		 * spent the whole pane on two words and pushed everything below it down.
-		 * They fall back to one per line when the panel is too narrow to hold both.
+		 * A saved family pairs its name with the generated token, because both hold
+		 * a short value. A new family has no token yet, so its name instead shares a
+		 * compact details box with the availability control below.
 		 */
-		contentEl.appendChild(
-			el('div', { class: 'efm-field-row' }, [
-				el('label', { class: 'efm-field' }, [
-					el('span', { class: 'efm-field__label', text: s('familyName', 'Family name') }),
-					el('input', {
-						type: 'text',
-						class: 'efm-input',
-						value: family.name,
-						oninput: function (event) {
-							state.families[index].name = event.target.value;
-							renderSaveBar();
-						}
-					})
-				]),
-				family.slug ? cssTokenField(family) : null
-			])
-		);
-
-		contentEl.appendChild(
-			el('label', { class: 'efm-toggle' }, [
+		var familyNameRow = el('div', { class: 'efm-field-row' }, [
+			el('label', { class: 'efm-field' }, [
+				el('span', { class: 'efm-field__label', text: s('familyName', 'Family name') }),
 				el('input', {
-					type: 'checkbox',
-					class: 'efm-checkbox',
-					checked: isEnabled(family),
-					onchange: function (event) {
-						setFamilyEnabled(index, event.target.checked);
+					type: 'text',
+					class: 'efm-input',
+					value: family.name,
+					oninput: function (event) {
+						state.families[index].name = event.target.value;
+						detailTitle.textContent = event.target.value.trim() || s('newFamily', 'New family');
+						renderSaveBar();
 					}
-				}),
-				el('span', {}, [
-					el('span', { class: 'efm-toggle__label', text: s('familyEnabled', 'Load this family on the site') }),
-					el('span', { class: 'efm-field__hint', text: s('familyEnabledHint', 'Turn off to stop the font loading without deleting anything. Files and weight mapping are kept.') })
-				])
+				})
+			]),
+			family.slug ? cssTokenField(family) : null
+		]);
+		var familyEnabledToggle = el('label', { class: 'efm-toggle' }, [
+			el('input', {
+				type: 'checkbox',
+				class: 'efm-checkbox',
+				checked: isEnabled(family),
+				onchange: function (event) {
+					setFamilyEnabled(index, event.target.checked);
+				}
+			}),
+			el('span', {}, [
+				el('span', { class: 'efm-toggle__label', text: s('familyEnabled', 'Load this family on the site') }),
+				el('span', { class: 'efm-field__hint', text: s('familyEnabledHint', 'Turn off to stop the font loading without deleting anything. Files and weight mapping are kept.') })
 			])
-		);
+		]);
+
+		if (family.slug) {
+			contentEl.appendChild(familyNameRow);
+			contentEl.appendChild(familyEnabledToggle);
+		} else {
+			contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('familyDetails', 'Family details') }));
+			contentEl.appendChild(el('div', { class: 'efm-family-details' }, [
+				familyNameRow,
+				el('div', { class: 'efm-family-details__availability' }, [
+					el('span', { class: 'efm-field__label', text: s('availability', 'Availability') }),
+					familyEnabledToggle
+				])
+			]));
+		}
 
 		/*
 		 * The two names Etch's documentation tells people to declare and Automatic.css

@@ -2,6 +2,17 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.3
+
+### Changed
+
+- **New families start with compact details.** The family name now keeps a useful 420px reading width beside
+  the availability control instead of stretching across the full pane. Both controls share a raised details
+  box and wrap into a vertical stack when the panel cannot hold them side by side.
+- **The family heading follows the name while typing.** New and existing family editors update their title
+  immediately without rebuilding the pane or disturbing the caret. An empty or whitespace-only name falls back
+  to "New family" while the input keeps the exact unsaved value.
+
 ## 1.0.2
 
 ### Security

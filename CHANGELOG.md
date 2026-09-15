@@ -2,6 +2,23 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.5
+
+### Fixed
+
+- **File deletion keeps unsaved panel work.** Deleting one file, selected files or all unused files now uses the
+  existing save-first safeguard before refreshing server state. A file that disappears while saving is no longer
+  confirmed from a stale row.
+- **One rejected upload no longer stops the queue or strands earlier files.** Every selected file is processed,
+  successful uploads are mapped into families, and the final report names individual failures. Existing unsaved
+  family or settings changes, including edits made while an upload runs, stay buffered for review instead of
+  being replaced or saved without permission.
+
+### Tests
+
+- Add six focused panel workflow regressions for deletion guards, stale file rows, mixed upload outcomes and
+  unsaved edits present before or created during an upload.
+
 ## 1.0.4
 
 ### Changed

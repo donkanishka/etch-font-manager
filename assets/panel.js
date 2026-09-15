@@ -1459,6 +1459,26 @@
 		});
 	}
 
+	/**
+	 * Refresh only the server-owned file inventory.
+	 *
+	 * Uploading writes files immediately, but family and settings edits can still
+	 * be waiting in the panel. Applying the whole state response here would replace
+	 * that buffer with the last saved copy. The upload path uses this narrower
+	 * refresh until it deliberately saves or leaves the combined edits for review.
+	 *
+	 * @param {Object} next State returned by a file endpoint.
+	 */
+	function applyFileState(next) {
+		if (!next) {
+			return;
+		}
+
+		state.files = next.files || [];
+		state.unused = next.unused || [];
+		state.missing = next.missing || [];
+	}
+
 	function applyState(next) {
 		if (!next) {
 			return;
@@ -6069,6 +6089,83 @@
 	/* ------------------------------- Upload ------------------------------ */
 
 	/**
+	 * Protect an immediate file deletion from replacing buffered edits.
+	 *
+	 * File endpoints return the stored family and settings state. Save first so
+	 * applying that response cannot silently discard changes still in the panel.
+	 *
+	 * @param {Function} action Opens the file-deletion confirmation.
+	 */
+	function withSavedFileBuffer(action) {
+		withSavedBuffer(
+			s('confirmFileDeleteDirty', 'Deleting font files refreshes the library and settings from the server, which replaces anything unsaved in the panel.'),
+			action
+		);
+	}
+
+	/**
+	 * Protect and begin one permanent file deletion.
+	 *
+	 * @param {Object} file File record.
+	 */
+	function deleteOneFile(file) {
+		var name = file.name;
+
+		withSavedFileBuffer(function () {
+			var current = fileRecord(name);
+
+			// Saving can also finish a pending deletion. Do not confirm a stale row.
+			if (current) {
+				confirmFileDelete(current);
+			}
+		});
+	}
+
+	/**
+	 * Show the consequences after the buffer is safe.
+	 *
+	 * @param {Object} file File record.
+	 */
+	function confirmFileDelete(file) {
+		var users = fileUsedBy(file.name);
+		var emptied = emptiedBy([file.name]);
+		var alsoFamily = { checked: false };
+		var message = s('confirmDelete', 'Delete this file from the fonts folder?');
+		var row = Array.prototype.slice.call(contentEl.querySelectorAll('.efm-table__row')).filter(function (candidate) {
+			var label = candidate.querySelector('.efm-file__name');
+
+			return label && label.textContent === file.name;
+		})[0];
+
+		if (users.length) {
+			message += '\n\n' + s('confirmDeleteUsed', 'It is mapped by:') + ' ' + users.join(', ') +
+				'.\n' + s('confirmDeleteUsedHint', 'Those variants will be removed too.');
+		}
+
+		if (emptied.length) {
+			message += '\n\n' + s('confirmEmpties', 'That leaves nothing mapped by:') + ' ' + emptied.join(', ') + '.';
+		}
+
+		message += '\n\n' + s('confirmPermanent', 'The Trash holds families, not files, so this cannot be undone.');
+
+		askConfirm({
+			mark: row ? [row] : [],
+			title: s('deleteFile', 'Delete file'),
+			message: message,
+			confirm: s('deleteAction', 'Delete'),
+			danger: true,
+			checkbox: emptied.length ? {
+				state: alsoFamily,
+				label: s('alsoTrashEmptied', 'Also move the emptied family to the trash')
+			} : null
+		}).then(function (answer) {
+			if ('confirm' === answer) {
+				deleteFile(file.name, alsoFamily.checked);
+			}
+		});
+	}
+
+	/**
 	 * One row of the font files table.
 	 *
 	 * Lifted out of renderUpload so the three groups below can each build their
@@ -6145,57 +6242,8 @@
 					class: 'efm-icon-btn efm-icon-btn--danger efm-tooltip efm-tooltip--end',
 					'aria-label': s('deleteFile', 'Delete file'),
 					'data-efm-tooltip': s('deleteFile', 'Delete file'),
-					onclick: function (event) {
-						var users = fileUsedBy(file.name);
-						var emptied = emptiedBy([file.name]);
-						var alsoFamily = { checked: false };
-						var message = s('confirmDelete', 'Delete this file from the fonts folder?');
-
-						if (users.length) {
-							message += '\n\n' + s('confirmDeleteUsed', 'It is mapped by:') + ' ' + users.join(', ') +
-								'.\n' + s('confirmDeleteUsedHint', 'Those variants will be removed too.');
-						}
-
-						/*
-						 * Named before it happens. Stripping the variants used to leave a
-						 * family behind with none, which the dialog never mentioned.
-						 */
-						if (emptied.length) {
-							message += '\n\n' + s('confirmEmpties', 'That leaves nothing mapped by:') + ' ' + emptied.join(', ') + '.';
-						}
-
-						/*
-						 * Last, where Etch puts "This action cannot be undone". Two
-						 * different things in this panel are called Delete and only
-						 * one of them is recoverable: a family goes to the Trash and
-						 * leaves its files behind, while a file is unlinked from disk
-						 * on the spot. The dialog never said which of the two this
-						 * was.
-						 */
-						message += '\n\n' + s('confirmPermanent', 'The Trash holds families, not files, so this cannot be undone.');
-
-						askConfirm({
-							// The row it is unlinking, marked behind the question.
-							mark: [event.currentTarget.closest('.efm-table__row')],
-							title: s('deleteFile', 'Delete file'),
-							message: message,
-							confirm: s('deleteAction', 'Delete'),
-							danger: true,
-							/*
-							 * The mirror of the family dialog's "Also delete its font
-							 * files", offered from the other side. Unticked: a family is
-							 * more than the file that went -- it holds the name, the
-							 * Apply to selector, its CSS variable and any tuned instance.
-							 */
-							checkbox: emptied.length ? {
-								state: alsoFamily,
-								label: s('alsoTrashEmptied', 'Also move the emptied family to the trash')
-							} : null
-						}).then(function (answer) {
-							if ('confirm' === answer) {
-								deleteFile(file.name, alsoFamily.checked);
-							}
-						});
+					onclick: function () {
+						deleteOneFile(file);
 					}
 				}, [icon('trash')])
 		]);
@@ -10270,10 +10318,13 @@
 		state.convertLog = [];
 
 		var chain = Promise.resolve();
+		var attempted = 0;
 		var done = 0;
 		var stored = [];
 		// Files the library already holds. Reported, never sent.
 		var skipped = [];
+		// A refusal applies to one file, never the files still waiting behind it.
+		var failed = [];
 		// Whether anything was already waiting to be saved before this upload.
 		var hadEdits = isDirty();
 
@@ -10312,7 +10363,7 @@
 
 				setStatus(
 					(converting ? s('converting', 'Converting to WOFF2…') : s('uploading', 'Uploading…')) +
-					' ' + (done + 1) + '/' + files.length + ' · ' + file.name,
+					' ' + (attempted + 1) + '/' + files.length + ' · ' + file.name,
 					'progress'
 				);
 
@@ -10326,7 +10377,7 @@
 				form.append('file', item.blob, item.filename);
 
 				return request('/upload', { method: 'POST', body: form }).then(function (result) {
-					applyState(result && result.state);
+					applyFileState(result && result.state);
 
 					/*
 					 * Recorded against the name the server actually wrote, which is not
@@ -10341,7 +10392,7 @@
 							method: 'POST',
 							body: { filename: written, axes: item.axes }
 						}).then(function (next) {
-							applyState(next && next.state);
+							applyFileState(next && next.state);
 
 							return result;
 						// An upload that landed is not undone by failing to describe it.
@@ -10386,10 +10437,24 @@
 					stored.push((result && result.file && result.file.name) || item.filename);
 					done++;
 				});
+			}).catch(function (error) {
+				failed.push({
+					name: file.name,
+					reason: (error && error.fromServer && error.message) ||
+						s('failUploadFile', 'Could not upload this file.')
+				});
+			}).then(function () {
+				attempted++;
 			});
 		});
 
-		chain.then(function () {
+		return chain.then(function () {
+			/*
+			 * The buffer may have been clean when the queue started and changed while
+			 * a large font was converting. Re-check before adoption so those edits join
+			 * the new mappings for review instead of being saved without permission.
+			 */
+			var needsReview = hadEdits || isDirty();
 			var added = adoptUploads(stored);
 			var message = s('uploaded', 'Uploaded') + ' \u00b7 ' + done;
 
@@ -10398,12 +10463,18 @@
 					s('alreadyInstalled', 'already installed') + ': ' + skipped.join(', ');
 			}
 
+			if (failed.length) {
+				message += ' \u00b7 ' + failed.length + ' ' + s('bulkFailed', 'failed') + ': ' +
+					failed.map(function (failure) {
+						return failure.name + ' (' + failure.reason + ')';
+					}).join(', ');
+			}
+
 			/*
-			 * A skip makes the whole message a warning, which is the level that has no
-			 * countdown. You asked for files and got fewer, and the sentence saying so
-			 * should not expire while you are still reading the list it refers to.
+			 * A skip or refusal makes the whole message a warning, which has no
+			 * countdown. Successful files are still adopted and, when safe, saved.
 			 */
-			var level = skipped.length ? 'warning' : null;
+			var level = skipped.length || failed.length ? 'warning' : null;
 
 			if (!added.variants) {
 				setStatus(message, level);
@@ -10423,16 +10494,24 @@
 			 * waiting, they are the user's to review, so this joins them in the
 			 * buffer instead of flushing someone else's work.
 			 */
-			if (hadEdits) {
+			if (needsReview) {
 				setStatus(message + ' · ' + s('reviewAndSave', 'review and save'), 'warning');
 				return;
 			}
 
-			// Carries the level too, so a mixed batch -- some new, some already there
-			// -- keeps the warning rather than fading on a success countdown.
-			setStatus(message, level);
-			saveFamilies();
-		}).catch(failing(s('failUpload', 'Could not upload those fonts. Nothing was added to the library.'))).then(render);
+			/*
+			 * Save first, then restore the complete upload report. saveFamilies() has
+			 * its own success message, which used to replace duplicate and failure
+			 * details before the reader could see them.
+			 */
+			return saveFamilies().then(function (saved) {
+				if (saved) {
+					setStatus(message, level);
+				}
+
+				return saved;
+			});
+		}).catch(failing(s('failUpload', 'Could not finish processing those fonts.'))).then(render);
 	}
 
 	/**
@@ -10470,6 +10549,11 @@
 		var names = state.pickedFiles.slice();
 
 		if (!names.length) {
+			return;
+		}
+
+		if (isDirty()) {
+			withSavedFileBuffer(deletePickedFiles);
 			return;
 		}
 
@@ -10539,6 +10623,11 @@
 		var unused = state.unused || [];
 
 		if (!unused.length) {
+			return;
+		}
+
+		if (isDirty()) {
+			withSavedFileBuffer(pruneFiles);
 			return;
 		}
 

@@ -8078,6 +8078,21 @@
 			return;
 		}
 
+		/*
+		 * The single install is guarded inside installGoogleFont(), but this one
+		 * posts to /google/install itself and never went through it, so a bulk
+		 * install discarded the buffer without asking -- the very thing that guard
+		 * exists to prevent, reachable from the button beside it.
+		 */
+		if (isDirty()) {
+			withSavedBuffer(
+				s('confirmInstallManyDirty', 'Installing writes these families to the server, which replaces anything unsaved in the panel.'),
+				installPicked
+			);
+
+			return;
+		}
+
 		function next() {
 			if (!queue.length) {
 				state.busy = '';
@@ -8906,6 +8921,19 @@
 	}
 
 	function recoverMissing(items) {
+		// Downloads through the same installer, so it replaces the stored families
+		// the same way a bulk install does.
+		if (isDirty()) {
+			withSavedBuffer(
+				s('confirmRecoverDirty', 'Downloading writes these families to the server, which replaces anything unsaved in the panel.'),
+				function () {
+					recoverMissing(items);
+				}
+			);
+
+			return;
+		}
+
 		var queue = items.slice();
 		var done = 0;
 		var failed = [];
@@ -10968,6 +10996,22 @@
 	}
 
 	function regenerateCss() {
+		/*
+		 * Rebuilding reads the stored option and answers with the whole state, so
+		 * the applyState() below replaces the buffer exactly as an install does.
+		 * The inline toggle sits directly above this button, which made changing it
+		 * and then pressing this the quickest way to lose a setting you had just
+		 * chosen -- silently, because the save bar cleared with it.
+		 */
+		if (isDirty()) {
+			withSavedBuffer(
+				s('confirmRegenerateDirty', 'Regenerating reloads the library and settings from the server, which replaces anything unsaved in the panel.'),
+				regenerateCss
+			);
+
+			return;
+		}
+
 		state.busy = 'regenerate';
 		render();
 

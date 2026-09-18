@@ -236,6 +236,84 @@ function uploadContext(dirty) {
 		assert.match(run.statuses[run.statuses.length - 1].message, /review and save/);
 	});
 
+	await test('every state-replacing action uses the guard', function () {
+		var guarded = 0;
+		var box = context({
+			// Enough of the browse screen for the unguarded path to reach the server,
+			// so a missing guard fails as itself rather than as a stray TypeError.
+			state: { picked: ['Inter'], busy: '', results: [{ family: 'Inter', wght: { min: 100, max: 900 } }] },
+			isDirty: function () { return true; },
+			withSavedBuffer: function () { guarded++; },
+			wantsVariable: function () { return true; },
+			selectedSubsets: function () { return ['latin']; },
+			selectedCuts: function () { return []; },
+			request: function () { throw new Error('server call made before the buffer was safe'); },
+			render: function () {},
+			setStatus: function () {},
+			failing: function () { return function () {}; },
+			s: function (key, fallback) { return fallback; }
+		}, ['installPicked', 'recoverMissing', 'regenerateCss']);
+
+		box.installPicked();
+		box.recoverMissing([{ name: 'Inter' }]);
+		box.regenerateCss();
+		assert.equal(guarded, 3);
+	});
+
+	await test('regenerate waits for the save to land, then runs once', async function () {
+		var calls = [];
+		var dirty = true;
+		var box = context({
+			state: { busy: '' },
+			isDirty: function () { return dirty; },
+			askConfirm: function () { return Promise.resolve('confirm'); },
+			saveFamilies: function () {
+				calls.push('save');
+				// The real save refreshes the fingerprints, so the retry is not dirty.
+				dirty = false;
+				return Promise.resolve(true);
+			},
+			request: function () { calls.push('request'); return Promise.resolve({}); },
+			applyState: function () {},
+			render: function () {},
+			setStatus: function () {},
+			failing: function () { return function () {}; },
+			s: function (key, fallback) { return fallback; }
+		}, ['withSavedBuffer', 'regenerateCss']);
+
+		box.regenerateCss();
+
+		for (var tick = 0; tick < 8; tick++) {
+			await new Promise(function (resolve) { setImmediate(resolve); });
+		}
+
+		assert.deepEqual(calls, ['save', 'request']);
+	});
+
+	await test('a refused save never runs the action', async function () {
+		var calls = [];
+		var box = context({
+			state: { busy: '' },
+			isDirty: function () { return true; },
+			askConfirm: function () { return Promise.resolve('cancel'); },
+			saveFamilies: function () { calls.push('save'); return Promise.resolve(true); },
+			request: function () { calls.push('request'); return Promise.resolve({}); },
+			applyState: function () {},
+			render: function () {},
+			setStatus: function () {},
+			failing: function () { return function () {}; },
+			s: function (key, fallback) { return fallback; }
+		}, ['withSavedBuffer', 'regenerateCss']);
+
+		box.regenerateCss();
+
+		for (var beat = 0; beat < 8; beat++) {
+			await new Promise(function (resolve) { setImmediate(resolve); });
+		}
+
+		assert.deepEqual(calls, []);
+	});
+
 	console.log('\n' + passed + ' panel workflow regressions passed.');
 }()).catch(function (error) {
 	console.error(error.stack || error.message);

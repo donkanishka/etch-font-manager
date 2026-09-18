@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Etch Font Manager\n"
 "Report-Msgid-Bugs-To: https://github.com/donkanishka/etch-font-manager/issues\n"
-"POT-Creation-Date: 2026-09-15 15:18+0000\n"
+"POT-Creation-Date: 2026-09-18 10:37+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -1028,7 +1028,7 @@ msgstr ""
 
 #: includes/class-efm-builder.php:698
 #: includes/class-efm-builder.php:714
-#: includes/class-efm-builder.php:807
+#: includes/class-efm-builder.php:810
 msgid "Uploaded"
 msgstr ""
 
@@ -1422,18 +1422,30 @@ msgid "Deleting font files refreshes the library and settings from the server, w
 msgstr ""
 
 #: includes/class-efm-builder.php:805
-msgid "Every weight Google publishes for this family is installed."
+msgid "Installing writes these families to the server, which replaces anything unsaved in the panel."
 msgstr ""
 
 #: includes/class-efm-builder.php:806
-msgid "Pick a weight this family does not have yet."
+msgid "Downloading writes these families to the server, which replaces anything unsaved in the panel."
+msgstr ""
+
+#: includes/class-efm-builder.php:807
+msgid "Regenerating reloads the library and settings from the server, which replaces anything unsaved in the panel."
 msgstr ""
 
 #: includes/class-efm-builder.php:808
-msgid "Delete this family for good? Its font files can be downloaded from Google Fonts again."
+msgid "Every weight Google publishes for this family is installed."
 msgstr ""
 
 #: includes/class-efm-builder.php:809
+msgid "Pick a weight this family does not have yet."
+msgstr ""
+
+#: includes/class-efm-builder.php:811
+msgid "Delete this family for good? Its font files can be downloaded from Google Fonts again."
+msgstr ""
+
+#: includes/class-efm-builder.php:812
 msgid "Delete every family in the trash for good? Their font files can be downloaded from Google Fonts again."
 msgstr ""
 

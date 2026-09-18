@@ -1,11 +1,11 @@
 {
-  "version": "1.0.6",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.6/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.6",
+  "version": "1.0.7",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.7/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.7",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
   "date": "2026-09-18",
-  "notes": "Regenerating the stylesheet, a bulk install and downloading missing Google fonts now offer to save first instead of discarding unsaved panel changes.",
+  "notes": "The import toast now names how many families were imported, instead of showing a bare fragment.",
   "last_updated": "2026-09-18"
 }

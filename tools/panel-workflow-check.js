@@ -314,6 +314,59 @@ function uploadContext(dirty) {
 		assert.deepEqual(calls, []);
 	});
 
+	await test('import reports how many families landed', async function () {
+		var statuses = [];
+		var state = { importPayload: { any: true }, importMode: 'replace', busy: '' };
+		var box = context({
+			state: state,
+			request: function () {
+				return Promise.resolve({ report: { families: 3, rejected: [], missing: [] }, state: {} });
+			},
+			applyState: function () {},
+			plural: function (count, one, many) { return 1 === count ? one : many; },
+			render: function () {},
+			setStatus: function (message, type) { statuses.push({ message: message, type: type }); },
+			failing: function () { return function () {}; },
+			s: function (key, fallback) { return fallback; }
+		}, ['confirmImport']);
+
+		box.confirmImport();
+
+		for (var pass = 0; pass < 8; pass++) {
+			await new Promise(function (resolve) { setImmediate(resolve); });
+		}
+
+		var last = statuses[statuses.length - 1];
+
+		// A bare 'imported' said nothing; the count and a capitalised verb are the point.
+		assert.equal(last.message, 'Imported \u00b7 3 families');
+		assert.equal(state.importReport.families, 3);
+	});
+
+	await test('a single imported family is not pluralised', async function () {
+		var statuses = [];
+		var box = context({
+			state: { importPayload: { any: true }, importMode: 'merge', busy: '' },
+			request: function () {
+				return Promise.resolve({ report: { families: 1 }, state: {} });
+			},
+			applyState: function () {},
+			plural: function (count, one, many) { return 1 === count ? one : many; },
+			render: function () {},
+			setStatus: function (message, type) { statuses.push({ message: message, type: type }); },
+			failing: function () { return function () {}; },
+			s: function (key, fallback) { return fallback; }
+		}, ['confirmImport']);
+
+		box.confirmImport();
+
+		for (var beat = 0; beat < 8; beat++) {
+			await new Promise(function (resolve) { setImmediate(resolve); });
+		}
+
+		assert.equal(statuses[statuses.length - 1].message, 'Imported \u00b7 1 family');
+	});
+
 	console.log('\n' + passed + ' panel workflow regressions passed.');
 }()).catch(function (error) {
 	console.error(error.stack || error.message);

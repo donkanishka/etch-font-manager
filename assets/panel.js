@@ -8905,7 +8905,18 @@
 				state.importReport = (result && result.report) || null;
 				state.importPreview = null;
 				state.importPayload = null;
-				setStatus(s('imported', 'imported'));
+
+				/*
+				 * Counted, like every other completion. 'imported' is a fragment built
+				 * for the report below, where it reads "3 families imported"; on its own
+				 * in a toast it was one lowercase word that said nothing about what had
+				 * happened. What was rejected or left missing stays in the report rather
+				 * than the toast, because the report is the part that stays on screen.
+				 */
+				var landed = (state.importReport && state.importReport.families) || 0;
+
+				setStatus(s('importedCount', 'Imported') + ' \u00b7 ' + landed + ' ' +
+					plural(landed, s('familyLabel', 'family'), s('familiesLabel', 'families')));
 			})
 			.catch(failing(s('failImport', 'Could not import that configuration. Your fonts are unchanged.')))
 			.then(function () {

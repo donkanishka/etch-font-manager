@@ -2,6 +2,21 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.7
+
+### Fixed
+
+- **An import now says how much it imported.** The completion toast read `imported`, a lowercase fragment built
+  for the on-screen report where it composes into "3 families imported". On its own it described nothing. It now
+  reads `Imported - 3 families`, the way converting, deleting and regenerating already report themselves, and a
+  single family is not pluralised. What was rejected or left missing stays in the report, which is the part that
+  remains on screen after the toast has gone.
+
+### Tests
+
+- Add two panel workflow regressions for the counted message and for the singular case. Both fail against the
+  1.0.6 panel.
+
 ## 1.0.6
 
 ### Fixed

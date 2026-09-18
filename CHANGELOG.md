@@ -2,6 +2,23 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.6
+
+### Fixed
+
+- **Every action that rewrites the stored fonts now offers to save first.** Regenerating the stylesheet, a bulk
+  **Install selected** and **Download missing Google fonts** each wrote to the server and applied the whole stored
+  state back, which discarded anything unsaved in the panel without asking and cleared the save bar with it. All
+  three now use the same guard as a single install, a conversion and a file deletion, so the choice is always
+  Cancel or Save first. The bulk installer was the sharpest case: the single install beside it had been guarded all
+  along.
+
+### Tests
+
+- Add three panel workflow regressions covering every guarded entry point, that the action waits for the save to
+  land before running, and that a refused save never runs it. The entry-point test fails against the previous
+  panel, so it catches the fault rather than passing beside it.
+
 ## 1.0.5
 
 ### Fixed

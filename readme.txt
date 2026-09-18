@@ -4,7 +4,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.5
+Stable tag: 1.0.6
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -54,6 +54,10 @@ Settings > Removal has the opt-out. Tick "Delete the font files when the plugin 
 Reinstalling leaves the kept stylesheet in place rather than regenerating over it, so the site carries on loading its fonts. The library itself starts empty — restore it from Import & export.
 
 == Changelog ==
+
+= 1.0.6 =
+* Fixed: regenerating the stylesheet, a bulk Install selected and Download missing Google fonts now offer Cancel or Save first, instead of discarding unsaved panel changes and clearing the save bar.
+* Tests: add three panel workflow regressions covering every guarded entry point, the save-then-run ordering and a refused save.
 
 = 1.0.5 =
 * Fixed: file deletion now saves buffered panel changes before refreshing server state, without confirming a file that disappeared during the save.

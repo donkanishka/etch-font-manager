@@ -636,6 +636,46 @@ function uploadContext(dirty) {
 		assert.deepEqual(offenders, [], 'a button inside a notice flows into the sentence');
 	});
 
+	/*
+	 * Importing replaces the panel buffer wholesale and resets the saved
+	 * fingerprints with it, so unsaved edits used to vanish without even leaving
+	 * the save bar lit. The preview is the one chokepoint every import passes
+	 * through, so that is where it has to be said -- and the two modes have to
+	 * say different things, because "save first" only keeps the work in a merge.
+	 */
+	await test('the import preview says what unsaved work would cost', async function () {
+		var source = fs.readFileSync(panel, 'utf8');
+		var view = source.slice(source.indexOf("s('previewTitle'"));
+		view = view.slice(0, view.indexOf("efm-card__actions"));
+
+		assert.ok(/isDirty\(\)/.test(view), 'the preview must check the buffer');
+		assert.ok(/changeSummary\(\)/.test(view), 'it must name the changes, not count them');
+		assert.ok(/previewDirtyReplace/.test(view), 'replace needs its own sentence');
+		assert.ok(/previewDirtyMerge/.test(view), 'merge needs its own sentence');
+
+		// The wording has to differ, because saving first keeps the work in a
+		// merge and cannot in a replace. One shared sentence would be a promise
+		// the replace path cannot keep.
+		var replaceAt = view.indexOf('previewDirtyReplace');
+		var mergeAt = view.indexOf('previewDirtyMerge');
+		assert.ok(replaceAt !== -1 && mergeAt !== -1 && replaceAt !== mergeAt, 'the two modes must not share one sentence');
+
+		// And the mode decides which one, rather than both being emitted.
+		assert.ok(/'merge' === \(state\.importMode/.test(view), 'the sentence must be chosen by mode');
+	});
+
+	await test('the import preview stays quiet when nothing is unsaved', async function () {
+		var source = fs.readFileSync(panel, 'utf8');
+		var view = source.slice(source.indexOf("s('previewTitle'"));
+		view = view.slice(0, view.indexOf("efm-card__actions"));
+
+		// The whole block hangs off isDirty(), so a clean buffer adds no line.
+		var guardAt = view.indexOf('if (isDirty())');
+		assert.ok(guardAt !== -1, 'expected the block to be guarded');
+		assert.ok(view.indexOf('previewDirtyReplace') > guardAt, 'the sentence must sit inside the guard');
+		assert.ok(view.indexOf('previewDirtyMerge') > guardAt, 'the sentence must sit inside the guard');
+	});
+
 	console.log('\n' + passed + ' panel workflow regressions passed.');
 }()).catch(function (error) {
 	console.error(error.stack || error.message);

@@ -2,6 +2,21 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.10
+
+### Fixed
+
+- **Importing no longer discards unsaved panel work in silence.** An import replaces the library and settings
+  with what the server returns and resets the saved fingerprints with them, so anything waiting in the panel
+  vanished without even leaving the save bar lit behind it. The preview now names what would go, using the same
+  summary the save bar shows, so it can be weighed against what the file would bring.
+- **The two import modes say different things, because they lose the work for different reasons.** Replacing
+  removes every family the file does not carry, so saving first would write the edits and then destroy them --
+  the preview says so rather than offering a promise it cannot keep. Merging reads the **saved** library as its
+  base, so an unsaved edit is not merged but simply absent, and there saving first genuinely does carry it in.
+- The preview is the right place for both, because every import passes through it: **Import now** is only
+  reachable once a preview has been built, so nothing has to be added to the import itself.
+
 ## 1.0.9
 
 ### Fixed

@@ -8867,6 +8867,43 @@
 				pvLines.push(el('p', { class: 'efm-muted', text: s('previewMissing', 'Font files that would still be missing afterwards') + ': ' + pv.missing.length }));
 			}
 
+			/*
+			 * What importing would do to work that is not on the server yet.
+			 *
+			 * The preview answers "this is what importing would do" from the
+			 * server's side only, and the panel's own buffer was missing from that
+			 * answer entirely: applyState() replaces families and settings wholesale
+			 * and resets the saved fingerprints, so unsaved edits went without even
+			 * leaving the save bar lit behind them.
+			 *
+			 * The two modes lose it for different reasons, so they say different
+			 * things. Replacing removes everything absent from the file, so saving
+			 * first would write the edits and then destroy them -- offering "save
+			 * first" there would be a promise this cannot keep. Merging reads the
+			 * saved library as its base, so saving first genuinely does carry the
+			 * edits into the merge, and that is worth saying.
+			 *
+			 * Named rather than counted, using the same summary the save bar shows,
+			 * because "you have unsaved changes" is not something a reader can weigh
+			 * against what they are about to import.
+			 */
+			if (isDirty()) {
+				var pending = changeSummary();
+				var phraseOf = function (change) { return change.name + ' ' + change.what; };
+				var named = pending.length
+					? pending.slice(0, 2).map(phraseOf).join(', ') +
+						(pending.length > 2 ? ', +' + (pending.length - 2) + ' ' + s('moreLabel', 'more') : '')
+					: s('unsavedChanges', 'Unsaved changes');
+
+				pvLines.push(el('p', {
+					class: 'efm-notice' + (pending.length > 2 ? ' efm-tooltip efm-tooltip--wrap efm-tooltip--start' : ''),
+					'data-efm-tooltip': pending.length > 2 ? pending.map(phraseOf).join(', ') : null,
+					text: named + ' \u00b7 ' + ('merge' === (state.importMode || 'replace')
+						? s('previewDirtyMerge', 'This is not part of the merge, which reads the saved library. Cancel and save first to include it.')
+						: s('previewDirtyReplace', 'This would be discarded. Saving first would not keep it, because replacing removes everything the file does not carry.'))
+				}));
+			}
+
 			pvLines.push(el('div', { class: 'efm-card__actions' }, [
 				el('button', {
 					type: 'button',

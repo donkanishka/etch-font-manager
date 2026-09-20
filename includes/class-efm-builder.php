@@ -526,6 +526,8 @@ class EFM_Builder {
 			'previewRemoved' => __( 'Removed', 'etch-font-manager' ),
 			'previewBundled' => __( 'Font files included in the file', 'etch-font-manager' ),
 			'previewMissing' => __( 'Font files that would still be missing afterwards', 'etch-font-manager' ),
+			'previewDirtyReplace' => __( 'This would be discarded. Saving first would not keep it, because replacing removes everything the file does not carry.', 'etch-font-manager' ),
+			'previewDirtyMerge' => __( 'This is not part of the merge, which reads the saved library. Cancel and save first to include it.', 'etch-font-manager' ),
 			'previewConfirm' => __( 'Import now', 'etch-font-manager' ),
 			'previewCancel'  => __( 'Cancel', 'etch-font-manager' ),
 			'importRestored' => __( 'Font files written from the file', 'etch-font-manager' ),

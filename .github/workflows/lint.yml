@@ -127,6 +127,13 @@ jobs:
       # The translation template drifted for two dozen releases because it was
       # kept by hand. This fails the build when a string is added, removed or
       # moved without rebuilding it.
+      # A key the panel asks for but the PHP map never supplies is not a crash:
+      # the English fallback beside the call renders and the string is simply
+      # never translatable. check-pot.js reads the PHP and the template and
+      # never looks at the panel, so seven strings shipped that way in 1.0.8.
+      - name: Check the panel strings are all mapped
+        run: node tools/check-strings.js
+
       - name: Check the translation template is current
         run: node tools/check-pot.js
 

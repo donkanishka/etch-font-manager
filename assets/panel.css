@@ -671,6 +671,48 @@
 }
 
 /*
+ * A notice that carries an action.
+ *
+ * .efm-notice is a plain block, so a button placed inside one becomes another
+ * inline box and flows into the sentence -- which is exactly what happened to
+ * the heavy-format note. The action belongs on its own line under the text,
+ * which is also where the import report puts its Download button, so the
+ * body is a column and the button is simply its last child.
+ */
+.efm-callout {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	margin: 0;
+	max-inline-size: 72ch;
+	padding: 10px 12px;
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+	color: var(--efm-muted);
+}
+
+.efm-callout__icon {
+	flex: 0 0 auto;
+	/* Optical alignment with the cap height of the title beside it. */
+	margin-block-start: 1px;
+	color: var(--efm-text);
+}
+
+.efm-callout__body {
+	display: flex;
+	flex-direction: column;
+	/* Keeps the button hugging its label instead of stretching the column. */
+	align-items: flex-start;
+	gap: 8px;
+	min-inline-size: 0;
+}
+
+.efm-callout__title {
+	color: var(--efm-text-strong);
+	font-weight: 600;
+}
+
+/*
  * What an import would do, and what one did. The block has carried this class
  * since it was written and never had a rule, which mattered because everything
  * inside it is a .efm-muted paragraph and that class zeroes its margins: the
@@ -1741,6 +1783,35 @@
 	border-radius: 999px;
 	background: var(--e-warning-dark, #4c4233);
 	color: var(--e-warning, #f2c960);
+}
+
+/*
+ * An advisory, not a fault.
+ *
+ * --warn is worn by the two badges that mean a family loads nothing at all, so
+ * putting a note about file size in the same yellow said the family was broken
+ * when it works perfectly. Etch keeps a separate info ramp for exactly this
+ * distinction, so the severity is carried by Etch's own values rather than a
+ * colour picked here. Same pill construction as --warn, so the two read as one
+ * family at different severities; the hue is what separates them.
+ *
+ * Measured on the shipped tokens: #2a9fe2 on #00245f is 5.05:1, and the fill
+ * stands off the card the way the warning pill does (1.23 against 1.22).
+ */
+.efm-badge--info {
+	padding: 4px 10px;
+	border-radius: 999px;
+	/*
+	 * Mixed down rather than taken from --etch-info-dark directly. Etch builds
+	 * the two ramps differently: --e-warning-dark is a desaturated warm grey,
+	 * while --etch-info-dark keeps full chroma, so the untouched token made the
+	 * advisory louder than the faults beside it -- the hierarchy upside down.
+	 * Mixing the hue into the sunken surface gives a pill of the same visual
+	 * weight, and lifting the text toward white restores the legibility that
+	 * costs: 6.31:1, against 6.23:1 for the warning pill it sits next to.
+	 */
+	background: color-mix(in srgb, var(--etch-info, #2a9fe2) 16%, var(--e-base-dark, #1d1d20));
+	color: color-mix(in srgb, var(--etch-info, #2a9fe2) 70%, white);
 }
 
 /* -------------------------------- Chips -------------------------------- */

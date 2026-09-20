@@ -582,6 +582,60 @@ function uploadContext(dirty) {
 		assert.deepEqual(listed(box.heavyFiles({ variants: [{ weight: '400' }] })), []);
 	});
 
+	/*
+	 * 1.0.8 put this button inside a plain .efm-notice, which is a block with no
+	 * layout, so the button became another inline box and flowed into the middle
+	 * of the sentence. The structure is pinned here: the action is the last
+	 * child of a column body, never a sibling of the prose inside a notice.
+	 */
+	await test('the heavy-format action sits under the text, not inside it', async function () {
+		var source = fs.readFileSync(panel, 'utf8');
+
+		// The action must be built into the callout body, not a bare notice.
+		assert.ok(
+			/efm-callout__body/.test(source),
+			'expected the callout body column'
+		);
+
+		var callout = source.slice(source.indexOf('function heavyCallout('));
+		callout = callout.slice(0, callout.indexOf('\n\t}'));
+
+		assert.ok(/efm-callout__body/.test(callout), 'the button belongs in the body column');
+		assert.ok(!/efm-notice/.test(callout), 'a plain notice cannot carry a button');
+
+		// The button is pushed onto the body list after the two text spans, so
+		// it renders below them rather than beside them.
+		var pushAt = callout.indexOf('body.push(');
+		var titleAt = callout.indexOf('efm-callout__title');
+		assert.ok(pushAt > titleAt && titleAt > -1, 'the action must come after the text');
+
+		// And the converter being unavailable leaves the note without an action
+		// rather than offering one that cannot run.
+		assert.ok(/converterAvailable\(\)/.test(callout), 'the action must be gated');
+	});
+
+	await test('no notice anywhere carries a button', async function () {
+		var source = fs.readFileSync(panel, 'utf8');
+		var offenders = [];
+		var at = source.indexOf('efm-notice');
+
+		/*
+		 * .efm-notice is a plain block. Every use in the panel is text only, and
+		 * the one that was not put its button in the middle of the prose. A
+		 * short window after the class is enough to catch a button built into
+		 * the same element without parsing the call.
+		 */
+		while (at !== -1) {
+			if (source.slice(at, at + 300).indexOf('efm-btn') !== -1) {
+				offenders.push(source.slice(at, at + 80).replace(/\s+/g, ' '));
+			}
+
+			at = source.indexOf('efm-notice', at + 1);
+		}
+
+		assert.deepEqual(offenders, [], 'a button inside a notice flows into the sentence');
+	});
+
 	console.log('\n' + passed + ' panel workflow regressions passed.');
 }()).catch(function (error) {
 	console.error(error.stack || error.message);

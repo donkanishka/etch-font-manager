@@ -471,6 +471,7 @@
 		copy: '<path d="M19.4 20H9.6C9.26863 20 9 19.7314 9 19.4V9.6C9 9.26863 9.26863 9 9.6 9H19.4C19.7314 9 20 9.26863 20 9.6V19.4C20 19.7314 19.7314 20 19.4 20Z"/><path d="M15 9V4.6C15 4.26863 14.7314 4 14.4 4H4.6C4.26863 4 4 4.26863 4 4.6V14.4C4 14.7314 4.26863 15 4.6 15H9"/>',
 		plus: '<path d="M6 12H12M18 12H12M12 12V6M12 12V18"/>',
 		check: '<path d="M5 13L9 17L19 7"/>',
+		info: '<path d="M12 11.5v5"/><path d="M12 7.51l.01 -.011"/><path d="M12 22c5.523 0 10 -4.477 10 -10s-4.477 -10 -10 -10s-10 4.477 -10 10s4.477 10 10 10z"/>',
 		close: '<path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426"/>',
 		search: '<path d="M17 17L21 21"/><path d="M3 11C3 15.4183 6.58172 19 11 19C13.213 19 15.2161 18.1015 16.6644 16.6493C18.1077 15.2022 19 13.2053 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11Z"/>',
 		filter: '<path d="M3.99961 3H19.9997C20.552 3 20.9997 3.44764 20.9997 3.99987L20.9999 5.58569C21 5.85097 20.8946 6.10538 20.707 6.29295L14.2925 12.7071C14.105 12.8946 13.9996 13.149 13.9996 13.4142L13.9996 19.7192C13.9996 20.3698 13.3882 20.8472 12.7571 20.6894L10.7571 20.1894C10.3119 20.0781 9.99961 19.6781 9.99961 19.2192L9.99961 13.4142C9.99961 13.149 9.89425 12.8946 9.70672 12.7071L3.2925 6.29289C3.10496 6.10536 2.99961 5.851 2.99961 5.58579V4C2.99961 3.44772 3.44732 3 3.99961 3Z"/>',
@@ -4812,7 +4813,7 @@
 				 * so a library could sit on megabytes of TTF without a word.
 				 */
 				heavyFiles(family).length ? el('span', {
-					class: 'efm-badge efm-badge--warn efm-tooltip efm-tooltip--wrap',
+					class: 'efm-badge efm-badge--info efm-tooltip efm-tooltip--wrap',
 					'data-efm-tooltip': s('heavyNotice', 'This family loads TTF or OTF files. Converting them to WOFF2 keeps the glyphs, axes and features and is normally 40 to 65% smaller. Open Manage to convert them.'),
 					text: s('heavyLabel', 'Heavy format')
 				}) : null,
@@ -4963,20 +4964,7 @@
 		var heavy = heavyFiles(family);
 
 		if (heavy.length) {
-			contentEl.appendChild(el('div', { class: 'efm-notice' }, [
-				el('span', {
-					text: s('heavyHint', 'This family loads TTF or OTF files. WOFF2 carries the same glyphs, variable axes and OpenType features, normally at 40 to 65% of the size.')
-				}),
-				converterAvailable() ? el('button', {
-					type: 'button',
-					class: 'efm-btn efm-btn--outline efm-btn--sm',
-					onclick: function () {
-						state.pickedFiles = heavy.slice();
-						state.editing = null;
-						go('upload');
-					}
-				}, [icon('compress', 'sm'), el('span', { text: s('heavyConvert', 'Convert to WOFF2') })]) : null
-			]));
+			contentEl.appendChild(heavyCallout(heavy));
 		}
 
 		contentEl.appendChild(previewToolbar(null));
@@ -9467,6 +9455,69 @@
 	 * acting on into one worth ignoring.
 	 */
 	var HEAVY = { ttf: true, otf: true };
+
+	/**
+	 * The note shown on a family still loading desktop font files.
+	 *
+	 * It leads with what the weight actually is, because a note about formats
+	 * is an opinion a reader can reasonably ignore, while the number of files
+	 * and the megabytes they cost is a fact about their own site.
+	 *
+	 * The action sits under the text rather than beside it. A button inside a
+	 * plain .efm-notice becomes another inline box and flows into the sentence,
+	 * which is what shipped in 1.0.8; putting it last in a column body is also
+	 * where the import report puts its own Download button.
+	 *
+	 * @param {string[]} names Files in a desktop format.
+	 * @return {Element} The callout.
+	 */
+	function heavyCallout(names) {
+		var bytes = 0;
+
+		(state.files || []).forEach(function (file) {
+			if (names.indexOf(file.name) !== -1) {
+				bytes += file.size || 0;
+			}
+		});
+
+		var weight = names.length + ' ' + plural(names.length, s('fileLabel', 'file'), s('filesLabel', 'files'));
+
+		/*
+		 * Only when the sizes are known. A family whose files are missing from
+		 * the server has no bytes to report, and "0 KB" would be a wrong answer
+		 * rather than a missing one.
+		 */
+		if (bytes) {
+			weight += ', ' + formatSize(bytes);
+		}
+
+		var body = [
+			el('span', {
+				class: 'efm-callout__title',
+				text: s('heavyLabel', 'Heavy format') + ' \u00b7 ' + weight
+			}),
+			el('span', {
+				text: s('heavyHint', 'These are desktop formats. WOFF2 keeps the glyphs, variable axes and OpenType features, normally at 40 to 65% of the size.')
+			})
+		];
+
+		if (converterAvailable()) {
+			body.push(el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--outline efm-btn--sm',
+				onclick: function () {
+					state.pickedFiles = names.slice();
+					state.editing = null;
+					go('upload');
+				}
+			}, [icon('compress', 'sm'), el('span', { text: s('heavyConvert', 'Convert to WOFF2') })]));
+		}
+
+		return el('div', { class: 'efm-callout' }, [
+			el('span', { class: 'efm-callout__icon' }, [icon('info', 'sm')]),
+			el('div', { class: 'efm-callout__body' }, body)
+		]);
+	}
 
 	/**
 	 * The files a family maps that are still in a desktop format.

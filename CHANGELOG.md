@@ -2,6 +2,39 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.9
+
+### Fixed
+
+- **The heavy-format note now reads as one.** The button it carries was placed inside `.efm-notice`, which is a plain
+  block with no layout, so the button became another inline box and flowed into the middle of the sentence,
+  splitting the explanation across it. The note is now a callout: a leading icon, the text as a column, and the
+  action on its own line underneath, which is where the import report already puts its own button. Two
+  regressions pin it, one on the callout structure and one that fails if **any** notice in the panel is given a
+  button.
+
+- **Seven panel strings were untranslatable.** `failTooLarge`, `importSending`, `exportHeavy`, `heavyLabel`,
+  `heavyNotice`, `heavyHint` and `heavyConvert` were added to the panel in 1.0.8 but never to the PHP map that
+  supplies its strings, so each one quietly rendered the English fallback written beside the call and could not
+  be translated. All seven are now mapped, and `tools/check-strings.js` fails the build when a key the panel
+  asks for is missing from the map, or left in the map with no caller. The existing template check reads the PHP
+  files and never looked at the panel, which is why nothing caught this.
+
+### Changed
+
+- **The Heavy format badge no longer wears the fault colour.** It shared `--warn` with **No files** and
+  **Files missing**, the two badges that mean a family loads nothing at all, so a note about file size looked
+  exactly like a broken family. It now uses Etch's info ramp. Taking `--etch-info-dark` untouched made the
+  advisory louder than the faults beside it, because Etch builds the two ramps differently, so the hue is mixed
+  into the sunken surface to match their weight and the text lifted toward white to keep it legible: 6.31:1,
+  against 6.23:1 for the warning pill.
+
+- **The note leads with the weight rather than the format.** It now opens with how many files and how many
+  megabytes the family costs, for example `Heavy format - 6 files, 11.6 MB`, and explains WOFF2 second. A note
+  about container formats is an opinion a reader can reasonably ignore; the size of their own font files is
+  not. The size is left out when the files are missing from the server, because `0 KB` would be a wrong answer
+  rather than an absent one.
+
 ## 1.0.8
 
 ### Fixed

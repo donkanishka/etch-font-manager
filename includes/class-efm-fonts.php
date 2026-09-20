@@ -803,48 +803,12 @@ class EFM_Fonts {
 		self::ensure_dir();
 
 		foreach ( $bundle as $name => $encoded ) {
-			$file = sanitize_file_name( (string) $name );
-			$ext  = strtolower( pathinfo( $file, PATHINFO_EXTENSION ) );
+			$outcome = self::restore_file( $name, $encoded, $total );
 
-			if ( '' === $file || ! isset( self::FORMATS[ $ext ] ) ) {
-				$rejected[] = (string) $name;
-				continue;
-			}
-
-			$path = self::dir() . $file;
-
-			if ( ! self::path_is_inside( $path ) ) {
-				$rejected[] = $file;
-				continue;
-			}
-
-			if ( file_exists( $path ) ) {
-				continue;
-			}
-
-			$raw = base64_decode( (string) $encoded, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
-
-			if ( false === $raw || '' === $raw || strlen( $raw ) > self::MAX_FILE_SIZE ) {
-				$rejected[] = $file;
-				continue;
-			}
-
-			if ( ! self::looks_like_font( $raw, $ext ) ) {
-				$rejected[] = $file;
-				continue;
-			}
-
-			$total += strlen( $raw );
-
-			if ( $total > self::MAX_BUNDLE_SIZE ) {
-				$rejected[] = $file;
-				continue;
-			}
-
-			if ( self::write_file( $path, $raw ) ) {
-				$written[] = $file;
-			} else {
-				$rejected[] = $file;
+			if ( 'written' === $outcome['result'] ) {
+				$written[] = $outcome['file'];
+			} elseif ( 'rejected' === $outcome['result'] ) {
+				$rejected[] = $outcome['file'];
 			}
 		}
 
@@ -852,6 +816,103 @@ class EFM_Fonts {
 			'written'  => $written,
 			'rejected' => $rejected,
 		);
+	}
+
+	/**
+	 * Write one bundled font file, applying every check in turn.
+	 *
+	 * Split out of restore_bundle() so a file can arrive on its own request
+	 * rather than inside the payload. A whole library in one POST is refused by
+	 * any server with a modest body limit -- a 10 MiB cap is common on shared
+	 * hosting, and it rejects the request before PHP runs, so nothing here ever
+	 * sees it. Sent one at a time the largest request is a single font.
+	 *
+	 * A file already on disk is skipped rather than rejected: it is neither an
+	 * error nor something this wrote, and reporting it either way would be a
+	 * lie. The caller counts written and rejected separately for that reason.
+	 *
+	 * @param string $name    Filename as carried in the payload.
+	 * @param mixed  $encoded Base64 encoded font bytes.
+	 * @param int    $total   Running total of decoded bytes, updated in place.
+	 * @return array{result:string,file:string}
+	 */
+	protected static function restore_file( $name, $encoded, &$total = 0 ) {
+		$file = sanitize_file_name( (string) $name );
+		$ext  = strtolower( pathinfo( $file, PATHINFO_EXTENSION ) );
+
+		if ( '' === $file || ! isset( self::FORMATS[ $ext ] ) ) {
+			return array(
+				'result' => 'rejected',
+				'file'   => '' === $file ? (string) $name : $file,
+			);
+		}
+
+		$path = self::dir() . $file;
+
+		if ( ! self::path_is_inside( $path ) ) {
+			return array(
+				'result' => 'rejected',
+				'file'   => $file,
+			);
+		}
+
+		if ( file_exists( $path ) ) {
+			return array(
+				'result' => 'skipped',
+				'file'   => $file,
+			);
+		}
+
+		$raw = base64_decode( (string) $encoded, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+
+		if ( false === $raw || '' === $raw || strlen( $raw ) > self::MAX_FILE_SIZE ) {
+			return array(
+				'result' => 'rejected',
+				'file'   => $file,
+			);
+		}
+
+		if ( ! self::looks_like_font( $raw, $ext ) ) {
+			return array(
+				'result' => 'rejected',
+				'file'   => $file,
+			);
+		}
+
+		$total += strlen( $raw );
+
+		/*
+		 * The bundle cap bounds the decoding a single request can be made to do.
+		 * A staged file arrives alone, so its own size is the bound and the
+		 * caller passes a fresh total; the cap still holds for a whole bundle
+		 * carried in one payload.
+		 */
+		if ( $total > self::MAX_BUNDLE_SIZE ) {
+			return array(
+				'result' => 'rejected',
+				'file'   => $file,
+			);
+		}
+
+		return array(
+			'result' => self::write_file( $path, $raw ) ? 'written' : 'rejected',
+			'file'   => $file,
+		);
+	}
+
+	/**
+	 * Write one font file carried outside the import payload.
+	 *
+	 * @param string $name    Filename.
+	 * @param mixed  $encoded Base64 encoded font bytes.
+	 * @return array{result:string,file:string}
+	 */
+	public static function stage_file( $name, $encoded ) {
+		self::ensure_dir();
+
+		$total = 0;
+
+		return self::restore_file( $name, $encoded, $total );
 	}
 
 	/**

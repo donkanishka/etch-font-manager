@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Etch Font Manager\n"
 "Report-Msgid-Bugs-To: https://github.com/donkanishka/etch-font-manager/issues\n"
-"POT-Creation-Date: 2026-09-18 14:54+0000\n"
+"POT-Creation-Date: 2026-09-20 03:18+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -1453,53 +1453,53 @@ msgstr ""
 msgid "Delete every family in the trash for good? Their font files can be downloaded from Google Fonts again."
 msgstr ""
 
-#: includes/class-efm-fonts.php:869
+#: includes/class-efm-fonts.php:930
 msgid "That file does not look like an Etch Font Manager export."
 msgstr ""
 
-#: includes/class-efm-fonts.php:877
+#: includes/class-efm-fonts.php:938
 msgid "The bundled font data in that file is not readable."
 msgstr ""
 
-#: includes/class-efm-fonts.php:2180
-#: includes/class-efm-rest.php:384
+#: includes/class-efm-fonts.php:2241
+#: includes/class-efm-rest.php:404
 msgid "No file received."
 msgstr ""
 
-#: includes/class-efm-fonts.php:2186
+#: includes/class-efm-fonts.php:2247
 #, php-format
 msgid "Upload failed (error %d)."
 msgstr ""
 
-#: includes/class-efm-fonts.php:2192
+#: includes/class-efm-fonts.php:2253
 msgid "File is larger than the 10 MB limit."
 msgstr ""
 
-#: includes/class-efm-fonts.php:2197
+#: includes/class-efm-fonts.php:2258
 msgid "Only woff2, woff, ttf and otf files are allowed."
 msgstr ""
 
-#: includes/class-efm-fonts.php:2201
+#: includes/class-efm-fonts.php:2262
 msgid "File contents do not match the font type."
 msgstr ""
 
-#: includes/class-efm-fonts.php:2240
+#: includes/class-efm-fonts.php:2301
 msgid "Invalid destination path."
 msgstr ""
 
-#: includes/class-efm-fonts.php:2258
+#: includes/class-efm-fonts.php:2319
 msgid "Could not save the uploaded file."
 msgstr ""
 
-#: includes/class-efm-fonts.php:2382
+#: includes/class-efm-fonts.php:2443
 msgid "No file name provided."
 msgstr ""
 
-#: includes/class-efm-fonts.php:2388
+#: includes/class-efm-fonts.php:2449
 msgid "Invalid file path."
 msgstr ""
 
-#: includes/class-efm-fonts.php:2392
+#: includes/class-efm-fonts.php:2453
 msgid "File not found."
 msgstr ""
 
@@ -1527,7 +1527,7 @@ msgstr ""
 msgid "You are not allowed to manage fonts."
 msgstr ""
 
-#: includes/class-efm-rest.php:489
+#: includes/class-efm-rest.php:509
 msgid "Could not write the stylesheet. Check that the fonts folder is writable."
 msgstr ""
 

@@ -328,7 +328,7 @@ function uploadContext(dirty) {
 			setStatus: function (message, type) { statuses.push({ message: message, type: type }); },
 			failing: function () { return function () {}; },
 			s: function (key, fallback) { return fallback; }
-		}, ['confirmImport']);
+		}, ['confirmImport', 'sendFontFiles', 'withoutBundle']);
 
 		box.confirmImport();
 
@@ -356,7 +356,7 @@ function uploadContext(dirty) {
 			setStatus: function (message, type) { statuses.push({ message: message, type: type }); },
 			failing: function () { return function () {}; },
 			s: function (key, fallback) { return fallback; }
-		}, ['confirmImport']);
+		}, ['confirmImport', 'sendFontFiles', 'withoutBundle']);
 
 		box.confirmImport();
 
@@ -365,6 +365,221 @@ function uploadContext(dirty) {
 		}
 
 		assert.equal(statuses[statuses.length - 1].message, 'Imported \u00b7 1 family');
+	});
+
+	/*
+	 * A whole library in one POST is refused by any server with a modest body
+	 * limit -- 10 MiB is common on shared hosting -- and that refusal comes from
+	 * the web server, before PHP runs, so the plugin never sees it. A 15.5 MB
+	 * export failed exactly that way while every plugin-side check would have
+	 * passed it. These cover the transport that replaced it.
+	 */
+	await test('the preview sends filenames without the font bytes', async function () {
+		var payload = {
+			families: [{ name: 'Google Sans' }],
+			bundle: { 'a.ttf': 'QUFB', 'b.ttf': 'QkJC' }
+		};
+		var box = context({}, ['withoutFontBytes']);
+		var lean = box.withoutFontBytes(payload);
+
+		// The dry run reads the keys only, so the names must survive intact.
+		assert.deepEqual(Object.keys(lean.bundle), ['a.ttf', 'b.ttf']);
+		assert.deepEqual(Object.values(lean.bundle), ['', '']);
+		assert.deepEqual(lean.families, payload.families);
+
+		// And the caller still holds the real bytes for the import itself.
+		assert.equal(payload.bundle['a.ttf'], 'QUFB');
+	});
+
+	await test('each font file is sent on its own request', async function () {
+		var sent = [];
+		var state = {
+			importPayload: {
+				families: [{ name: 'Google Sans' }],
+				bundle: { 'a.ttf': 'QUFB', 'b.ttf': 'QkJC' }
+			},
+			importMode: 'replace',
+			busy: ''
+		};
+		var box = context({
+			state: state,
+			request: function (path, options) {
+				sent.push({ path: path, body: options.body });
+
+				if ('/import/file' === path) {
+					return Promise.resolve({ result: 'written', file: options.body.name });
+				}
+
+				return Promise.resolve({ report: { families: 1, restored: [], rejected: [] }, state: {} });
+			},
+			applyState: function () {},
+			plural: function (count, one, many) { return 1 === count ? one : many; },
+			render: function () {},
+			setStatus: function () {},
+			failing: function () { return function () {}; },
+			s: function (key, fallback) { return fallback; }
+		}, ['confirmImport', 'sendFontFiles', 'withoutBundle']);
+
+		box.confirmImport();
+
+		for (var beat = 0; beat < 12; beat++) {
+			await new Promise(function (resolve) { setImmediate(resolve); });
+		}
+
+		assert.deepEqual(sent.map(function (call) { return call.path; }), ['/import/file', '/import/file', '/import']);
+		assert.equal(sent[0].body.name, 'a.ttf');
+		assert.equal(sent[0].body.data, 'QUFB');
+		assert.equal(sent[1].body.name, 'b.ttf');
+
+		// The configuration request carries no font bytes at all.
+		assert.equal(sent[2].body.data.bundle, undefined);
+		assert.deepEqual(sent[2].body.data.families, [{ name: 'Google Sans' }]);
+
+		// The files were written by the staging requests, so the report has to
+		// carry them across or it reports nothing written at all.
+		assert.deepEqual(state.importReport.restored, ['a.ttf', 'b.ttf']);
+	});
+
+	await test('one rejected font does not stop the others', async function () {
+		var state = {
+			importPayload: {
+				families: [{ name: 'Mixed' }],
+				bundle: { 'good.ttf': 'QUFB', 'bad.ttf': 'bm9wZQ', 'also.ttf': 'QkJC' }
+			},
+			importMode: 'replace',
+			busy: ''
+		};
+		var box = context({
+			state: state,
+			request: function (path, options) {
+				if ('/import/file' === path) {
+					return Promise.resolve(
+						'bad.ttf' === options.body.name
+							? { result: 'rejected', file: 'bad.ttf' }
+							: { result: 'written', file: options.body.name }
+					);
+				}
+
+				return Promise.resolve({ report: { families: 1, restored: [], rejected: [] }, state: {} });
+			},
+			applyState: function () {},
+			plural: function (count, one, many) { return 1 === count ? one : many; },
+			render: function () {},
+			setStatus: function () {},
+			failing: function () { return function () {}; },
+			s: function (key, fallback) { return fallback; }
+		}, ['confirmImport', 'sendFontFiles', 'withoutBundle']);
+
+		box.confirmImport();
+
+		for (var beat = 0; beat < 14; beat++) {
+			await new Promise(function (resolve) { setImmediate(resolve); });
+		}
+
+		assert.deepEqual(state.importReport.restored, ['good.ttf', 'also.ttf']);
+		assert.deepEqual(state.importReport.rejected, ['bad.ttf']);
+	});
+
+	await test('an import whose every file fails leaves the library alone', async function () {
+		var paths = [];
+		var applied = 0;
+		var state = {
+			importPayload: {
+				families: [{ name: 'Google Sans' }],
+				bundle: { 'a.ttf': 'QUFB', 'b.ttf': 'QkJC' }
+			},
+			importMode: 'replace',
+			busy: ''
+		};
+		var box = context({
+			state: state,
+			request: function (path) {
+				paths.push(path);
+
+				if ('/import/file' === path) {
+					return Promise.reject(new Error('too large'));
+				}
+
+				return Promise.resolve({ report: { families: 1 }, state: {} });
+			},
+			applyState: function () { applied++; },
+			plural: function (count, one, many) { return 1 === count ? one : many; },
+			render: function () {},
+			setStatus: function () {},
+			failing: function () { return function () {}; },
+			s: function (key, fallback) { return fallback; }
+		}, ['confirmImport', 'sendFontFiles', 'withoutBundle']);
+
+		box.confirmImport();
+
+		for (var beat = 0; beat < 14; beat++) {
+			await new Promise(function (resolve) { setImmediate(resolve); });
+		}
+
+		// Replacing the library with references to files that never landed is
+		// worse than refusing, so the configuration request is never made.
+		assert.deepEqual(paths, ['/import/file', '/import/file']);
+		assert.equal(applied, 0);
+		assert.equal(state.importReport, undefined);
+	});
+
+	await test('a body the server refuses as too large says so', async function () {
+		var box = context({
+			cfg: { nonce: 'n', root: '/wp-json/efm/v1' },
+			FormData: formData,
+			fetch: function () {
+				return Promise.resolve({
+					ok: false,
+					status: 413,
+					json: function () { return Promise.reject(new Error('not json')); }
+				});
+			},
+			s: function (key, fallback) { return fallback; }
+		}, ['request']);
+
+		var failure = null;
+
+		try {
+			await box.request('/import', { method: 'POST', body: { data: {} } });
+		} catch (error) {
+			failure = error;
+		}
+
+		// A 413 is the web server answering with HTML, so there is no message to
+		// show and the panel used to fall back to a shrug.
+		assert.ok(failure, 'expected the request to fail');
+		assert.ok(/too large/.test(failure.message), 'expected the size to be named: ' + failure.message);
+		assert.equal(failure.fromServer, true);
+	});
+
+	await test('only desktop formats are flagged as heavy', async function () {
+		// The map the helper reads lives beside it in the panel.
+		var box = context({ HEAVY: { ttf: true, otf: true } }, ['heavyFiles', 'extensionOf']);
+
+		/*
+		 * Array.from because the helper runs inside the vm realm, so an array it
+		 * builds itself has that realm's prototype and strict deepEqual compares
+		 * those. Nothing to do with the code under test.
+		 */
+		function listed(value) {
+			return Array.from(value);
+		}
+
+		assert.deepEqual(
+			listed(box.heavyFiles({ variants: [{ file: 'a.ttf' }, { file: 'b.otf' }, { file: 'c.woff2' }] })),
+			['a.ttf', 'b.otf']
+		);
+
+		// WOFF saves about a fifth, not half. Flagging it would make the signal
+		// worth ignoring.
+		assert.deepEqual(listed(box.heavyFiles({ variants: [{ file: 'd.woff' }, { file: 'e.woff2' }] })), []);
+
+		// A family that maps the same file twice says it once.
+		assert.deepEqual(listed(box.heavyFiles({ variants: [{ file: 'a.ttf' }, { file: 'a.ttf' }] })), ['a.ttf']);
+
+		// And nothing at all is not an error.
+		assert.deepEqual(listed(box.heavyFiles({})), []);
+		assert.deepEqual(listed(box.heavyFiles({ variants: [{ weight: '400' }] })), []);
 	});
 
 	console.log('\n' + passed + ' panel workflow regressions passed.');

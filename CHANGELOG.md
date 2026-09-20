@@ -2,6 +2,36 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.8
+
+### Fixed
+
+- **An export that bundles the font files can now be imported again.** The import sent the whole library as one
+  request, so a bundled export of any size ran into the web server before it reached WordPress. A 15.5 MB export
+  of six TTF files was refused outright with `413 Request Entity Too Large` on a host whose PHP limits were
+  128 MB, because the cap that rejected it belonged to the web server and applied first; a 10 MiB body limit is
+  common on shared hosting. Every plugin-side check would have passed the file. The fonts are now sent one per
+  request, so the largest request is a single font rather than the whole library, and the configuration follows
+  in one small request at the end. Files go first: a font that fails to land leaves an unreferenced file behind
+  at worst, which **Unused files** already clears, while the saved configuration is only touched by the final
+  request.
+- **A preview no longer sends the font files at all.** The dry run reads the bundle for its filenames only, to
+  report what would be written and which variants would still be missing. It was sent the bytes as well, which
+  on that same export meant a 15.5 MB request to deliver six strings, and it failed for the same reason the
+  import did. It now carries the names alone.
+- **A refusal for being too large says so.** A `413` comes from the web server rather than WordPress, so it
+  answers with an HTML error page carrying no message the panel can show, and the panel fell back to "Could not
+  import that configuration." It now names the cause and both ways around it.
+
+### Added
+
+- **Families loading TTF or OTF files are marked.** WOFF2 carries the same glyphs, the same variable axes and
+  the same OpenType features at 40 to 65% of the size, and converting has been one click away on the Font files
+  screen since 0.32.0, but nothing pointed at it from the library. Affected families now carry a **Heavy format**
+  badge, the family editor explains it and offers a button that carries those files to the existing **Convert
+  selected** action, and a bundled export mentions it once. WOFF is deliberately left out: the saving there is
+  around a fifth rather than half, and flagging it would make the signal worth ignoring.
+
 ## 1.0.7
 
 ### Fixed

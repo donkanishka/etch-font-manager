@@ -189,6 +189,26 @@ class EFM_Rest {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/import/file',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'import_file' ),
+				'permission_callback' => $auth,
+				'args'                => array(
+					'name' => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'data' => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/import',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
@@ -523,6 +543,28 @@ class EFM_Rest {
 				(bool) $request->get_param( 'bundle' )
 			)
 		);
+	}
+
+	/**
+	 * POST /import/file
+	 *
+	 * One font file from an import payload, sent on its own request so the
+	 * whole library does not have to fit inside a single POST body.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function import_file( WP_REST_Request $request ) {
+		$outcome = EFM_Fonts::stage_file(
+			(string) $request->get_param( 'name' ),
+			(string) $request->get_param( 'data' )
+		);
+
+		if ( is_wp_error( $outcome ) ) {
+			return $outcome;
+		}
+
+		return rest_ensure_response( $outcome );
 	}
 
 	/**

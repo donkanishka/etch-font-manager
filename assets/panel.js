@@ -1452,6 +1452,20 @@
 					var refusal = new Error((data && data.message) || '');
 
 					refusal.fromServer = !!(data && data.message);
+
+					/*
+					 * 413 is the one refusal worth translating. It is the web server
+					 * talking, not WordPress, so it answers with an HTML error page
+					 * that carries no message to show -- which left the panel saying
+					 * only that something went wrong. A body limit well under what
+					 * PHP reports is common on shared hosting, so name the cause and
+					 * both ways around it.
+					 */
+					if (413 === response.status) {
+						refusal = new Error(s('failTooLarge', 'Your server refused this request because it is too large. Convert the fonts to WOFF2 to make them smaller, or export again without the font files included.'));
+						refusal.fromServer = true;
+					}
+
 					throw refusal;
 				}
 				return data;
@@ -4792,6 +4806,17 @@
 					text: s('emptyLabel', 'No files')
 				}),
 				/*
+				 * Weight the visitor pays for, said once on the card rather than left
+				 * to be discovered. The conversion has been one click away on the Font
+				 * files screen for several releases; nothing pointed at it from here,
+				 * so a library could sit on megabytes of TTF without a word.
+				 */
+				heavyFiles(family).length ? el('span', {
+					class: 'efm-badge efm-badge--warn efm-tooltip efm-tooltip--wrap',
+					'data-efm-tooltip': s('heavyNotice', 'This family loads TTF or OTF files. Converting them to WOFF2 keeps the glyphs, axes and features and is normally 40 to 65% smaller. Open Manage to convert them.'),
+					text: s('heavyLabel', 'Heavy format')
+				}) : null,
+				/*
 				 * Nothing else said so. The specimen renders in whatever the browser
 				 * falls back to, which on the machine that did the export is often the
 				 * real face out of its own cache, so the card looked correct and the site
@@ -4924,6 +4949,35 @@
 		});
 
 		contentEl.appendChild(detailTitle);
+
+		/*
+		 * Said where the family is being worked on, and only ever as a note. The
+		 * files are not wrong and the export is not broken -- this is weight the
+		 * site is paying for, so it earns a sentence and a way to act on it, not
+		 * a warning that implies something is failing.
+		 *
+		 * The button does no converting of its own. It carries the selection to
+		 * the Font files screen, where Convert selected has lived since 0.32.0,
+		 * so there is one conversion path rather than two that can diverge.
+		 */
+		var heavy = heavyFiles(family);
+
+		if (heavy.length) {
+			contentEl.appendChild(el('div', { class: 'efm-notice' }, [
+				el('span', {
+					text: s('heavyHint', 'This family loads TTF or OTF files. WOFF2 carries the same glyphs, variable axes and OpenType features, normally at 40 to 65% of the size.')
+				}),
+				converterAvailable() ? el('button', {
+					type: 'button',
+					class: 'efm-btn efm-btn--outline efm-btn--sm',
+					onclick: function () {
+						state.pickedFiles = heavy.slice();
+						state.editing = null;
+						go('upload');
+					}
+				}, [icon('compress', 'sm'), el('span', { text: s('heavyConvert', 'Convert to WOFF2') })]) : null
+			]));
+		}
 
 		contentEl.appendChild(previewToolbar(null));
 		contentEl.appendChild(specimen(family.name, null, '', family.variation));
@@ -8717,6 +8771,24 @@
 					])
 				])
 			);
+
+			/*
+			 * Mentioned here because bundling is the moment the weight becomes a
+			 * number on the screen, and because an export is usually the start of
+			 * carrying that weight to another site. It stays a note: the export is
+			 * not wrong, and keeping the original files is a legitimate reason to
+			 * leave them exactly as they are.
+			 */
+			var heavyPicked = state.families.filter(function (family) {
+				return picked.indexOf(family.name) !== -1 && heavyFiles(family).length;
+			});
+
+			if (state.exportBundle && heavyPicked.length) {
+				contentEl.appendChild(el('p', {
+					class: 'efm-field__hint',
+					text: s('exportHeavy', 'Some of these families use TTF or OTF files. Converting them to WOFF2 first would normally cut that size by 40 to 65%.')
+				}));
+			}
 		}
 		contentEl.appendChild(
 			el('button', {
@@ -8899,10 +8971,36 @@
 		state.busy = 'import';
 		render();
 
-		request('/import', { method: 'POST', body: { data: state.importPayload, mode: state.importMode || 'replace' } })
-			.then(function (result) {
+		/*
+		 * Files first, then the configuration. A font that fails to land leaves
+		 * an unreferenced file behind at worst, which the Unused files list
+		 * already clears; the library itself is only touched by the single small
+		 * request at the end, so a failure part way through still leaves the
+		 * saved configuration exactly as it was.
+		 */
+		sendFontFiles(state.importPayload).then(function (sent) {
+			return request('/import', { method: 'POST', body: { data: withoutBundle(state.importPayload), mode: state.importMode || 'replace' } })
+				.then(function (result) {
+					return { result: result, sent: sent };
+				});
+		})
+			.then(function (outcome) {
+				var result = outcome.result;
+				var sent = outcome.sent;
+
 				applyState(result && result.state);
 				state.importReport = (result && result.report) || null;
+
+				/*
+				 * The files were written by the requests above rather than by the
+				 * import, so the server cannot report them. Carrying the counts
+				 * across keeps the report saying what actually happened.
+				 */
+				if (state.importReport) {
+					state.importReport.restored = (state.importReport.restored || []).concat(sent.written);
+					state.importReport.rejected = (state.importReport.rejected || []).concat(sent.rejected);
+				}
+
 				state.importPreview = null;
 				state.importPayload = null;
 
@@ -9079,6 +9177,110 @@
 			});
 	}
 
+	/**
+	 * The same payload with the font bytes taken out.
+	 *
+	 * The dry run reads the bundle for its filenames only -- it reports what
+	 * would be written and which variants would still be missing, both from the
+	 * keys -- so sending the bytes costs a multi-megabyte POST to deliver a list
+	 * of strings. Keeping the keys and blanking the values preserves the report
+	 * exactly and leaves the request small enough that no body limit is in play.
+	 *
+	 * @param {Object} payload Parsed export.
+	 * @return {Object} Copy carrying bundle keys with empty values.
+	 */
+	function withoutFontBytes(payload) {
+		var lean = {};
+		var names = {};
+
+		Object.keys(payload || {}).forEach(function (key) {
+			lean[key] = payload[key];
+		});
+
+		if (!payload || !payload.bundle) {
+			return lean;
+		}
+
+		Object.keys(payload.bundle).forEach(function (name) {
+			names[name] = '';
+		});
+
+		lean.bundle = names;
+
+		return lean;
+	}
+
+	/**
+	 * The same payload with the bundle removed altogether.
+	 *
+	 * Used for the import itself, once the files have been sent one at a time.
+	 * The server writes nothing it already has, so leaving the keys in would
+	 * only invite it to reject empty values it has no reason to look at.
+	 *
+	 * @param {Object} payload Parsed export.
+	 * @return {Object} Copy with no bundle.
+	 */
+	function withoutBundle(payload) {
+		var lean = {};
+
+		Object.keys(payload || {}).forEach(function (key) {
+			if ('bundle' !== key) {
+				lean[key] = payload[key];
+			}
+		});
+
+		return lean;
+	}
+
+	/**
+	 * Send each bundled font on its own request.
+	 *
+	 * One POST carrying a whole library is refused outright by any server with a
+	 * modest body limit, and that refusal never reaches PHP, so no amount of
+	 * plugin-side care can soften it. One font per request keeps the largest
+	 * body to the size of the largest font.
+	 *
+	 * A file that fails is recorded and the rest continue, which is how the
+	 * bundled path has always behaved. If every one of them fails there is
+	 * nothing to import against, so the first error is raised rather than
+	 * quietly replacing the library with references to files that never landed.
+	 *
+	 * @param {Object} payload Parsed export.
+	 * @return {Promise<Object>} Written and rejected filenames.
+	 */
+	function sendFontFiles(payload) {
+		var names = payload && payload.bundle ? Object.keys(payload.bundle) : [];
+		var written = [];
+		var rejected = [];
+		var firstError = null;
+
+		return names.reduce(function (chain, name, index) {
+			return chain.then(function () {
+				setStatus(s('importSending', 'Sending font files') + ' \u00b7 ' + (index + 1) + '/' + names.length, 'progress');
+
+				return request('/import/file', {
+					method: 'POST',
+					body: { name: name, data: payload.bundle[name] }
+				}).then(function (result) {
+					if (result && 'written' === result.result) {
+						written.push(result.file || name);
+					} else if (result && 'rejected' === result.result) {
+						rejected.push(result.file || name);
+					}
+				}).catch(function (error) {
+					firstError = firstError || error;
+					rejected.push(name);
+				});
+			});
+		}, Promise.resolve()).then(function () {
+			if (firstError && !written.length && names.length) {
+				throw firstError;
+			}
+
+			return { written: written, rejected: rejected };
+		});
+	}
+
 	function importConfig(file) {
 		state.busy = 'import';
 		render();
@@ -9099,7 +9301,7 @@
 
 			// Preview first. Import replaces or merges live data, so it is worth
 			// seeing what will change before anything is written.
-			request('/import', { method: 'POST', body: { data: payload, mode: state.importMode || 'replace', preview: true } })
+			request('/import', { method: 'POST', body: { data: withoutFontBytes(payload), mode: state.importMode || 'replace', preview: true } })
 				.then(function (result) {
 					state.importPreview = (result && result.report) || null;
 					state.importPayload = payload;
@@ -9253,6 +9455,43 @@
 		// back to plain uploads rather than throw on every file.
 		broken: false
 	};
+
+	/*
+	 * TTF and OTF are desktop containers. They work, and nothing here breaks if
+	 * a family keeps them, but WOFF2 carries the same glyphs, the same variable
+	 * axes and the same OpenType features at 40 to 65% of the size, which is
+	 * weight every visitor pays for on every page.
+	 *
+	 * WOFF is deliberately left out. It is convertible too, but the saving is
+	 * around a fifth rather than half, and flagging it would turn a signal worth
+	 * acting on into one worth ignoring.
+	 */
+	var HEAVY = { ttf: true, otf: true };
+
+	/**
+	 * The files a family maps that are still in a desktop format.
+	 *
+	 * Derived rather than stored, so it cannot fall out of step with what the
+	 * family actually maps.
+	 *
+	 * @param {Object} family Family record.
+	 * @return {string[]} Filenames, without repeats.
+	 */
+	function heavyFiles(family) {
+		var seen = {};
+
+		return ((family && family.variants) || []).map(function (variant) {
+			return variant.file || '';
+		}).filter(function (name) {
+			if (!name || !HEAVY[extensionOf(name)] || seen[name]) {
+				return false;
+			}
+
+			seen[name] = true;
+
+			return true;
+		});
+	}
 
 	function extensionOf(name) {
 		var dot = String(name || '').lastIndexOf('.');

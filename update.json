@@ -1,11 +1,11 @@
 {
-  "version": "1.0.9",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.9/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.9",
+  "version": "1.0.10",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.10/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.10",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
   "date": "2026-09-20",
-  "notes": "The heavy-format note is now a callout with its action on its own line, its badge moves off the fault colour, and seven panel strings that were untranslatable are now mapped.",
+  "notes": "The import preview now names the unsaved panel work an import would cost, with different wording for replace and merge because only merge can keep it.",
   "last_updated": "2026-09-20"
 }

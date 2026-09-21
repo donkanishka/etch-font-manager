@@ -1987,12 +1987,25 @@
 		});
 
 		document.body.appendChild(manager);
+		watchChrome();
 	}
 
 	/**
-	 * Etch's managers stop above the element bar at the bottom of the builder.
-	 * The gap is measured from the settings bar so the manager lines up with
-	 * whatever chrome Etch is currently showing.
+	 * Etch's managers stop above the element bar at the bottom of the builder,
+	 * and start after the settings bar at the side. Both are measured from that
+	 * bar so the manager lines up with whatever chrome Etch is currently showing.
+	 *
+	 * The side offset is written inline, with weight, because it has to survive
+	 * another plugin. Automatic.css pins its dashboard beside the builder and,
+	 * while pinned, writes `left: unset !important` onto this panel as an inline
+	 * style of its own. An inline important declaration cannot be outranked from
+	 * a stylesheet, so the panel lost its offset and slid underneath the settings
+	 * bar -- which renders above it at z-index 102 and cut the first character off
+	 * every navigation label.
+	 *
+	 * Measuring settles it for any dashboard width, pinned or not, because the
+	 * number comes from where the bar actually is rather than from what either
+	 * plugin assumes about the other.
 	 */
 	function syncBounds() {
 		if (!manager) {
@@ -2000,13 +2013,66 @@
 		}
 
 		var bar = document.querySelector('.settings-bar');
+		var rtl = 'rtl' === (window.getComputedStyle(document.documentElement).direction || 'ltr');
+		var side = rtl ? 'right' : 'left';
 		var gap = 48;
+		var start = 48;
 
 		if (bar) {
-			gap = Math.max(0, Math.round(window.innerHeight - bar.getBoundingClientRect().bottom));
+			var box = bar.getBoundingClientRect();
+
+			gap = Math.max(0, Math.round(window.innerHeight - box.bottom));
+			// The panel begins where the bar ends, whichever edge that is.
+			start = rtl
+				? Math.max(0, Math.round(window.innerWidth - box.left))
+				: Math.max(0, Math.round(box.right));
 		}
 
-		manager.style.setProperty('--efm-inset-bottom', gap + 'px');
+		/*
+		 * Written only when it changes. The observer below watches this element's
+		 * own style attribute, and setting an attribute to the value it already
+		 * holds still reports a mutation, so an unguarded write would drive the
+		 * observer round in a loop.
+		 */
+		if (manager.style.getPropertyValue('--efm-inset-bottom') !== gap + 'px') {
+			manager.style.setProperty('--efm-inset-bottom', gap + 'px');
+		}
+
+		if (manager.style.getPropertyValue(side) !== start + 'px') {
+			manager.style.setProperty(side, start + 'px', 'important');
+		}
+	}
+
+	/**
+	 * Re-measure when the builder's furniture moves rather than only when the
+	 * window resizes.
+	 *
+	 * Pinning or unpinning a neighbouring panel changes the space this one has
+	 * without resizing anything, so a resize listener never hears about it.
+	 * Automatic.css announces its width as a custom property on the root element
+	 * and restyles this panel directly, so both are worth watching.
+	 */
+	function watchChrome() {
+		if (typeof window.MutationObserver !== 'function' || !manager) {
+			return;
+		}
+
+		var queued = false;
+		var observer = new window.MutationObserver(function () {
+			if (!isOpen || queued) {
+				return;
+			}
+
+			queued = true;
+
+			window.requestAnimationFrame(function () {
+				queued = false;
+				syncBounds();
+			});
+		});
+
+		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'class'] });
+		observer.observe(manager, { attributes: true, attributeFilter: ['style'] });
 	}
 
 	function open() {

@@ -2,6 +2,23 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.11
+
+### Fixed
+
+- **The panel keeps its place when Automatic.css is pinned.** Automatic.css pins its dashboard beside the builder
+  and, while pinned, writes `left: unset !important` onto this panel as an inline style of its own. An inline
+  important declaration cannot be outranked from a stylesheet, so the panel lost the offset that holds it clear
+  of Etch's settings bar and slid underneath it. The bar paints above the panel, so the result was a column of
+  navigation labels with their first character cut off: *ont library*, *ont files*, *oogle Fonts*. The offset is
+  now measured from the settings bar and written inline with the same weight, which settles it for any dashboard
+  width, pinned or not, because the number comes from where the bar actually is rather than from what either
+  plugin assumes about the other.
+- **The panel re-measures when the builder's furniture moves**, not only when the window resizes. Pinning or
+  unpinning a neighbouring panel changes the space available without resizing anything, so a resize listener
+  never heard about it. The measurement is rewritten only when it changes, because the observer watches this
+  panel's own style attribute and an unguarded write would drive it round in a loop.
+
 ## 1.0.10
 
 ### Fixed

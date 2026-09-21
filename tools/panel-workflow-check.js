@@ -676,6 +676,84 @@ function uploadContext(dirty) {
 		assert.ok(view.indexOf('previewDirtyMerge') > guardAt, 'the sentence must sit inside the guard');
 	});
 
+	/*
+	 * Automatic.css pins its dashboard beside the builder and writes
+	 * `left: unset !important` onto this panel while it is pinned. Inline
+	 * important cannot be outranked from a stylesheet, so the panel slid under
+	 * Etch's settings bar, which paints above it and clipped the first character
+	 * off every navigation label. The offset is therefore measured and written
+	 * inline with the same weight.
+	 */
+	function chrome(barLeft, barWidth, dir) {
+		var written = {};
+		var manager = {
+			style: {
+				setProperty: function (k, v, p) { written[k] = { value: v, priority: p || '' }; },
+				getPropertyValue: function (k) { return written[k] ? written[k].value : ''; }
+			}
+		};
+
+		return {
+			written: written,
+			manager: manager,
+			box: {
+				isOpen: true,
+				manager: manager,
+				document: {
+					documentElement: {},
+					querySelector: function () {
+						return { getBoundingClientRect: function () {
+							return { left: barLeft, right: barLeft + barWidth, bottom: 777 };
+						} };
+					}
+				},
+				window: {
+					innerHeight: 825,
+					innerWidth: 1680,
+					getComputedStyle: function () { return { direction: dir || 'ltr' }; }
+				}
+			}
+		};
+	}
+
+	await test('the panel starts where the settings bar ends', async function () {
+		var h = chrome(399, 46);
+		var box = context(h.box, ['syncBounds']);
+
+		box.syncBounds();
+
+		// 399 + 46. Not the 48px default, and not the dashboard's own edge.
+		assert.equal(h.written.left.value, '445px');
+		assert.equal(h.written.left.priority, 'important', 'inline important is the only thing that outranks the neighbour');
+		assert.equal(h.written['--efm-inset-bottom'].value, '48px');
+	});
+
+	await test('a settings bar at the viewport edge still measures correctly', async function () {
+		var h = chrome(0, 46);
+		var box = context(h.box, ['syncBounds']);
+
+		box.syncBounds();
+
+		// Unpinned: the bar sits at the left edge, so the panel starts at its width.
+		assert.equal(h.written.left.value, '46px');
+	});
+
+	await test('re-measuring writes nothing when the chrome has not moved', async function () {
+		var h = chrome(399, 46);
+		var box = context(h.box, ['syncBounds']);
+
+		box.syncBounds();
+
+		var seen = [];
+		h.manager.style.setProperty = function (k, v, p) { seen.push(k); };
+
+		box.syncBounds();
+
+		// The observer watches this element's own style attribute, so an
+		// unguarded rewrite would drive it round in a loop.
+		assert.deepEqual(seen, [], 'nothing should be rewritten when the measurement is unchanged');
+	});
+
 	console.log('\n' + passed + ' panel workflow regressions passed.');
 }()).catch(function (error) {
 	console.error(error.stack || error.message);

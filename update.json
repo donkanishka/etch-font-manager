@@ -1,11 +1,11 @@
 {
-  "version": "1.0.11",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.11/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.11",
+  "version": "1.0.12",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.12/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.12",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
   "date": "2026-09-21",
-  "notes": "The panel now measures its own offset from the Etch settings bar, so it keeps its place when Automatic.css pins its dashboard beside the builder.",
+  "notes": "Conversion to WOFF2 moves out of the Upload screen and into Settings, and becomes a site setting rather than a per-browser one. The Font Library previews each family in its own script again and Google Fonts opens on Latin again, because each screen keeps its own choice. A failed update check now says it could not check instead of reporting that the plugin is up to date.",
   "last_updated": "2026-09-21"
 }

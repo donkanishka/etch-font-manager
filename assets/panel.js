@@ -28,7 +28,7 @@
 	 * the name but not the value, so normalizeSettings() saw undefined and the
 	 * whole panel threw on boot without ever registering its control.
 	 */
-	var SETTING_KEYS = ['inline_css', 'block_google', 'delete_source_on_convert', 'purge_files'];
+	var SETTING_KEYS = ['inline_css', 'block_google', 'delete_source_on_convert', 'convert_uploads', 'purge_files'];
 
 	function s(key, fallback) {
 		return t[key] || fallback;
@@ -132,12 +132,22 @@
 		cssBuilt: (cfg.state && cfg.state.cssBuilt) || 0,
 		previewText: s('preview', 'The quick brown fox'),
 		previewSize: 30,
-		// Empty means "no custom text", which is what lets each card fall back to
-		// a sample in its own script instead of Latin.
-		previewCustom: '',
-		// Set once a script chip is pressed or the text is typed in, so opening
-		// Google Fonts stops choosing Latin for you.
-		previewTouched: false,
+		/*
+		 * Per screen, because the two screens want opposite defaults and used to
+		 * share one value. Empty custom text means "no custom text", which is what
+		 * lets each card fall back to a sample in its own script instead of Latin;
+		 * touched is set once a chip is pressed or the text is typed in, so a
+		 * default stops choosing for you.
+		 *
+		 * Sharing them meant one click anywhere set both: picking Latin while
+		 * browsing Google left the library previewing every family in Latin, which
+		 * is precisely the state that hides a family whose script is missing, and
+		 * touching the library's preview permanently cost Google its Latin default.
+		 */
+		preview: {
+			library: { custom: '', touched: false },
+			google: { custom: '', touched: false }
+		},
 		layout: 'grid',
 		subset: '',
 		variableOnly: '',
@@ -147,9 +157,6 @@
 		axisValues: {},
 		axisNames: {},
 		subsetTouched: {},
-		// Convert TTF and OTF to WOFF2 on upload. On by default because there is
-		// no reason to serve an uncompressed sfnt to a browser in 2026.
-		convert: true,
 		convertLog: [],
 		converting: ''
 	};
@@ -227,17 +234,41 @@
 			state.previewSize = saved.previewSize;
 		}
 
-		if (typeof saved.previewCustom === 'string') {
-			state.previewCustom = saved.previewCustom;
+		/*
+		 * Per screen since 1.0.12. A saved flat previewCustom/previewTouched pair is
+		 * deliberately discarded rather than migrated: the pair it came from was
+		 * shared, so whichever screen was touched last had already overwritten the
+		 * other, and carrying that forward would preserve exactly the state this
+		 * change exists to end -- most often a library previewing every family in
+		 * Latin. Each screen starts from its own default instead, which is a preview
+		 * preference and nothing a site depends on.
+		 */
+		if (saved.preview && 'object' === typeof saved.preview) {
+			['library', 'google'].forEach(function (screen) {
+				var kept = saved.preview[screen];
+
+				if (!kept || 'object' !== typeof kept) {
+					return;
+				}
+
+				if ('string' === typeof kept.custom) {
+					state.preview[screen].custom = kept.custom;
+				}
+
+				if ('boolean' === typeof kept.touched) {
+					state.preview[screen].touched = kept.touched;
+				}
+			});
 		}
 
-		if (typeof saved.previewTouched === 'boolean') {
-			state.previewTouched = saved.previewTouched;
-		}
 
-		if (typeof saved.convert === 'boolean') {
-			state.convert = saved.convert;
-		}
+
+		/*
+		 * saved.convert is deliberately ignored. Conversion on upload used to be
+		 * a browser preference kept here, which meant one site converted or did
+		 * not depending on whose browser did the uploading. It is a site setting
+		 * now, so a stale local copy must not override what the site says.
+		 */
 	}
 
 	function savePrefs() {
@@ -245,11 +276,9 @@
 			window.localStorage.setItem(PREFS_KEY, JSON.stringify({
 				layout: state.layout,
 				previewSize: state.previewSize,
-				previewCustom: state.previewCustom,
-				// Carried across sessions so the Latin default is offered once, not
-				// re-applied over a choice already made.
-				previewTouched: state.previewTouched,
-				convert: state.convert
+				// Carried across sessions so each screen's default is offered once, not
+				// re-applied over a choice already made on that screen.
+				preview: state.preview
 			}));
 		} catch (e) {
 			// A refused write is not worth surfacing; the session still works.
@@ -363,21 +392,45 @@
 	 * makes them comparable. The library is the opposite -- those are your fonts,
 	 * and a Sinhala family should preview in Sinhala.
 	 *
-	 * Computed rather than stored, which 0.36.2 got wrong. Writing Latin into
-	 * state.previewCustom on the way into Google switched the **library** too, for
-	 * the rest of the session and permanently as soon as anything saved prefs --
+	 * Computed rather than stored, which 0.36.2 got wrong. Writing Latin into the
+	 * preview choice on the way into Google switched the **library** too, for the
+	 * rest of the session and permanently as soon as anything saved prefs --
 	 * defeating the Auto default that exists so a family missing a subset shows it
 	 * (gotcha #4: a Latin pangram renders the same whether or not the glyphs are
 	 * really there).
 	 *
+	 * Computing it was only half of it, and 1.0.11 and everything before it still
+	 * had the other half wrong: the choice itself was one shared record, so the
+	 * first press of a chip on either screen set touched for both. From then on
+	 * Google had no Latin default and the library inherited whatever Google was
+	 * last shown in. The record is per screen now.
+	 *
 	 * @return {string} Custom text, or '' to let each family pick its own script.
 	 */
+	function previewScreen() {
+		return 'google' === state.view ? 'google' : 'library';
+	}
+
+	/**
+	 * The preview choice belonging to the screen being looked at.
+	 *
+	 * Two screens, two records, because their defaults are opposites and a single
+	 * shared record made each one overwrite the other's.
+	 *
+	 * @return {Object} { custom, touched } for the current screen.
+	 */
+	function previewPrefs() {
+		return state.preview[previewScreen()];
+	}
+
 	function previewInForce() {
-		if (!state.previewTouched && 'google' === state.view) {
+		var prefs = previewPrefs();
+
+		if (!prefs.touched && 'google' === previewScreen()) {
 			return s('preview', 'The quick brown fox');
 		}
 
-		return state.previewCustom;
+		return prefs.custom;
 	}
 
 	function sampleFor(font) {
@@ -809,6 +862,10 @@
 
 		if ('delete_source_on_convert' === key) {
 			return s('deleteSource', 'Delete the original after converting it to WOFF2');
+		}
+
+		if ('convert_uploads' === key) {
+			return s('convertUploads', 'Convert TTF, OTF and WOFF to WOFF2 as they are uploaded');
 		}
 
 		return s('purgeFiles', 'Delete the font files when the plugin is deleted');
@@ -3067,14 +3124,16 @@
 			placeholder: s('previewAuto', 'Each family in its own script'),
 			/*
 			 * Same split again. This field does not redraw the pane, so it never lost
-			 * a caret in practice, but state.previewCustom still trailed it by a
+			 * a caret in practice, but the stored preview text still trailed it by a
 			 * debounce: any render fired by something else in that window rebuilt the
 			 * field from the older value. The read is immediate; only the repaint,
 			 * which touches every specimen on screen, waits.
 			 */
 			oninput: function (event) {
-				state.previewTouched = true;
-				state.previewCustom = event.target.value;
+				var prefs = previewPrefs();
+
+				prefs.touched = true;
+				prefs.custom = event.target.value;
 				queuePreview();
 			}
 		});
@@ -3085,9 +3144,11 @@
 		 * only way back to that.
 		 */
 		var textField = clearableField(textInput, s('clearPreview', 'Clear preview text'), function () {
-			// Clearing asks for Auto, so Google Fonts must stop overriding it.
-			state.previewTouched = true;
-			state.previewCustom = '';
+			var prefs = previewPrefs();
+
+			// Clearing asks for Auto, so this screen's default must stop overriding it.
+			prefs.touched = true;
+			prefs.custom = '';
 			savePrefs();
 			repaintSpecimens();
 			syncPresetChips();
@@ -3125,8 +3186,10 @@
 				'aria-pressed': previewInForce() === preset.text ? 'true' : 'false',
 				text: preset.label,
 				onclick: function () {
-					state.previewTouched = true;
-					state.previewCustom = preset.text;
+					var prefs = previewPrefs();
+
+					prefs.touched = true;
+					prefs.custom = preset.text;
 					textInput.value = preset.text;
 					// A preset fills the field too, so the clear stays in step.
 					clearText.hidden = !preset.text;
@@ -6728,27 +6791,14 @@
 
 		contentEl.appendChild(dropzone);
 
-		if (converterAvailable()) {
-			contentEl.appendChild(el('label', { class: 'efm-toggle efm-toggle--convert' }, [
-				el('input', {
-					type: 'checkbox',
-					class: 'efm-checkbox',
-					checked: !!state.convert,
-					onchange: function (event) {
-						state.convert = event.target.checked;
-						savePrefs();
-					}
-				}),
-				el('span', {}, [
-					el('span', { class: 'efm-toggle__label', text: s('convertUpload', 'Convert TTF, OTF and WOFF to WOFF2') }),
-					el('span', {
-						class: 'efm-field__hint',
-						text: s('convertHint', 'Runs in your browser, so the font is never sent anywhere but your own site. WOFF2 is what every current browser prefers: normally 40 to 65% smaller than TTF or OTF, and around 20% smaller than WOFF. Only the container changes: glyphs, variable axes and OpenType features are untouched. It is not a subsetter, so a font that is large because of its character coverage stays large.')
-					})
-				])
-			]));
-		}
-
+		/*
+		 * No conversion control here. It used to sit directly below this zone,
+		 * which read as though it applied to the files already listed when it only
+		 * ever applied to the next ones added -- a setting that had to be chosen
+		 * before the thing it governed, rendered after it. It is a site setting in
+		 * Settings -> Conversion now, beside the one about the original, and the
+		 * report below still says what each file did.
+		 */
 		if (state.convertLog.length) {
 			contentEl.appendChild(convertReport());
 		}
@@ -8672,8 +8722,33 @@
 		 * hides the convert button rather than breaking uploads, and a setting for
 		 * a button that is not there is a setting for nothing.
 		 */
+		/*
+		 * The decision the Upload screen used to ask for, in the place where a
+		 * decision about this site belongs. Listed before the one about the
+		 * original because it is the one that runs first.
+		 */
+		var convertUploads =
+			el('label', { class: 'efm-toggle' }, [
+				el('input', {
+					type: 'checkbox',
+					class: 'efm-checkbox',
+					checked: !!state.settings.convert_uploads,
+					onchange: function (event) {
+						state.settings.convert_uploads = event.target.checked;
+						render();
+					}
+				}),
+				el('span', {}, [
+					el('span', { class: 'efm-toggle__label', text: s('convertUploads', 'Convert TTF, OTF and WOFF to WOFF2 as they are uploaded') }),
+					el('span', {
+						class: 'efm-field__hint',
+						text: s('convertUploadsHint', 'On by default, and it runs in your browser, so the font is never sent anywhere but your own site. WOFF2 is what every current browser prefers: normally 40 to 65% smaller than TTF or OTF, and around 20% smaller than WOFF. Converting on the way up also keeps a large font under the request size limit your web server enforces, which an original can exceed. A file that is already WOFF2 is uploaded unchanged. Only the container changes: glyphs, variable axes and OpenType features are untouched, and this is not a subsetter, so a font that is large because of its character coverage stays large. Turn it off to keep uploads exactly as they are, and convert them later from Font files.')
+					})
+				])
+			]);
+
 		if (converterAvailable()) {
-			contentEl.appendChild(section(s('conversion', 'Conversion'), [deleteSource]));
+			contentEl.appendChild(section(s('conversion', 'Conversion'), [convertUploads, deleteSource]));
 		}
 
 		/*
@@ -10306,7 +10381,7 @@
 			return axesFromFont(buffer).then(function (axes) {
 				plain.axes = axes;
 
-				if (!state.convert || !convertible(file.name) || !converterAvailable()) {
+				if (!state.settings.convert_uploads || !convertible(file.name) || !converterAvailable()) {
 					/*
 					 * A file that is already WOFF2 says so. Conversion is skipped for it
 					 * correctly -- there is nothing to do and the worker is never started --
@@ -10318,7 +10393,7 @@
 					 * saying "already WOFF2" on a run with the converter switched off would
 					 * be answering a question nobody asked.
 					 */
-					if (state.convert && converterAvailable() && 'woff2' === extensionOf(file.name)) {
+					if (state.settings.convert_uploads && converterAvailable() && 'woff2' === extensionOf(file.name)) {
 						logNote(file.name, s('convertNotNeeded', 'Already WOFF2, uploaded unchanged'));
 					}
 
@@ -10791,7 +10866,7 @@
 
 		files.forEach(function (file) {
 			chain = chain.then(function () {
-				var converting = state.convert && converterAvailable() && convertible(file.name);
+				var converting = state.settings.convert_uploads && converterAvailable() && convertible(file.name);
 
 				setStatus(
 					(converting ? s('converting', 'Converting to WOFF2…') : s('uploading', 'Uploading…')) +

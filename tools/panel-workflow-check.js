@@ -754,6 +754,161 @@ function uploadContext(dirty) {
 		assert.deepEqual(seen, [], 'nothing should be rewritten when the measurement is unchanged');
 	});
 
+	/*
+	 * Conversion on upload moved out of the Upload screen and into Settings, so
+	 * the format that needs no conversion and the setting that governs the rest
+	 * are both worth pinning down.
+	 */
+	function uploadPrep(convertUploads) {
+		var converted = 0;
+		var notes = [];
+		var map = vm.runInNewContext('(' + /var CONVERTIBLE = (\{[^}]*\});/.exec(source)[1] + ')');
+		var box = context({
+			state: { settings: { convert_uploads: convertUploads } },
+			CONVERTIBLE: map,
+			window: { DecompressionStream: function () {} },
+			converterAvailable: function () { return true; },
+			axesFromFont: function () { return Promise.resolve(null); },
+			convertUploadBuffer: function (buffer, file, plain) {
+				converted++;
+				plain.converted = true;
+				return Promise.resolve(plain);
+			},
+			logNote: function (name, note) { notes.push(note); },
+			s: function (key, fallback) { return fallback; }
+		}, ['extensionOf', 'convertible', 'prepareUpload']);
+
+		return {
+			send: function (name) {
+				return box.prepareUpload({
+					name: name,
+					size: 4096,
+					arrayBuffer: function () { return Promise.resolve(new ArrayBuffer(8)); }
+				});
+			},
+			notes: notes,
+			getConverted: function () { return converted; }
+		};
+	}
+
+	await test('an uploaded WOFF2 is never converted, and the report says so', async function () {
+		var run = uploadPrep(true);
+		var result = await run.send('already.woff2');
+
+		assert.equal(run.getConverted(), 0, 'WOFF2 is the destination format, so there is nothing to run');
+		assert.equal(result.converted, false);
+		assert.equal(result.filename, 'already.woff2');
+		assert.equal(result.to, result.from, 'the bytes are passed through untouched');
+
+		// Silence here read as though the setting had not worked.
+		assert.deepEqual(run.notes, ['Already WOFF2, uploaded unchanged']);
+	});
+
+	await test('the site setting decides whether an upload converts', async function () {
+		var off = uploadPrep(false);
+		await off.send('heavy.ttf');
+
+		assert.equal(off.getConverted(), 0, 'a convertible font is left alone when the site says so');
+		assert.deepEqual(off.notes, [], 'no WOFF2 note when conversion was never asked for');
+
+		var on = uploadPrep(true);
+		var result = await on.send('heavy.ttf');
+
+		assert.equal(on.getConverted(), 1);
+		assert.equal(result.converted, true);
+	});
+
+	await test('the conversion control lives in Settings, not above the dropzone', function () {
+		var upload = extract('renderUpload');
+		var settings = extract('renderSettings');
+
+		assert.ok(
+			!/efm-toggle--convert/.test(upload),
+			'the Upload screen must not carry a control that only applies to the next files added'
+		);
+		assert.ok(/convert_uploads/.test(settings), 'Settings must carry it instead');
+
+		// A browser-local copy would mean one site converting or not depending on
+		// whose browser did the uploading.
+		assert.ok(!/state\.convert\b/.test(source), 'the browser-local preference must be gone entirely');
+	});
+
+	/*
+	 * The preview choice is per screen: Google compares candidates, so it wants
+	 * one shared Latin sample, and the library verifies fonts you already own, so
+	 * it wants each family in its own script. One shared record made each screen
+	 * overwrite the other's.
+	 */
+	function previewBox(view, saved) {
+		var box = context({
+			state: {
+				view: view,
+				preview: {
+					library: { custom: '', touched: false },
+					google: { custom: '', touched: false }
+				}
+			},
+			s: function (key, fallback) { return fallback; }
+		}, ['previewScreen', 'previewPrefs', 'previewInForce']);
+
+		if (saved) {
+			box.state.preview = saved;
+		}
+
+		return box;
+	}
+
+	await test('Google Fonts opens on Latin and the library opens on Auto', function () {
+		assert.equal(previewBox('google').previewInForce(), 'The quick brown fox');
+
+		// Empty is Auto: every card falls back to a sample in its own script.
+		assert.equal(previewBox('library').previewInForce(), '');
+	});
+
+	await test('a choice made in Google Fonts does not follow you into the library', function () {
+		var shared = {
+			library: { custom: '', touched: false },
+			google: { custom: 'The quick brown fox', touched: true }
+		};
+
+		assert.equal(previewBox('google', shared).previewInForce(), 'The quick brown fox');
+
+		/*
+		 * The bug this replaces. A Latin pangram renders identically whether or not
+		 * a family really carries its script, so a library forced to Latin hides
+		 * exactly the fault the Auto default exists to show.
+		 */
+		assert.equal(previewBox('library', shared).previewInForce(), '');
+	});
+
+	await test('touching the library preview does not cost Google its Latin default', function () {
+		var shared = {
+			library: { custom: '', touched: true },
+			google: { custom: '', touched: false }
+		};
+
+		assert.equal(previewBox('library', shared).previewInForce(), '', 'the library keeps the Auto it was asked for');
+		assert.equal(previewBox('google', shared).previewInForce(), 'The quick brown fox');
+	});
+
+	await test('a screen that was given a choice keeps it', function () {
+		var shared = {
+			library: { custom: 'Sphinx of black quartz', touched: true },
+			google: { custom: '', touched: true }
+		};
+
+		assert.equal(previewBox('library', shared).previewInForce(), 'Sphinx of black quartz');
+
+		// Auto asked for explicitly in Google outranks the Latin default.
+		assert.equal(previewBox('google', shared).previewInForce(), '');
+	});
+
+	await test('every screen other than Google Fonts previews as the library', function () {
+		['library', 'upload', 'trash', 'tools'].forEach(function (view) {
+			assert.equal(previewBox(view).previewInForce(), '', view + ' must not inherit the Latin default');
+		});
+	});
+
 	console.log('\n' + passed + ' panel workflow regressions passed.');
 }()).catch(function (error) {
 	console.error(error.stack || error.message);

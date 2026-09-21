@@ -639,6 +639,21 @@ class EFM_Fonts {
 			 * else, and the Upload screen marks it unused, so the site decides.
 			 */
 			'delete_source_on_convert' => false,
+
+			/*
+			 * On, because WOFF2 is what every current browser prefers and
+			 * converting before the upload is the only point at which it is free:
+			 * the browser does the work, and the smaller file is what crosses the
+			 * network. A web server's own request body limit is enforced before
+			 * WordPress is reached and is often 10 MiB, so a large desktop font
+			 * that converts on the way up lands where the original would have
+			 * been refused outright.
+			 *
+			 * A site setting rather than a browser one. It used to live in
+			 * localStorage, which meant the same site converted or did not
+			 * depending on whose browser did the uploading.
+			 */
+			'convert_uploads'          => true,
 		);
 
 		$settings = get_option( self::OPTION_SETTINGS, array() );
@@ -661,6 +676,7 @@ class EFM_Fonts {
 			'block_google' => ! empty( $input['block_google'] ?? $current['block_google'] ),
 			'purge_files'  => ! empty( $input['purge_files'] ?? $current['purge_files'] ),
 			'delete_source_on_convert' => ! empty( $input['delete_source_on_convert'] ?? $current['delete_source_on_convert'] ),
+			'convert_uploads'          => ! empty( $input['convert_uploads'] ?? $current['convert_uploads'] ),
 		);
 
 		update_option( self::OPTION_SETTINGS, $clean, false );

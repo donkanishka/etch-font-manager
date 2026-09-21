@@ -2,6 +2,35 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.12
+
+### Changed
+
+- **Conversion to WOFF2 is a site setting now, and the Upload screen no longer asks.** The control used to sit
+  directly below the dropzone, which read as though it applied to the files already listed when it only ever
+  applied to the next ones added: a decision that had to be made before the thing it governed, rendered after it.
+  It lives in **Settings -> Conversion** instead, beside the setting about the original, and the Upload screen is
+  that much shorter. Conversion still happens as files are uploaded, which is the only point at which it is free:
+  the browser does the work, and the smaller file is what crosses the network.
+- **That setting belongs to the site rather than to a browser.** It was kept in `localStorage`, so the same site
+  converted or did not depending on whose browser did the uploading, and a site could look as though conversion
+  were switched off because somebody had switched it off somewhere else. A saved browser copy is discarded and the
+  site's own setting takes over, which is on by default.
+
+### Fixed
+
+- **The Font Library previews each family in its own script again, and Google Fonts opens on Latin again.** Both
+  defaults were real but shared a single stored choice, so the first press of a chip on either screen set it for
+  both. Picking Latin while browsing Google left the library previewing every family in Latin, which hides exactly
+  what the Auto default exists to show: a Latin pangram renders perfectly whether or not a family really carries
+  its own script, so a Sinhala family missing its Sinhala glyphs looked correct. Touching the library's preview
+  cost Google its Latin default in the same way. Each screen keeps its own choice and its own default now.
+- **A failed update check says so instead of reporting good news.** Checking for updates reported *Etch Font
+  Manager is up to date* whenever the lookup returned nothing at all, which covers an exhausted GitHub rate limit,
+  a DNS failure, an outbound firewall and an unreachable source. A site sitting on an old version was told it was
+  current, which is the one case where the answer matters. It now reports that it could not check, as a warning,
+  and says the result does not confirm anything.
+
 ## 1.0.11
 
 ### Fixed

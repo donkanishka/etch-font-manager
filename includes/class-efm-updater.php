@@ -107,6 +107,45 @@ class EFM_Updater {
 	}
 
 	/**
+	 * What the manual check should report.
+	 *
+	 * Three outcomes, not two. A lookup that returns nothing is a failure --
+	 * an exhausted API rate limit, a DNS failure, an outbound firewall, or a
+	 * source that is simply unreachable -- and reporting that as "up to date"
+	 * tells somebody sitting on an old version that they are current. The
+	 * failure is the one case where the answer matters most, so it says it
+	 * could not check instead.
+	 *
+	 * Separated from the notice so the three outcomes can be asserted without
+	 * a request, a network or an admin screen.
+	 *
+	 * @param array  $release   Release data. Empty when the lookup failed.
+	 * @param string $installed Installed version.
+	 * @return array Message text and notice type.
+	 */
+	public static function check_message( $release, $installed ) {
+		if ( empty( $release['version'] ) ) {
+			return array(
+				'message' => __( 'Etch Font Manager could not check for updates. The release source could not be reached, so this does not confirm that you are up to date. Try again in a few minutes.', 'etch-font-manager' ),
+				'type'    => 'warning',
+			);
+		}
+
+		if ( version_compare( $release['version'], $installed, '>' ) ) {
+			return array(
+				/* translators: %s: version number. */
+				'message' => sprintf( __( 'Etch Font Manager %s is available.', 'etch-font-manager' ), $release['version'] ),
+				'type'    => 'info',
+			);
+		}
+
+		return array(
+			'message' => __( 'Etch Font Manager is up to date.', 'etch-font-manager' ),
+			'type'    => 'info',
+		);
+	}
+
+	/**
 	 * Confirm the manual check ran.
 	 */
 	public static function checked_notice() {
@@ -115,13 +154,9 @@ class EFM_Updater {
 			return;
 		}
 
-		$release = self::release();
-		$message = ! empty( $release['version'] ) && version_compare( $release['version'], self::installed_version(), '>' )
-			/* translators: %s: version number. */
-			? sprintf( __( 'Etch Font Manager %s is available.', 'etch-font-manager' ), $release['version'] )
-			: __( 'Etch Font Manager is up to date.', 'etch-font-manager' );
+		$outcome = self::check_message( self::release(), self::installed_version() );
 
-		echo '<div class="notice notice-info is-dismissible"><p>' . esc_html( $message ) . '</p></div>';
+		echo '<div class="notice notice-' . esc_attr( $outcome['type'] ) . ' is-dismissible"><p>' . esc_html( $outcome['message'] ) . '</p></div>';
 	}
 
 	/**

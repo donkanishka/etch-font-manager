@@ -333,6 +333,7 @@ efm_is( 'upload', EFM_Fonts::derive_source( array() ), 'a record with nothing to
 /* ---------------------------------------------------------------------- */
 
 require __DIR__ . '/storage.php';
+require __DIR__ . '/updater.php';
 
 echo "\n" . $efm_passed . " passed, " . $efm_failed . " failed\n";
 

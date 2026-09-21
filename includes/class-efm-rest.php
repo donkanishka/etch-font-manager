@@ -384,6 +384,7 @@ class EFM_Rest {
 				'block_google' => (bool) $request->get_param( 'block_google' ),
 				'purge_files'  => (bool) $request->get_param( 'purge_files' ),
 				'delete_source_on_convert' => (bool) $request->get_param( 'delete_source_on_convert' ),
+				'convert_uploads'          => (bool) $request->get_param( 'convert_uploads' ),
 			)
 		);
 

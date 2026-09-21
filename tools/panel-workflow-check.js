@@ -909,6 +909,81 @@ function uploadContext(dirty) {
 		});
 	});
 
+	/*
+	 * A variable cut is stored as a CSS font-weight range -- two numbers and a
+	 * space -- which is right in a stylesheet and reads as two separate weights
+	 * in a list. It is shown as a range and stored unchanged.
+	 */
+	await test('a variable weight range reads as a range', function () {
+		var box = context({}, ['weightLabel']);
+
+		assert.equal(box.weightLabel('100 900'), '100-900');
+		assert.equal(box.weightLabel('200 700'), '200-700');
+
+		// A single weight is left exactly as it is.
+		assert.equal(box.weightLabel('400'), '400');
+		assert.equal(box.weightLabel(700), '700');
+
+		// Absent means the CSS default, the same assumption every caller made.
+		assert.equal(box.weightLabel(''), '400');
+		assert.equal(box.weightLabel(undefined), '400');
+	});
+
+	await test('the stylesheet keeps the space-separated range CSS requires', function () {
+		var css = extract('previewCss');
+
+		/*
+		 * font-weight: 100-900 is invalid and would drop the declaration, taking
+		 * the variable face's whole weight axis with it. The hyphen is for reading.
+		 */
+		assert.ok(/font-weight: ' \+ \(variant\.weight/.test(css), 'the generated CSS must use the stored value');
+		assert.ok(!/weightLabel/.test(css), 'the generated CSS must never use the display form');
+	});
+
+	await test('every weight the reader sees goes through the display form', function () {
+		var card = extract('renderLibrary');
+		var row = extract('fileRow');
+
+		assert.ok(/weights\.map\(weightLabel\)/.test(card), 'the library card must show ranges as ranges');
+		assert.ok(/weightLabel\(file\.weight\)/.test(row), 'a file row must show ranges as ranges');
+	});
+
+	await test('cards are the same height across rows, except in the list layout', function () {
+		var css = fs.readFileSync(path.join(__dirname, '..', 'assets', 'panel.css'), 'utf8');
+
+		/*
+		 * A grid row stretches its own cards already; this is what makes the second
+		 * row agree with the first.
+		 */
+		assert.ok(
+			/\.efm-grid:not\(\.efm-grid--row\) \{\s*grid-auto-rows: 1fr;/.test(css),
+			'every card grid must resolve its rows to the tallest'
+		);
+
+		// One column means one card per row, so equalising would stretch them all.
+		assert.ok(
+			!/\.efm-grid--row \{[^}]*grid-auto-rows/.test(css),
+			'the list layout must keep its rows sized to their content'
+		);
+	});
+
+	await test('the card pins its subsets to the footer, not the specimen', function () {
+		var card = extract('renderLibrary');
+		var css = fs.readFileSync(path.join(__dirname, '..', 'assets', 'panel.css'), 'utf8');
+
+		assert.ok(/efm-chips efm-card__chips/.test(card), 'the chips row must carry the card modifier');
+
+		// Pinning both would leave the gap between them instead of below them.
+		assert.ok(
+			/\.efm-card__chips \{\s*margin-block-start: auto;/.test(css),
+			'the chips row must take the pin'
+		);
+		assert.ok(
+			/\.efm-card:has\(\.efm-card__chips\) \.efm-card__meta \{\s*margin-block-start: 0;/.test(css),
+			'the footer must give its pin up when the chips are there'
+		);
+	});
+
 	console.log('\n' + passed + ' panel workflow regressions passed.');
 }()).catch(function (error) {
 	console.error(error.stack || error.message);

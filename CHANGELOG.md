@@ -2,6 +2,27 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.13
+
+### Changed
+
+- **Every card in a grid is the same height, not just the ones sharing a row.** A grid row already stretched its
+  own cards to the tallest of them, so cards agreed across a row and disagreed down the page: 227px on the first
+  row of a library against 165px on the second, and three different heights on one page of the Google Fonts grid.
+  Each row now resolves to the tallest card in the grid. The cost is bounded rather than open-ended, because a card
+  title truncates instead of wrapping and the specimen is clamped to a fixed number of lines, so no card grows with
+  the length of its content. The list layout keeps rows sized to their content, since a single column has no
+  neighbour to line a card up against and stretching every row would only add scrolling.
+- **A family card's subsets sit with the variants and weights at the foot of the card**, rather than under the
+  preview with the slack below them. The footer alone was pinned to the bottom, so the subsets ended up 42px clear
+  of the line they describe on one card and 8px clear on the next, which put the same row at a different height on
+  every card in the grid.
+- **A variable weight reads as a range.** It is stored as the CSS font-weight range wants it, two numbers
+  separated by a space, which beside a card's `400 · 700` read as two separate weights rather than one range. It is
+  shown as `100-900` on the family card, in a Font files row and in the variants dropdown. The stored value and the
+  generated stylesheet are untouched, because `font-weight: 100-900` is invalid CSS and would drop the declaration
+  along with the variable face's whole weight axis.
+
 ## 1.0.12
 
 ### Changed

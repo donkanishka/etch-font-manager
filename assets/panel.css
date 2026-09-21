@@ -1138,6 +1138,33 @@
 	gap: 8px;
 }
 
+/*
+ * Every card the same height, not just the ones sharing a row.
+ *
+ * A grid row already stretches its cards to the tallest of them, so cards lined
+ * up within a row and disagreed across rows: measured at 227px on the first row
+ * of a library and 165px on the second, and 266, 269 and 293 across one page of
+ * the Google Fonts grid. The eye reads that as cards of random height rather
+ * than as content of different length.
+ *
+ * grid-auto-rows: 1fr resolves every implicit row to the tallest one, because
+ * the container's own height is auto -- no measuring in JavaScript, and nothing
+ * to recompute when render() rebuilds the pane.
+ *
+ * The cost is bounded and was measured rather than assumed: the tallest card a
+ * library can produce carries a badge row and a subset row, and the shortest
+ * carries neither, which is 62px apart. It cannot run away, because the title
+ * truncates instead of wrapping and the specimen is clamped to exactly two
+ * lines, so no card grows with the length of its content.
+ *
+ * The row layout is excluded deliberately. It is a single column, so every card
+ * is its own row and this would stretch all of them to the tallest, turning a
+ * deliberately compact list into a sparse one.
+ */
+.efm-grid:not(.efm-grid--row) {
+	grid-auto-rows: 1fr;
+}
+
 /* ---------------------------- Layout modes ----------------------------- */
 
 /*
@@ -1699,6 +1726,23 @@
  * tallest one, so without this each footer floats at whatever height its own
  * content happens to end at and the row reads as ragged.
  */
+/*
+ * The subsets belong to the block at the foot of the card, not to the specimen
+ * above them. The footer alone used to be pinned, which left the chips sitting
+ * under the preview with the slack between them and the line they describe --
+ * 42px on a card with no badge row, and a different figure on one that has it,
+ * so the same row appeared at a different height on every card in the grid.
+ *
+ * Pinning the chips instead carries the footer down with them, and the footer
+ * gives up its own pin when they are there so the two stay together. A card
+ * without subsets is unchanged, which is why the pin is not simply moved.
+ */
+.efm-card__chips {
+	margin-block-start: auto;
+}
+.efm-card:has(.efm-card__chips) .efm-card__meta {
+	margin-block-start: 0;
+}
 .efm-card__meta {
 	display: flex;
 	align-items: center;

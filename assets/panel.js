@@ -5028,14 +5028,22 @@
 					// Carries the tuned instance too, so the card previews the face the
 					// site renders rather than the default cut.
 					specimen(family.name, subsetList, '', family.variation),
-					subsetList.length ? el('div', { class: 'efm-chips' }, subsetList.slice(0, CHIP_LIMIT).map(function (sub) {
+					/*
+					 * Pinned to the bottom of the card with the meta row rather than left
+					 * hanging under the specimen. The footer alone used to carry
+					 * margin-block-start: auto, so on a card with no badge row the chips sat
+					 * 42px clear of the line they belong to, and the size of that gap moved
+					 * with whatever else the card happened to carry. The subsets describe the
+					 * same thing the variants and the weights do, so they read as one block.
+					 */
+					subsetList.length ? el('div', { class: 'efm-chips efm-card__chips' }, subsetList.slice(0, CHIP_LIMIT).map(function (sub) {
 						return el('span', { class: 'efm-chip', text: sub });
 					}).concat(subsetList.length > CHIP_LIMIT
 						? [el('span', { class: 'efm-chip efm-chip--more', text: '+' + (subsetList.length - CHIP_LIMIT) })]
 						: [])) : null,
 					el('div', { class: 'efm-card__meta' }, [
 						el('span', { text: variants.length + ' ' + plural(variants.length, s('variant', 'variant'), s('variants', 'variants')) }),
-						el('span', { class: 'efm-weights', text: weights.join(' · ') || '—' })
+						el('span', { class: 'efm-weights', text: weights.map(weightLabel).join(' · ') || '—' })
 					])
 				])
 			);
@@ -5729,6 +5737,25 @@
 	 * @param {object} family Family record.
 	 * @return {string[]}
 	 */
+	/**
+	 * A weight as it should read on screen.
+	 *
+	 * A variable cut is stored the way the CSS font-weight range wants it, two
+	 * numbers separated by a space -- "100 900". That is correct in a stylesheet
+	 * and wrong in a sentence: beside a card's "400 \u00b7 700" it reads as two
+	 * separate weights rather than one range. Shown with a hyphen instead.
+	 *
+	 * Display only. The stored value is never rewritten, because build_css(),
+	 * previewCss() and the variants dropdown all need it exactly as CSS defines
+	 * it, and the range is also how a variable cut is recognised.
+	 *
+	 * @param {string|number} weight Stored weight or range.
+	 * @return {string} Weight for display.
+	 */
+	function weightLabel(weight) {
+		return String(weight || '400').trim().replace(/\s+/g, '-');
+	}
+
 	function installedCuts(family) {
 		var cuts = [];
 
@@ -6206,7 +6233,7 @@
 			options: weights.map(function (weight) {
 				return {
 					value: weight,
-					label: weight.indexOf(' ') !== -1 ? s('variable', 'variable') + ' ' + weight : weight
+					label: weight.indexOf(' ') !== -1 ? s('variable', 'variable') + ' ' + weightLabel(weight) : weight
 				};
 			}),
 			onselect: function (value) {
@@ -6372,7 +6399,7 @@
 					]),
 					el('span', { class: 'efm-file__name', text: file.name, title: file.name })
 				]),
-				el('span', { class: 'efm-muted', text: (file.ext || '').toUpperCase() + ' · ' + (file.weight || '400') + (file.style === 'italic' ? ' ' + s('italic', 'Italic') : '') }),
+				el('span', { class: 'efm-muted', text: (file.ext || '').toUpperCase() + ' · ' + weightLabel(file.weight) + (file.style === 'italic' ? ' ' + s('italic', 'Italic') : '') }),
 				/*
 				 * Every state named. "in use" against a blank meant the reader had
 				 * to know that blank was a state at all -- and the file it applies

@@ -1,11 +1,11 @@
 {
-  "version": "1.0.10",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.10/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.10",
+  "version": "1.0.11",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.11/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.11",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
-  "date": "2026-09-20",
-  "notes": "The import preview now names the unsaved panel work an import would cost, with different wording for replace and merge because only merge can keep it.",
-  "last_updated": "2026-09-20"
+  "date": "2026-09-21",
+  "notes": "The panel now measures its own offset from the Etch settings bar, so it keeps its place when Automatic.css pins its dashboard beside the builder.",
+  "last_updated": "2026-09-21"
 }

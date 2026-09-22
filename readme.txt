@@ -1,5 +1,6 @@
 === Etch Font Manager ===
 Contributors: donkanishka
+Donate link: https://kanishka56.gumroad.com/coffee
 Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 7.0
@@ -13,6 +14,10 @@ Manage self-hosted custom fonts directly inside the Etch builder, with a native 
 == Description ==
 
 Etch Font Manager adds a Fonts control to the Etch builder Settings Bar using Etch's official Controls API. Upload font files, install Google Fonts locally, map families to weights and styles, and publish each one as a CSS variable you can use anywhere, without leaving the builder.
+
+Full documentation: https://codexea.gitbook.io/etch-font-manager/
+
+Etch Font Manager is free and open-source software for the Etch community. Optional support for its continued development and maintenance: https://kanishka56.gumroad.com/coffee
 
 Features:
 

@@ -2,7 +2,7 @@
 
 Manage self-hosted custom fonts **inside the Etch builder**. No trips back to the WordPress dashboard.
 
-[![WordPress 6.0+](https://img.shields.io/badge/WordPress-6.0%2B-21759B?logo=wordpress&logoColor=white)](https://wordpress.org/) [![PHP 8.1+ with Etch](https://img.shields.io/badge/PHP-8.1%2B%20with%20Etch-777BB4?logo=php&logoColor=white)](https://docs.etchwp.com/getting-started/requirements) [![Etch 1.6+](https://img.shields.io/badge/Etch-1.6%2B-202124)](https://etchwp.com/) [![License GPL-2.0](https://img.shields.io/badge/license-GPL--2.0-3DA639)](LICENSE) [![Latest release](https://img.shields.io/github/v/release/donkanishka/etch-font-manager?label=release)](https://github.com/donkanishka/etch-font-manager/releases/latest)
+[![WordPress 6.0+](https://img.shields.io/badge/WordPress-6.0%2B-21759B?logo=wordpress&logoColor=white)](https://wordpress.org/) [![PHP 8.1+ with Etch](https://img.shields.io/badge/PHP-8.1%2B%20with%20Etch-777BB4?logo=php&logoColor=white)](https://docs.etchwp.com/getting-started/requirements) [![Etch 1.6+](https://img.shields.io/badge/Etch-1.6%2B-202124)](https://etchwp.com/) [![License GPL-2.0](https://img.shields.io/badge/license-GPL--2.0-3DA639)](LICENSE) [![Latest release](https://img.shields.io/github/v/release/donkanishka/etch-font-manager?label=release)](https://github.com/donkanishka/etch-font-manager/releases/latest) [![Documentation](https://img.shields.io/badge/docs-GitBook-3884FF?logo=gitbook&logoColor=white)](https://codexea.gitbook.io/etch-font-manager/) [![Support development](https://img.shields.io/badge/support-Gumroad-FF90E8?logo=gumroad&logoColor=black)](https://kanishka56.gumroad.com/coffee)
 
 ![Etch Font Manager showing a grid of locally hosted font families inside the Etch builder](assets/readme/font-manager-overview.jpg)
 
@@ -233,6 +233,14 @@ anywhere PHP does. It stubs only the handful of WordPress functions the tested m
 covers the logic that decides what ends up in a stylesheet and what is allowed onto disk: weight parsing, font
 signature checks, selector sanitising, the enabled and trashed rules, preload selection and family sanitising.
 Anything touching the database, filesystem or network is out of scope. Tests are excluded from the release zip.
+
+## Documentation and support
+
+Read the complete guide at the [Etch Font Manager documentation](https://codexea.gitbook.io/etch-font-manager/).
+
+Etch Font Manager is free and open-source software for the Etch community. If it helps you and saves you time,
+you can [support its continued development and maintenance on Gumroad](https://kanishka56.gumroad.com/coffee).
+Support is entirely optional and does not unlock additional features or priority support.
 
 ## License
 

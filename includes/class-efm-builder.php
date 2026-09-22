@@ -705,6 +705,7 @@ class EFM_Builder {
 			'supported'      => __( 'Supported:', 'etch-font-manager' ),
 			'uploading'      => __( 'Uploading…', 'etch-font-manager' ),
 			'uploaded'       => __( 'Uploaded', 'etch-font-manager' ),
+			'cssWriteFailed' => __( 'Saved, but the stylesheet could not be written, so the site still loads the previous one. Check that the fonts folder is writable, then use Regenerate stylesheet.', 'etch-font-manager' ),
 			'convertUploads' => __( 'Convert TTF, OTF and WOFF to WOFF2 as they are uploaded', 'etch-font-manager' ),
 			'convertUploadsHint' => __( 'On by default, and it runs in your browser, so the font is never sent anywhere but your own site. WOFF2 is what every current browser prefers: normally 40 to 65% smaller than TTF or OTF, and around 20% smaller than WOFF. Converting on the way up also keeps a large font under the request size limit your web server enforces, which an original can exceed. A file that is already WOFF2 is uploaded unchanged. Only the container changes: glyphs, variable axes and OpenType features are untouched, and this is not a subsetter, so a font that is large because of its character coverage stays large. Turn it off to keep uploads exactly as they are, and convert them later from Font files.', 'etch-font-manager' ),
 			'convertFile'    => __( 'Convert to WOFF2', 'etch-font-manager' ),

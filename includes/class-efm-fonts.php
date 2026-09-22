@@ -34,6 +34,13 @@ class EFM_Fonts {
 	const TRANSIENT_INLINE = 'efm_inline_css';
 	const MAX_FILE_SIZE   = 10485760; // 10 MB.
 
+	/**
+	 * Whether the last stylesheet write succeeded.
+	 *
+	 * @var bool
+	 */
+	protected static $css_written = true;
+
 	/*
 	 * A bundled import arrives as one JSON request, so the whole thing has to
 	 * fit in memory and inside the server's upload limits. Refusing a payload
@@ -521,10 +528,25 @@ class EFM_Fonts {
 			WP_Filesystem();
 		}
 
-		if ( $wp_filesystem ) {
-			return (bool) $wp_filesystem->put_contents( $path, $content, FS_CHMOD_FILE );
+		if ( $wp_filesystem && $wp_filesystem->put_contents( $path, $content, FS_CHMOD_FILE ) ) {
+			return true;
 		}
 
+		/*
+		 * Fall back to a direct write rather than giving up.
+		 *
+		 * WP_Filesystem() is called here without credentials, which is all a REST
+		 * request can offer. On a host where FS_METHOD resolves to ftpext or ssh2
+		 * that call cannot connect, so this method returned false and the stylesheet
+		 * was never written -- while uploads carried on working, because they use
+		 * move_uploaded_file() and never touch WP_Filesystem at all. The result was a
+		 * site where every action succeeded and only the generated CSS silently
+		 * stopped updating.
+		 *
+		 * PHP can usually write the fonts folder perfectly well on those hosts, so
+		 * this is tried second. Where the filesystem really is read-only it fails
+		 * too, and the caller reports that.
+		 */
 		return false !== file_put_contents( $path, $content ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 	}
 
@@ -2784,6 +2806,26 @@ class EFM_Fonts {
 		// means a rewrite within the same second cannot serve a stale build.
 		delete_transient( self::TRANSIENT_INLINE );
 
-		return self::write_file( self::css_path(), self::build_css( null, true ) );
+		/*
+		 * Remembered because save_families() and save_settings() cannot return it:
+		 * both answer with the saved data, and the families are genuinely saved even
+		 * when the stylesheet is not. The REST layer reads this to add a flag, so the
+		 * panel can report a partial success instead of an unqualified one.
+		 */
+		self::$css_written = self::write_file( self::css_path(), self::build_css( null, true ) );
+
+		return self::$css_written;
+	}
+
+	/**
+	 * Did the last stylesheet write fail?
+	 *
+	 * Only meaningful immediately after a save, which is the one moment the panel
+	 * would otherwise report an unqualified success for a half-completed action.
+	 *
+	 * @return bool
+	 */
+	public static function css_write_failed() {
+		return false === self::$css_written;
 	}
 }

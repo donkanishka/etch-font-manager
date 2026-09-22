@@ -984,6 +984,56 @@ function uploadContext(dirty) {
 		);
 	});
 
+	/*
+	 * A save writes the option and rewrites the stylesheet. The two can disagree,
+	 * and when they do the panel used to report an unqualified success while the
+	 * site went on serving the stylesheet it had before.
+	 */
+	function savedReport(response) {
+		var statuses = [];
+		var box = context({
+			setStatus: function (message, type) { statuses.push({ message: message, type: type }); },
+			s: function (key, fallback) { return fallback; }
+		}, ['reportSaved']);
+
+		box.reportSaved(response, 'Fonts saved.');
+
+		return statuses;
+	}
+
+	await test('a save that could not write the stylesheet says so', function () {
+		var warned = savedReport({ families: [], css_write_failed: true });
+
+		assert.equal(warned.length, 1);
+		assert.equal(warned[0].type, 'warning', 'the data did save, so this is not an error');
+		assert.ok(/stylesheet could not be written/.test(warned[0].message));
+
+		// Naming the remedy matters: nothing else in the panel reports this.
+		assert.ok(/fonts folder is writable/.test(warned[0].message));
+		assert.ok(!/^Fonts saved\.$/.test(warned[0].message), 'it must not read as an unqualified success');
+	});
+
+	await test('an ordinary save is unchanged', function () {
+		var plain = savedReport({ families: [] });
+
+		assert.deepEqual(plain, [{ message: 'Fonts saved.', type: undefined }]);
+
+		// A server that never sets the flag behaves exactly as before.
+		assert.deepEqual(savedReport(null), [{ message: 'Fonts saved.', type: undefined }]);
+		assert.deepEqual(savedReport({ css_write_failed: false }), [{ message: 'Fonts saved.', type: undefined }]);
+	});
+
+	await test('both save paths report through the same check', function () {
+		var save = extract('saveFamilies');
+
+		// The families-only path and the families-then-settings path.
+		assert.equal((save.match(/reportSaved\(/g) || []).length, 2);
+		assert.ok(
+			!/setStatus\(s\('saved'/.test(save) && !/setStatus\(bothChanged/.test(save),
+			'no save path may report success without the stylesheet check'
+		);
+	});
+
 	console.log('\n' + passed + ' panel workflow regressions passed.');
 }()).catch(function (error) {
 	console.error(error.stack || error.message);

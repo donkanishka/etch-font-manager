@@ -368,7 +368,27 @@ class EFM_Rest {
 	public static function save_families( WP_REST_Request $request ) {
 		EFM_Fonts::save_families( (array) $request->get_param( 'families' ) );
 
-		return rest_ensure_response( self::state() );
+		return rest_ensure_response( self::saved_state() );
+	}
+
+	/**
+	 * The state a save answers with, flagged if the stylesheet did not land.
+	 *
+	 * The families and settings are saved either way, so this is not an error and
+	 * must not read like one. Without the flag the panel reported an unqualified
+	 * success while the site went on serving the previous stylesheet, which is the
+	 * hardest kind of failure to notice.
+	 *
+	 * @return array
+	 */
+	protected static function saved_state() {
+		$state = self::state();
+
+		if ( EFM_Fonts::css_write_failed() ) {
+			$state['css_write_failed'] = true;
+		}
+
+		return $state;
 	}
 
 	/**
@@ -388,7 +408,7 @@ class EFM_Rest {
 			)
 		);
 
-		return rest_ensure_response( self::state() );
+		return rest_ensure_response( self::saved_state() );
 	}
 
 	/**

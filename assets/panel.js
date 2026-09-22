@@ -9524,6 +9524,27 @@
 		render();
 	}
 
+	/**
+	 * Report a save, qualified when the stylesheet did not land with it.
+	 *
+	 * The data is saved either way, so this is a warning rather than a failure and
+	 * the save bar still clears. Saying "Fonts saved." on its own was wrong in one
+	 * specific way that is very hard to notice: the panel showed the new state, the
+	 * server held it, and the site went on serving the stylesheet it had before.
+	 *
+	 * @param {Object} response Response the save was applied from.
+	 * @param {string} message Message for the ordinary case.
+	 */
+	function reportSaved(response, message) {
+		if (response && response.css_write_failed) {
+			setStatus(s('cssWriteFailed', 'Saved, but the stylesheet could not be written, so the site still loads the previous one. Check that the fonts folder is writable, then use Regenerate stylesheet.'), 'warning');
+
+			return;
+		}
+
+		setStatus(message);
+	}
+
 	function saveFamilies() {
 		state.busy = 'save';
 		renderSaveBar();
@@ -9562,7 +9583,7 @@
 			.then(function (next) {
 				if (!settingsPending) {
 					applyState(next);
-					setStatus(s('saved', 'Fonts saved.'));
+					reportSaved(next, s('saved', 'Fonts saved.'));
 					return null;
 				}
 
@@ -9571,7 +9592,7 @@
 				return request('/settings', { method: 'POST', body: settingsBody })
 					.then(function (after) {
 						applyState(after);
-						setStatus(bothChanged
+						reportSaved(after, bothChanged
 							? s('savedBoth', 'Fonts and settings saved.')
 							: s('settingsSaved', 'Settings saved.'));
 					});

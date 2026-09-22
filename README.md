@@ -238,7 +238,7 @@ Anything touching the database, filesystem or network is out of scope. Tests are
 
 Read the complete guide at the [Etch Font Manager documentation](https://codexea.gitbook.io/etch-font-manager/).
 
-Etch Font Manager is free and open-source software for the Etch community. If it helps you and saves you time,
+Etch Font Manager is a free plugin I created for the Etch community. If it helps you and saves you time,
 you can [support its continued development and maintenance on Gumroad](https://kanishka56.gumroad.com/coffee).
 Support is entirely optional and does not unlock additional features or priority support.
 

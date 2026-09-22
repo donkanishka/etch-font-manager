@@ -2,6 +2,22 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.14
+
+### Fixed
+
+- **The stylesheet is written on hosts where WordPress cannot use its own filesystem layer.** Writing it went
+  through `WP_Filesystem`, which is asked for without credentials because that is all a REST request has. On a host
+  where `FS_METHOD` resolves to `ftpext` or `ssh2` that connection cannot be made, so the file was never written -
+  while uploading fonts carried on working, because uploads are moved directly and never touch that layer. The
+  result was a site where every action reported success and only the generated CSS silently stopped updating. The
+  write now falls back to writing the file directly, which is what PHP can usually do on those hosts.
+- **A save says so when the stylesheet did not land.** The result of that write was discarded, so the panel showed
+  the new state, the server held it, and the site went on serving the stylesheet it had before, with nothing
+  reported anywhere. Saving now reports *Saved, but the stylesheet could not be written* and points at the fonts
+  folder and **Regenerate stylesheet**. It is a warning rather than an error, and the save bar still clears,
+  because the families and settings really are saved; it is only the generated file that is missing.
+
 ## 1.0.13
 
 ### Changed

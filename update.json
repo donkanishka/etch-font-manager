@@ -1,11 +1,11 @@
 {
-  "version": "1.0.13",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.13/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.13",
+  "version": "1.0.14",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.14/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.14",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
-  "date": "2026-09-21",
-  "notes": "Every card in a grid now takes the height of the tallest, so rows agree down the page as well as across. A family card's subsets sit with the variants and weights at the foot of the card, and a variable weight reads as a range such as 100-900.",
-  "last_updated": "2026-09-21"
+  "date": "2026-09-22",
+  "notes": "The generated stylesheet is now written on hosts where WordPress cannot use its own filesystem layer, which previously left the CSS silently out of date while every other action reported success. If nothing can write it, saving says so instead of reporting an unqualified success.",
+  "last_updated": "2026-09-22"
 }

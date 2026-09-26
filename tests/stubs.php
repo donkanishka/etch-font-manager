@@ -83,6 +83,18 @@ if ( ! function_exists( 'sanitize_file_name' ) ) {
 	}
 }
 
+if ( ! function_exists( 'home_url' ) ) {
+	/**
+	 * Return the fixed site URL used by export metadata in these tests.
+	 *
+	 * @param string $path Optional path beneath the site root.
+	 * @return string
+	 */
+	function home_url( $path = '' ) {
+		return 'https://example.test/' . ltrim( (string) $path, '/' );
+	}
+}
+
 if ( ! function_exists( 'apply_filters' ) ) {
 	/**
 	 * Return the value untouched; no hooks exist in these tests.

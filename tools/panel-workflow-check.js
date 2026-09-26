@@ -1034,6 +1034,51 @@ function uploadContext(dirty) {
 		);
 	});
 
+	await test('a custom name previews beside the generated name and keeps the fallback', function () {
+		var named = { name: 'Inter', slug: 'inter', css_variable: '--sans', fallback: 'sans-serif', variants: [{ file: 'inter.woff2' }] };
+		var box = context({
+			state: { families: [named], missing: [] },
+			s: function (key, fallback) { return fallback; },
+			isEnabled: function () { return true; },
+			isTrashed: function () { return false; },
+			fallbackFaceCss: function () { return ''; },
+			formatOf: function () { return 'woff2'; },
+			familyStack: function () { return '"Inter", sans-serif'; },
+			ROLE_KEYS: [],
+			splitSelectors: function () { return { kept: [] }; }
+		}, ['customPropertyIssue', 'previewCss']);
+		var css = box.previewCss(named);
+
+		assert.match(css, /--efm-family-inter: "Inter", sans-serif;/);
+		assert.match(css, /--sans: var\(--efm-family-inter\);/);
+		named.css_variable = '';
+		assert.doesNotMatch(box.previewCss(named), /--sans:/);
+		named.slug = '';
+		assert.match(box.previewCss(named), /Save this family to see its generated CSS variable/, 'unsaved family preview does not guess the server slug');
+		named.variants = [];
+		assert.doesNotMatch(box.previewCss(named), /--efm-family-inter:/, 'a family with no variants publishes no variable');
+	});
+
+	await test('custom CSS names are editable without claiming another family or a reserved token', function () {
+		var box = context({
+			state: { families: [
+				{ name: 'Foo Bar', slug: 'foo-bar', css_variable: '--sans' },
+				{ name: 'Foo-Bar', slug: 'foo-bar', css_variable: '--body' },
+				{ name: 'New family', css_variable: '--new' }
+			] },
+			s: function (key, fallback) { return fallback; }
+		}, ['customPropertyIssue']);
+
+		assert.equal(box.customPropertyIssue('--sans', 0), '');
+		assert.equal(box.customPropertyIssue('', 0), '');
+		assert.match(box.customPropertyIssue('--sans', 1), /already uses/);
+		assert.match(box.customPropertyIssue('--efm-family-inter', 0), /reserved/);
+		assert.match(box.customPropertyIssue('--text-font-family', 0), /reserved/);
+		assert.match(box.customPropertyIssue('--bad; color: red', 0), /Use a name/);
+		assert.match(box.customPropertyIssue('--body', 1), /same generated name/, 'slug collisions cannot promise an alias PHP skips');
+		assert.equal(box.customPropertyIssue('--new', 2), '', 'a new family can choose an alias before its first save');
+	});
+
 	console.log('\n' + passed + ' panel workflow regressions passed.');
 }()).catch(function (error) {
 	console.error(error.stack || error.message);

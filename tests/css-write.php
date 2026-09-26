@@ -45,6 +45,49 @@ try {
 	$efm_css_kept = $GLOBALS['wp_filesystem'];
 
 	/* -------------------------------------------------------------------------
+	 * A user-named variable is an alias; the generated one never disappears.
+	 * ---------------------------------------------------------------------- */
+
+	file_put_contents( $efm_css_root . '/inter-regular.woff2', 'font' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+
+	$efm_named_family = array(
+		'name'         => 'Inter',
+		'variants'     => array( array( 'file' => 'inter-regular.woff2', 'weight' => '400' ) ),
+		'fallback'     => 'sans-serif',
+		'css_variable' => '--sans',
+	);
+	$efm_named_css = EFM_Fonts::build_css( array( $efm_named_family ), true );
+	efm_ok( false !== strpos( $efm_named_css, '--efm-family-inter: "Inter", sans-serif;' ), 'the generated family variable stays available' );
+	efm_ok( false !== strpos( $efm_named_css, '--sans: var(--efm-family-inter);' ), 'a custom variable points at the same font stack' );
+	efm_ok( false === strpos( EFM_Fonts::build_css( array( array_merge( $efm_named_family, array( 'enabled' => false ) ) ), true ), '--sans:' ), 'a disabled family publishes no alias' );
+	efm_ok( false === strpos( EFM_Fonts::build_css( array( array_merge( $efm_named_family, array( 'css_variable' => '--bad; color: red' ) ) ), true ), '--bad;' ), 'an invalid alias never enters CSS' );
+	$efm_two_aliases = EFM_Fonts::build_css(
+		array(
+			$efm_named_family,
+			array_merge( $efm_named_family, array( 'name' => 'Roboto' ) ),
+		),
+		true
+	);
+	efm_is( 1, substr_count( $efm_two_aliases, '--sans:' ), 'a duplicate alias is emitted only once, first family wins' );
+
+	$efm_previous_families = get_option( EFM_Fonts::OPTION_FAMILIES, array() );
+	update_option( EFM_Fonts::OPTION_FAMILIES, array( $efm_named_family ) );
+	$efm_import_collision = EFM_Fonts::import_payload(
+		array( 'families' => array( array_merge( $efm_named_family, array( 'name' => 'Roboto' ) ) ) ),
+		'merge',
+		true
+	);
+	efm_ok( is_wp_error( $efm_import_collision ), 'merge preview rejects an alias already used by an existing family' );
+	efm_is( array( $efm_named_family ), EFM_Fonts::families(), 'a rejected merge leaves existing names unchanged' );
+	$efm_incoming_collision = EFM_Fonts::import_payload(
+		array( 'families' => array( $efm_named_family, array_merge( $efm_named_family, array( 'name' => 'Roboto' ) ) ) ),
+		'replace',
+		true
+	);
+	efm_ok( is_wp_error( $efm_incoming_collision ), 'import preview rejects duplicate aliases inside the uploaded file' );
+	update_option( EFM_Fonts::OPTION_FAMILIES, $efm_previous_families );
+
+	/* -------------------------------------------------------------------------
 	 * The ordinary case still works and is reported as a success.
 	 * ---------------------------------------------------------------------- */
 

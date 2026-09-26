@@ -804,6 +804,7 @@
 		out.display = String(source.display || 'swap');
 		out.preload = !!source.preload;
 		out.fallback = String(source.fallback || '');
+		out.css_variable = String(source.css_variable || '');
 		out.selector = String(source.selector || '');
 		out.force = !!source.force;
 		/*
@@ -2896,6 +2897,9 @@
 		 * bar is one row and a family name can be long.
 		 */
 		var changes = changeSummary();
+		var badFamily = state.families.filter(function (family, index) {
+			return !!customPropertyIssue(family.css_variable, index);
+		})[0];
 		var phrase = function (change) { return change.name + ' ' + change.what; };
 		var label = changes.length
 			? changes.slice(0, 2).map(phrase).join(', ') +
@@ -2906,7 +2910,9 @@
 			class: 'efm-savebar__label' + (changes.length > 2 ? ' efm-tooltip efm-tooltip--wrap efm-tooltip--start' : ''),
 			'data-efm-tooltip': changes.length > 2 ? changes.map(phrase).join(', ') : null
 		}, [
-			el('span', { class: 'efm-savebar__text', text: label })
+			el('span', { class: 'efm-savebar__text', text: badFamily
+				? s('customVariableFix', 'Fix the CSS variable for %s.').replace('%s', badFamily.name)
+				: label })
 		]));
 		saveBarEl.appendChild(
 			el('button', {
@@ -2937,7 +2943,7 @@
 				 */
 				class: 'efm-btn efm-btn--primary',
 				text: state.busy === 'save' ? s('saving', 'Saving…') : s('save', 'Save fonts'),
-				disabled: state.busy === 'save',
+				disabled: state.busy === 'save' || !!badFamily,
 				onclick: saveFamilies
 			})
 		);
@@ -5186,10 +5192,8 @@
 		}
 
 		/*
-		 * Identity and availability use the same compact details box before and
-		 * after the first save. A saved family adds its generated token between the
-		 * name and availability; the modifier gives those three columns useful
-		 * measures without letting the short name field stretch across the pane.
+		 * The name and optional variable are editable even before first save.
+		 * Only the generated name waits for the server-derived slug.
 		 */
 		var familyNameRow = el('div', { class: 'efm-field-row' }, [
 			el('label', { class: 'efm-field' }, [
@@ -5205,7 +5209,7 @@
 					}
 				})
 			]),
-			family.slug ? cssTokenField(family) : null
+			cssTokenField(family, index)
 		]);
 		var familyEnabledToggle = el('label', { class: 'efm-toggle' }, [
 			el('input', {
@@ -5224,7 +5228,7 @@
 
 		contentEl.appendChild(el('h3', { class: 'efm-section-title', text: s('familyDetails', 'Family details') }));
 		contentEl.appendChild(el('div', {
-			class: 'efm-family-details' + (family.slug ? ' efm-family-details--saved' : '')
+			class: 'efm-family-details efm-family-details--with-token'
 		}, [
 			familyNameRow,
 			el('div', { class: 'efm-family-details__availability' }, [
@@ -5568,9 +5572,14 @@
 			blocks.unshift(fallbackFace);
 		}
 
-		if (family.slug) {
+		if (family.slug && (family.variants || []).length) {
+			var alias = String(family.css_variable || '');
 			blocks.push(':root {\n\t--efm-family-' + family.slug + ': ' + familyStack(name, family) + ';\n' +
+				(alias && !customPropertyIssue(alias, state.families.indexOf(family))
+					? '\t' + alias + ': var(--efm-family-' + family.slug + ');\n' : '') +
 				(variation ? '\t--efm-family-' + family.slug + '-variation: ' + variation + ';\n' : '') + '}');
+		} else if (!family.slug && (family.variants || []).length) {
+			blocks.push('/* ' + s('cssPreviewUnsaved', 'Save this family to see its generated CSS variable.') + ' */');
 		}
 
 		/*
@@ -5622,35 +5631,111 @@
 			: s('cssPreviewEmpty', 'No variants mapped yet, so this family contributes no CSS.');
 	}
 
-	function cssTokenField(family) {
-		var token = 'var(--efm-family-' + family.slug + ')';
-		var tuned = String(family.variation || '');
-		var variationToken = 'var(--efm-family-' + family.slug + '-variation)';
+	/**
+	 * An alias is optional, but it must be a safe CSS name that cannot claim
+	 * another family's name or one of the plugin's typography contracts.
+	 *
+	 * @param {string} value Proposed property name.
+	 * @param {number} index Family being edited.
+	 * @return {string} An error message, or empty when usable.
+	 */
+	function customPropertyIssue(value, index) {
+		var name = String(value || '').trim();
 
-		/*
-		 * A published value rather than a field. It used to be a readonly input,
-		 * which looks exactly like the editable ones beside it and invites a
-		 * cursor that then does nothing. It now reads as code, on the sunken well
-		 * Etch shows code on, with copying as a button rather than a hidden click.
-		 */
+		if (!name) {
+			return '';
+		}
+
+		if (!/^--[A-Za-z_][A-Za-z0-9_-]{0,61}$/.test(name) ||
+			name.indexOf('--efm-') === 0 ||
+			name === '--heading-font-family' || name === '--text-font-family') {
+			return s('customVariableInvalid', 'Use a name like --sans. Names beginning --efm- and the heading/body tokens are reserved.');
+		}
+
+		if (state.families.some(function (other, otherIndex) {
+			return otherIndex !== index && other.css_variable === name;
+		})) {
+			return s('customVariableTaken', 'Another family already uses this name.');
+		}
+
+		var slug = state.families[index] && state.families[index].slug;
+		if (slug && state.families.some(function (other, otherIndex) {
+			return otherIndex < index && other.slug === slug;
+		})) {
+			return s('customVariableSlugTaken', 'Another family has the same generated name. Rename this family first.');
+		}
+
+		return '';
+	}
+
+	function cssTokenField(family, index) {
+		var generated = family.slug ? '--efm-family-' + family.slug : '';
+		var tuned = family.slug ? String(family.variation || '') : '';
+		var variationToken = 'var(--efm-family-' + family.slug + '-variation)';
+		var issueId = 'efm-variable-issue-' + index;
+		var hint = family.slug
+			? s('cssTokenHint', 'Edit the name if you like. The original variable stays available, and the fallback stack is included.')
+			: s('cssTokenNewHint', 'Choose a name, or save this family to get an automatic one.');
+		var issue = el('span', {
+			id: issueId,
+			class: 'efm-field__hint' + (customPropertyIssue(family.css_variable, index) ? ' efm-field__hint--warn' : ''),
+			'aria-live': 'polite',
+			text: customPropertyIssue(family.css_variable, index) || hint
+		});
+		var field = el('input', {
+			type: 'text',
+			class: 'efm-token__input',
+			value: family.css_variable || generated,
+			placeholder: generated || '--sans',
+			maxlength: 64,
+			spellcheck: 'false',
+			autocapitalize: 'off',
+			autocomplete: 'off',
+			'aria-label': s('customVariableName', 'CSS variable name'),
+			'aria-describedby': issueId,
+			'aria-invalid': customPropertyIssue(family.css_variable, index) ? 'true' : 'false',
+			'data-efm-focus': 'css-variable-' + index,
+			oninput: function (event) {
+				var value = event.target.value.trim();
+				state.families[index].css_variable = value === generated ? '' : value;
+				var problem = customPropertyIssue(state.families[index].css_variable, index);
+				event.target.setAttribute('aria-invalid', problem ? 'true' : 'false');
+				issue.textContent = problem || hint;
+				issue.classList.toggle('efm-field__hint--warn', !!problem);
+				copy.disabled = !!problem || !value;
+				var preview = contentEl.querySelector('.efm-code');
+				if (preview) {
+					preview.textContent = previewCss(state.families[index]);
+				}
+				renderSaveBar();
+			},
+			onblur: function () {
+				if (!field.value.trim() && generated) {
+					field.value = generated;
+					copy.disabled = false;
+				}
+			}
+		});
+		var copy = el('button', {
+			type: 'button',
+			class: 'efm-btn efm-btn--ghost efm-btn--sm efm-btn--icon efm-tooltip efm-tooltip--end',
+			'aria-label': s('copy', 'Copy'),
+			'data-efm-tooltip': s('copy', 'Copy'),
+			disabled: !!customPropertyIssue(family.css_variable, index) || (!family.css_variable && !generated),
+			onclick: function () {
+				copyText('var(' + (state.families[index].css_variable || generated) + ')', s('copiedToken', 'CSS variable copied.'));
+			}
+		}, [icon('copy', 'sm')]);
+
 		return el('div', { class: 'efm-field' }, [
 			el('span', { class: 'efm-field__label', text: s('cssToken', 'CSS variable') }),
-			el('div', { class: 'efm-token' }, [
-				el('code', { class: 'efm-token__value', text: token }),
-				el('button', {
-					type: 'button',
-					class: 'efm-btn efm-btn--ghost efm-btn--sm efm-btn--icon efm-tooltip efm-tooltip--end',
-					'aria-label': s('copy', 'Copy'),
-					'data-efm-tooltip': s('copy', 'Copy'),
-					onclick: function () {
-						copyText(token, s('copiedToken', 'CSS variable copied.'));
-					}
-				}, [icon('copy', 'sm')])
+			el('div', { class: 'efm-token efm-token--editable' }, [
+				el('span', { class: 'efm-token__affix', text: 'var(' }),
+				field,
+				el('span', { class: 'efm-token__affix', text: ')' }),
+				copy
 			]),
-			el('span', {
-				class: 'efm-field__hint',
-				text: s('cssTokenHint', 'Use this anywhere a font family is expected. It already includes the fallback stack.')
-			}),
+			issue,
 
 			/*
 			 * Only once an instance exists, and only here, beside the token it
@@ -9546,6 +9631,15 @@
 	}
 
 	function saveFamilies() {
+		var badFamily = state.families.filter(function (family, index) {
+			return !!customPropertyIssue(family.css_variable, index);
+		})[0];
+
+		if (badFamily) {
+			setStatus(s('customVariableFix', 'Fix the CSS variable for %s.').replace('%s', badFamily.name), 'warning');
+			return Promise.resolve(false);
+		}
+
 		state.busy = 'save';
 		renderSaveBar();
 

@@ -311,6 +311,35 @@ efm_is( true, $efm_legacy[0]['enabled'], 'a family with no enabled flag defaults
 efm_is( false, $efm_legacy[0]['trashed'], 'a family with no trashed flag defaults to not trashed' );
 efm_ok( ! isset( $efm_legacy[0]['google'] ), 'no google block is added to a non-google family' );
 efm_is( 'upload', $efm_legacy[0]['source'], 'a family with no google block is recorded as an upload' );
+efm_is( '', $efm_legacy[0]['css_variable'], 'a legacy family keeps its generated variable' );
+efm_is( '--sans', EFM_Fonts::sanitize_custom_property( '--sans' ), 'a valid custom variable survives' );
+efm_is( '', EFM_Fonts::sanitize_custom_property( '--efm-family-inter' ), 'generated variable names are reserved' );
+efm_is( '', EFM_Fonts::sanitize_custom_property( '--heading-font-family' ), 'typography tokens are reserved' );
+efm_is( '', EFM_Fonts::sanitize_custom_property( '--bad; color: red' ), 'CSS declarations cannot enter a variable name' );
+
+$efm_named = EFM_Fonts::sanitize_families(
+	array(
+		array( 'name' => 'Inter', 'variants' => array(), 'css_variable' => '--sans' ),
+		array( 'name' => 'Roboto', 'variants' => array(), 'css_variable' => '--sans' ),
+	)
+);
+efm_is( '--sans', $efm_named[0]['css_variable'], 'the first family keeps its custom variable' );
+efm_is( '', $efm_named[1]['css_variable'], 'a second family cannot take the same variable' );
+efm_is(
+	array( '--sans', 'Inter', 'Roboto' ),
+	EFM_Fonts::custom_property_conflict(
+		array(
+			array( 'name' => 'Inter', 'css_variable' => '--sans' ),
+			array( 'name' => 'Roboto', 'css_variable' => '--sans' ),
+		)
+	),
+	'an import detects two families claiming the same alias'
+);
+efm_is(
+	array(),
+	EFM_Fonts::custom_property_conflict( array( array( 'name' => 'Inter', 'css_variable' => '--sans' ) ) ),
+	'a unique alias does not block an import'
+);
 
 /* -------------------------------------------------------------------------
  * Where a family came from.

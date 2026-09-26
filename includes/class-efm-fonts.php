@@ -978,6 +978,22 @@ class EFM_Fonts {
 			);
 		}
 
+		$conflict = self::custom_property_conflict( $data['families'] );
+
+		if ( $conflict ) {
+			return new WP_Error(
+				'efm_import_variable_conflict',
+				sprintf(
+					/* translators: 1: CSS custom property, 2: first font family, 3: second font family. */
+					__( '%1$s is used by both %2$s and %3$s. Give one family a different CSS variable before importing.', 'etch-font-manager' ),
+					$conflict[0],
+					$conflict[1],
+					$conflict[2]
+				),
+				array( 'status' => 409 )
+			);
+		}
+
 		$incoming = self::sanitize_families( $data['families'] );
 		$existing = self::families();
 		$current  = array();
@@ -1027,6 +1043,22 @@ class EFM_Fonts {
 					$removed[] = $family['name'];
 				}
 			}
+		}
+
+		$conflict = self::custom_property_conflict( $families );
+
+		if ( $conflict ) {
+			return new WP_Error(
+				'efm_import_variable_conflict',
+				sprintf(
+					/* translators: 1: CSS custom property, 2: first font family, 3: second font family. */
+					__( '%1$s is used by both %2$s and %3$s. Give one family a different CSS variable before importing.', 'etch-font-manager' ),
+					$conflict[0],
+					$conflict[1],
+					$conflict[2]
+				),
+				array( 'status' => 409 )
+			);
 		}
 
 		$bundled = array_keys( is_array( $data['bundle'] ?? null ) ? $data['bundle'] : array() );
@@ -1430,6 +1462,57 @@ class EFM_Fonts {
 	}
 
 	/**
+	 * Accept an optional, user-named CSS custom property for a family.
+	 *
+	 * The generated --efm-family-* property is never replaced. Reserve the
+	 * plugin's names and its heading/body contracts so an alias cannot take over
+	 * another family or change typography elsewhere on the site by accident.
+	 *
+	 * @param mixed $name Proposed custom property name.
+	 * @return string Empty when unset or unsafe.
+	 */
+	public static function sanitize_custom_property( $name ) {
+		$name = is_string( $name ) ? trim( $name ) : '';
+
+		if ( ! preg_match( '/^--[A-Za-z_][A-Za-z0-9_-]{0,61}$/D', $name ) ||
+			0 === strpos( $name, '--efm-' ) ||
+			in_array( $name, array( '--heading-font-family', '--text-font-family' ), true ) ) {
+			return '';
+		}
+
+		return $name;
+	}
+
+	/**
+	 * Find the first custom-property name claimed by two families.
+	 *
+	 * Import checks this before either preview or write, so it cannot silently
+	 * move an existing site's variable to a newly imported family.
+	 *
+	 * @param array $families Family records, including imported raw records.
+	 * @return array An alias and its two families, or an empty array.
+	 */
+	public static function custom_property_conflict( $families ) {
+		$owners = array();
+
+		foreach ( $families as $family ) {
+			$name = self::sanitize_custom_property( $family['css_variable'] ?? '' );
+
+			if ( '' === $name || empty( $family['name'] ) ) {
+				continue;
+			}
+
+			if ( isset( $owners[ $name ] ) ) {
+				return array( $name, $owners[ $name ], $family['name'] );
+			}
+
+			$owners[ $name ] = $family['name'];
+		}
+
+		return array();
+	}
+
+	/**
 	 * Files that should be preloaded.
 	 *
 	 * Only one file per opted-in family is returned: the regular upright
@@ -1708,7 +1791,8 @@ class EFM_Fonts {
 			return array();
 		}
 
-		$clean = array();
+		$clean         = array();
+		$used_property = array();
 
 		foreach ( $input as $family ) {
 			if ( empty( $family['name'] ) ) {
@@ -1767,20 +1851,33 @@ class EFM_Fonts {
 
 			$google = self::sanitize_google_block( $family['google'] ?? array() );
 
+			$custom_property = self::sanitize_custom_property( $family['css_variable'] ?? '' );
+
+			// The editor reports collisions before saving. Keep direct REST imports
+			// deterministic too: one alias belongs to one family, first one wins.
+			if ( '' !== $custom_property && isset( $used_property[ $custom_property ] ) ) {
+				$custom_property = '';
+			}
+
+			if ( '' !== $custom_property ) {
+				$used_property[ $custom_property ] = true;
+			}
+
 			$entry = array(
-				'name'     => $name,
-				'variants' => $variants,
-				'source'   => self::sanitize_source( $family, ! empty( $google ) ),
-				'display'  => in_array( $display, self::DISPLAY_VALUES, true ) ? $display : 'swap',
-				'preload'  => ! empty( $family['preload'] ),
-				'fallback' => self::sanitize_font_stack( $family['fallback'] ?? '' ),
-				'selector' => self::sanitize_selector( $family['selector'] ?? '' ),
-				'force'    => ! empty( $family['force'] ),
-				'enabled'  => $enabled,
-				'trashed'  => ! empty( $family['trashed'] ),
-				'variation' => self::sanitize_variation( $family['variation'] ?? '' ),
-				'roles'    => self::sanitize_roles( $family['roles'] ?? array() ),
-				'metrics'  => self::sanitize_metrics( $family['metrics'] ?? array() ),
+				'name'         => $name,
+				'variants'     => $variants,
+				'source'       => self::sanitize_source( $family, ! empty( $google ) ),
+				'display'      => in_array( $display, self::DISPLAY_VALUES, true ) ? $display : 'swap',
+				'preload'      => ! empty( $family['preload'] ),
+				'fallback'     => self::sanitize_font_stack( $family['fallback'] ?? '' ),
+				'css_variable' => $custom_property,
+				'selector'     => self::sanitize_selector( $family['selector'] ?? '' ),
+				'force'        => ! empty( $family['force'] ),
+				'enabled'      => $enabled,
+				'trashed'      => ! empty( $family['trashed'] ),
+				'variation'    => self::sanitize_variation( $family['variation'] ?? '' ),
+				'roles'        => self::sanitize_roles( $family['roles'] ?? array() ),
+				'metrics'      => self::sanitize_metrics( $family['metrics'] ?? array() ),
 			);
 
 			if ( ! empty( $google ) ) {
@@ -2685,8 +2782,9 @@ class EFM_Fonts {
 			}
 		}
 
-		$tokens = '';
-		$seen   = array();
+		$tokens       = '';
+		$seen         = array();
+		$seen_aliases = array();
 
 		foreach ( $families as $family ) {
 			if ( empty( $family['name'] ) || empty( $family['variants'] ) ) {
@@ -2704,6 +2802,15 @@ class EFM_Fonts {
 			$seen[ $slug ] = true;
 			$tokens       .= "\t--efm-family-{$slug}: " . self::family_stack( $family ) . ";\n";
 
+			// Keep the generated name intact for existing styles; a custom name is
+			// an alias of that value, so its fallback stack stays in sync.
+			$custom_property = self::sanitize_custom_property( $family['css_variable'] ?? '' );
+
+			if ( '' !== $custom_property && ! isset( $seen_aliases[ $custom_property ] ) ) {
+				$seen_aliases[ $custom_property ] = true;
+				$tokens .= "\t{$custom_property}: var(--efm-family-{$slug});\n";
+			}
+
 			/*
 			 * A second token beside the stack, so an instance can be applied wherever
 			 * the family already is. Without it the tuning would only reach the
@@ -2718,7 +2825,7 @@ class EFM_Fonts {
 		}
 
 		if ( '' !== $tokens ) {
-			$css .= "/* One custom property per family, so a family can be used as var(--efm-family-slug) */\n:root {\n" . $tokens . "}\n\n";
+			$css .= "/* Family variables and optional custom aliases */\n:root {\n" . $tokens . "}\n\n";
 		}
 
 		/*

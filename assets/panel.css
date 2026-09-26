@@ -2192,11 +2192,8 @@
 }
 
 /*
- * Before its first save a family has no generated token to share the name row,
- * so that short field used to stretch across the entire pane. Pair the basics
- * in one raised box instead: the name keeps a useful reading width and the
- * availability explanation uses the space beside it. Flex wrapping makes the
- * same block stack naturally when the panel cannot hold both columns.
+ * Pair family identity and availability in one raised box. The row wraps
+ * naturally when the panel cannot hold all controls side by side.
  */
 .efm-family-details {
 	display: flex;
@@ -2223,29 +2220,27 @@
 }
 
 /*
- * A saved family adds the generated CSS variable, so its identity row takes
- * the space two controls need while Availability remains a compact third
- * column. Minimum measures make the controls wrap before either becomes hard
- * to read in a narrow builder panel.
+ * Every family can choose a CSS variable, including before the first save.
+ * Keep the name and variable usable while Availability takes a third column.
  */
-.efm-family-details--saved > .efm-field-row {
+.efm-family-details--with-token > .efm-field-row {
 	flex: 1 1 780px;
 	gap: var(--e-space-xl, 24px);
 }
 
-.efm-family-details--saved > .efm-field-row > .efm-field {
+.efm-family-details--with-token > .efm-field-row > .efm-field {
 	min-inline-size: 280px;
 }
 
-.efm-family-details--saved > .efm-field-row > .efm-field:first-child {
+.efm-family-details--with-token > .efm-field-row > .efm-field:first-child {
 	flex: 0 1 340px;
 }
 
-.efm-family-details--saved > .efm-field-row > .efm-field:last-child {
+.efm-family-details--with-token > .efm-field-row > .efm-field:last-child {
 	flex: 1 1 420px;
 }
 
-.efm-family-details--saved > .efm-family-details__availability {
+.efm-family-details--with-token > .efm-family-details__availability {
 	flex-basis: 360px;
 }
 
@@ -2359,10 +2354,8 @@
 }
 
 /*
- * The published custom property. Etch shows code on a sunken --e-base-dark
- * well, so the token takes that surface and the same monospace as the
- * generated CSS below it, which is what tells a value you copy apart from a
- * value you type.
+ * The published custom property keeps Etch's sunken code surface even when
+ * its name is editable. The generated name remains underneath as a safe alias.
  */
 .efm-token {
 	display: flex;
@@ -2396,9 +2389,33 @@
 	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 	font-size: 11px;
 	white-space: nowrap;
-	/* One click takes the whole token, so copying by hand stays as easy as it
-	   was when this was an input that selected itself. */
+	/* One click takes the whole token, so copying by hand stays easy. */
 	user-select: all;
+}
+
+.efm-token--editable:focus-within {
+	border-color: var(--e-focus-outline-color, #469fea);
+}
+
+.efm-token__affix {
+	flex: 0 0 auto;
+	font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+	color: var(--efm-muted);
+}
+
+.efm-token__input {
+	flex: 1 1 auto;
+	min-inline-size: 0;
+	padding: 0;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	color: var(--efm-text);
+	font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.efm-token__input::placeholder {
+	color: var(--efm-muted);
 }
 
 /* ------------------------------- Dialog -------------------------------- */

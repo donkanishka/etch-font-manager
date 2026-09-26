@@ -574,10 +574,10 @@ class EFM_Builder {
 			'familyEnabledHint' => __( 'Turn off to stop the font loading without deleting anything. Files and weight mapping are kept.', 'etch-font-manager' ),
 			'confirmDeleteFamily' => __( 'Delete this family for good? Its font files stay on the server and can be removed from Import & export.', 'etch-font-manager' ),
 			'cssToken'       => __( 'CSS variable', 'etch-font-manager' ),
-			'cssTokenHint'   => __( 'Edit the name if you like. The original variable stays available, and the fallback stack is included.', 'etch-font-manager' ),
-			'cssTokenNewHint' => __( 'Choose a name, or save this family to get an automatic one.', 'etch-font-manager' ),
+			'cssTokenHint'   => __( 'Type only the name. Leave blank to use the generated name; the fallback stack is included.', 'etch-font-manager' ),
+			'cssTokenNewHint' => __( 'Type only the name, or leave blank and save this family to get an automatic one.', 'etch-font-manager' ),
 			'customVariableName' => __( 'CSS variable name', 'etch-font-manager' ),
-			'customVariableInvalid' => __( 'Use a name like --sans. Names beginning --efm- and the heading/body tokens are reserved.', 'etch-font-manager' ),
+			'customVariableInvalid' => __( 'Use a name like sans. Names beginning efm- and the heading/body tokens are reserved.', 'etch-font-manager' ),
 			'customVariableTaken' => __( 'Another family already uses this name.', 'etch-font-manager' ),
 			'customVariableSlugTaken' => __( 'Another family has the same generated name. Rename this family first.', 'etch-font-manager' ),
 

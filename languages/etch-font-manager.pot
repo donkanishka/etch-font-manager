@@ -4,7 +4,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Etch Font Manager\n"
 "Report-Msgid-Bugs-To: https://github.com/donkanishka/etch-font-manager/issues\n"
-"POT-Creation-Date: 2026-09-26 02:18+0000\n"
+"POT-Creation-Date: 2026-09-26 02:40+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -565,11 +565,11 @@ msgid "CSS variable"
 msgstr ""
 
 #: includes/class-efm-builder.php:577
-msgid "Edit the name if you like. The original variable stays available, and the fallback stack is included."
+msgid "Type only the name. Leave blank to use the generated name; the fallback stack is included."
 msgstr ""
 
 #: includes/class-efm-builder.php:578
-msgid "Choose a name, or save this family to get an automatic one."
+msgid "Type only the name, or leave blank and save this family to get an automatic one."
 msgstr ""
 
 #: includes/class-efm-builder.php:579
@@ -577,7 +577,7 @@ msgid "CSS variable name"
 msgstr ""
 
 #: includes/class-efm-builder.php:580
-msgid "Use a name like --sans. Names beginning --efm- and the heading/body tokens are reserved."
+msgid "Use a name like sans. Names beginning efm- and the heading/body tokens are reserved."
 msgstr ""
 
 #: includes/class-efm-builder.php:581

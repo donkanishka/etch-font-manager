@@ -5649,7 +5649,7 @@
 		if (!/^--[A-Za-z_][A-Za-z0-9_-]{0,61}$/.test(name) ||
 			name.indexOf('--efm-') === 0 ||
 			name === '--heading-font-family' || name === '--text-font-family') {
-			return s('customVariableInvalid', 'Use a name like --sans. Names beginning --efm- and the heading/body tokens are reserved.');
+			return s('customVariableInvalid', 'Use a name like sans. Names beginning efm- and the heading/body tokens are reserved.');
 		}
 
 		if (state.families.some(function (other, otherIndex) {
@@ -5668,14 +5668,26 @@
 		return '';
 	}
 
+	function customPropertyName(value) {
+		return String(value || '').replace(/^--/, '');
+	}
+
+	function customPropertyFromName(value, generated) {
+		var name = String(value || '').trim();
+		var property = name ? '--' + name : '';
+
+		return property === generated ? '' : property;
+	}
+
 	function cssTokenField(family, index) {
 		var generated = family.slug ? '--efm-family-' + family.slug : '';
+		var generatedName = customPropertyName(generated);
 		var tuned = family.slug ? String(family.variation || '') : '';
 		var variationToken = 'var(--efm-family-' + family.slug + '-variation)';
 		var issueId = 'efm-variable-issue-' + index;
 		var hint = family.slug
-			? s('cssTokenHint', 'Edit the name if you like. The original variable stays available, and the fallback stack is included.')
-			: s('cssTokenNewHint', 'Choose a name, or save this family to get an automatic one.');
+			? s('cssTokenHint', 'Type only the name. Leave blank to use the generated name; the fallback stack is included.')
+			: s('cssTokenNewHint', 'Type only the name, or leave blank and save this family to get an automatic one.');
 		var issue = el('span', {
 			id: issueId,
 			class: 'efm-field__hint' + (customPropertyIssue(family.css_variable, index) ? ' efm-field__hint--warn' : ''),
@@ -5685,9 +5697,9 @@
 		var field = el('input', {
 			type: 'text',
 			class: 'efm-token__input',
-			value: family.css_variable || generated,
-			placeholder: generated || '--sans',
-			maxlength: 64,
+			value: customPropertyName(family.css_variable),
+			placeholder: generatedName || 'name',
+			maxlength: 62,
 			spellcheck: 'false',
 			autocapitalize: 'off',
 			autocomplete: 'off',
@@ -5696,24 +5708,17 @@
 			'aria-invalid': customPropertyIssue(family.css_variable, index) ? 'true' : 'false',
 			'data-efm-focus': 'css-variable-' + index,
 			oninput: function (event) {
-				var value = event.target.value.trim();
-				state.families[index].css_variable = value === generated ? '' : value;
+				state.families[index].css_variable = customPropertyFromName(event.target.value, generated);
 				var problem = customPropertyIssue(state.families[index].css_variable, index);
 				event.target.setAttribute('aria-invalid', problem ? 'true' : 'false');
 				issue.textContent = problem || hint;
 				issue.classList.toggle('efm-field__hint--warn', !!problem);
-				copy.disabled = !!problem || !value;
+				copy.disabled = !!problem || (!event.target.value.trim() && !generated);
 				var preview = contentEl.querySelector('.efm-code');
 				if (preview) {
 					preview.textContent = previewCss(state.families[index]);
 				}
 				renderSaveBar();
-			},
-			onblur: function () {
-				if (!field.value.trim() && generated) {
-					field.value = generated;
-					copy.disabled = false;
-				}
 			}
 		});
 		var copy = el('button', {
@@ -5730,7 +5735,7 @@
 		return el('div', { class: 'efm-field' }, [
 			el('span', { class: 'efm-field__label', text: s('cssToken', 'CSS variable') }),
 			el('div', { class: 'efm-token efm-token--editable' }, [
-				el('span', { class: 'efm-token__affix', text: 'var(' }),
+				el('span', { class: 'efm-token__affix', text: 'var(--' }),
 				field,
 				el('span', { class: 'efm-token__affix', text: ')' }),
 				copy

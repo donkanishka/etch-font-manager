@@ -1067,8 +1067,15 @@ function uploadContext(dirty) {
 				{ name: 'New family', css_variable: '--new' }
 			] },
 			s: function (key, fallback) { return fallback; }
-		}, ['customPropertyIssue']);
+		}, ['customPropertyIssue', 'customPropertyName', 'customPropertyFromName']);
 
+		assert.equal(box.customPropertyName('--sans'), 'sans', 'the field shows only the editable name');
+		assert.equal(box.customPropertyName(''), '', 'the default stays a placeholder rather than input text');
+		assert.equal(box.customPropertyFromName('sans', '--efm-family-foo-bar'), '--sans', 'the fixed prefix is restored for storage');
+		assert.equal(box.customPropertyFromName('', '--efm-family-foo-bar'), '', 'a blank field keeps the generated variable');
+		assert.equal(box.customPropertyFromName('efm-family-foo-bar', '--efm-family-foo-bar'), '', 'typing the generated name is the same as leaving it blank');
+		assert.match(source, /text: 'var\(--'/, 'the field fixes var(-- before the editable name');
+		assert.match(source, /placeholder: generatedName \|\| 'name'/, 'an empty field displays the generated name or name placeholder');
 		assert.equal(box.customPropertyIssue('--sans', 0), '');
 		assert.equal(box.customPropertyIssue('', 0), '');
 		assert.match(box.customPropertyIssue('--sans', 1), /already uses/);

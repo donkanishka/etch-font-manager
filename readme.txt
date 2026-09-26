@@ -26,7 +26,7 @@ Features:
 * Drag and drop uploads for woff2, woff, ttf and otf
 * Built-in TTF, OTF and WOFF to WOFF2 converter that runs in your browser, so nothing is sent to a third-party service
 * Google Fonts search, preview and one-click local install
-* A CSS variable per family, --efm-family-{slug}, plus an optional custom name such as --sans you can edit and copy in the family editor. The original name remains available for existing styles
+* A CSS variable per family, --efm-family-{slug}, plus an optional short name such as sans you can type in the family editor and copy as var(--sans). The original name remains available for existing styles
 * Fonts load on the frontend, in the Etch canvas iframe and in the block editor
 * Self-hosted files, so no frontend requests to Google
 

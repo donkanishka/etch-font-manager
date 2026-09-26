@@ -1,11 +1,11 @@
 {
-  "version": "1.0.14",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.14/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.14",
+  "version": "1.0.15",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.15/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.15",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
-  "date": "2026-09-22",
-  "notes": "The generated stylesheet is now written on hosts where WordPress cannot use its own filesystem layer, which previously left the CSS silently out of date while every other action reported success. If nothing can write it, saving says so instead of reporting an unqualified success.",
-  "last_updated": "2026-09-22"
+  "date": "2026-09-26",
+  "notes": "Font families can now publish concise custom CSS variable aliases without removing their generated variables. The Upload screen reports the current WOFF2 conversion state before file selection, all back buttons match Etch's Loop Manager, and merged imports now preserve heading and body typography assignments.",
+  "last_updated": "2026-09-26"
 }

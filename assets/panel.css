@@ -2393,8 +2393,16 @@
 	user-select: all;
 }
 
+.efm-token--editable {
+	gap: 0;
+}
+
 .efm-token--editable:focus-within {
 	border-color: var(--e-focus-outline-color, #469fea);
+}
+
+.efm-token--editable .efm-btn {
+	margin-inline-start: auto;
 }
 
 .efm-token__affix {
@@ -2404,8 +2412,9 @@
 }
 
 .efm-token__input {
-	flex: 1 1 auto;
-	min-inline-size: 0;
+	flex: 0 1 auto;
+	min-inline-size: 1ch;
+	max-inline-size: 100%;
 	padding: 0;
 	border: 0;
 	outline: 0;

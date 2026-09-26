@@ -13,6 +13,7 @@ var path = require('node:path');
 var vm = require('node:vm');
 var panel = process.argv[2] || path.join(__dirname, '..', 'assets', 'panel.js');
 var source = fs.readFileSync(panel, 'utf8');
+var cssSource = fs.readFileSync(path.join(path.dirname(panel), 'panel.css'), 'utf8');
 var passed = 0;
 
 function extract(name) {
@@ -1075,7 +1076,11 @@ function uploadContext(dirty) {
 		assert.equal(box.customPropertyFromName('', '--efm-family-foo-bar'), '', 'a blank field keeps the generated variable');
 		assert.equal(box.customPropertyFromName('efm-family-foo-bar', '--efm-family-foo-bar'), '', 'typing the generated name is the same as leaving it blank');
 		assert.match(source, /text: 'var\(--'/, 'the field fixes var(-- before the editable name');
-		assert.match(source, /placeholder: generatedName \|\| 'name'/, 'an empty field displays the generated name or name placeholder');
+		assert.match(source, /fieldPlaceholder = generatedName \|\| 'name'/, 'an empty field displays the generated name or name placeholder');
+		assert.match(source, /'inline-size': \(fieldName \|\| fieldPlaceholder\)\.length \+ 'ch'/, 'the closing bracket starts beside the visible name');
+		assert.match(source, /setProperty\('inline-size', \(event\.target\.value \|\| fieldPlaceholder\)\.length \+ 'ch'\)/, 'the closing bracket follows edits');
+		assert.match(cssSource, /\.efm-token--editable\s*{\s*gap:\s*0;/, 'fixed syntax has no artificial spaces');
+		assert.match(cssSource, /\.efm-token--editable \.efm-btn\s*{\s*margin-inline-start:\s*auto;/, 'only the copy button moves to the far edge');
 		assert.equal(box.customPropertyIssue('--sans', 0), '');
 		assert.equal(box.customPropertyIssue('', 0), '');
 		assert.match(box.customPropertyIssue('--sans', 1), /already uses/);

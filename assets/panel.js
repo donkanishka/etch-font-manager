@@ -5682,6 +5682,8 @@
 	function cssTokenField(family, index) {
 		var generated = family.slug ? '--efm-family-' + family.slug : '';
 		var generatedName = customPropertyName(generated);
+		var fieldName = customPropertyName(family.css_variable);
+		var fieldPlaceholder = generatedName || 'name';
 		var tuned = family.slug ? String(family.variation || '') : '';
 		var variationToken = 'var(--efm-family-' + family.slug + '-variation)';
 		var issueId = 'efm-variable-issue-' + index;
@@ -5697,8 +5699,9 @@
 		var field = el('input', {
 			type: 'text',
 			class: 'efm-token__input',
-			value: customPropertyName(family.css_variable),
-			placeholder: generatedName || 'name',
+			value: fieldName,
+			placeholder: fieldPlaceholder,
+			style: { 'inline-size': (fieldName || fieldPlaceholder).length + 'ch' },
 			maxlength: 62,
 			spellcheck: 'false',
 			autocapitalize: 'off',
@@ -5708,6 +5711,7 @@
 			'aria-invalid': customPropertyIssue(family.css_variable, index) ? 'true' : 'false',
 			'data-efm-focus': 'css-variable-' + index,
 			oninput: function (event) {
+				event.target.style.setProperty('inline-size', (event.target.value || fieldPlaceholder).length + 'ch');
 				state.families[index].css_variable = customPropertyFromName(event.target.value, generated);
 				var problem = customPropertyIssue(state.families[index].css_variable, index);
 				event.target.setAttribute('aria-invalid', problem ? 'true' : 'false');

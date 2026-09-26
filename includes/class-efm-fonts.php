@@ -1014,9 +1014,34 @@ class EFM_Fonts {
 		}
 
 		if ( 'merge' === $mode ) {
-			$by_name = array();
+			$by_name       = array();
+			$incoming_roles = array();
+
+			/*
+			 * Typography tokens travel with the exported family. A role has one
+			 * owner, so an imported claim has to take it from the destination's
+			 * current holder, exactly as ticking that family's checkbox does in the
+			 * editor. Otherwise the existing family appears first below and wins when
+			 * save_families() resolves duplicate claims, silently clearing the import.
+			 */
+			foreach ( $incoming as $family ) {
+				foreach ( (array) ( $family['roles'] ?? array() ) as $role ) {
+					$incoming_roles[ $role ] = true;
+				}
+			}
 
 			foreach ( $existing as $family ) {
+				if ( ! empty( $incoming_roles ) ) {
+					$family['roles'] = array_values(
+						array_filter(
+							(array) ( $family['roles'] ?? array() ),
+							static function ( $role ) use ( $incoming_roles ) {
+								return ! isset( $incoming_roles[ $role ] );
+							}
+						)
+					);
+				}
+
 				$by_name[ strtolower( $family['name'] ) ] = $family;
 			}
 

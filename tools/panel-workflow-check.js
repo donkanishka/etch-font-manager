@@ -755,6 +755,16 @@ function uploadContext(dirty) {
 		assert.deepEqual(seen, [], 'nothing should be rewritten when the measurement is unchanged');
 	});
 
+	await test('every back button matches Etch manager outline states', function () {
+		var buttons = source.match(/class: 'efm-btn efm-btn--outline efm-btn--back efm-tooltip/g) || [];
+		var rest = /\.efm-btn--back\s*\{[^}]*padding-block:\s*var\(--efm-pad-block\);[^}]*border-color:\s*var\(--efm-surface-raised\)/s;
+		var active = /\.efm-btn--back:is\(:focus-visible, :hover\):not\(:disabled\)\s*\{[^}]*background:\s*var\(--efm-surface-raised\);[^}]*border-color:\s*var\(--efm-surface-raised\);[^}]*color:\s*var\(--efm-text\)/s;
+
+		assert.equal(buttons.length, 3, 'header, family and Google detail backs must share the back modifier');
+		assert.ok(rest.test(cssSource), 'the resting border must use Etch base light');
+		assert.ok(active.test(cssSource), 'hover and keyboard focus must use Etch base light for both fill and border');
+	});
+
 	/*
 	 * Conversion on upload moved out of the Upload screen and into Settings, so
 	 * the format that needs no conversion and the setting that governs the rest
@@ -828,10 +838,56 @@ function uploadContext(dirty) {
 			'the Upload screen must not carry a control that only applies to the next files added'
 		);
 		assert.ok(/convert_uploads/.test(settings), 'Settings must carry it instead');
+		assert.ok(
+			upload.indexOf('uploadConversionStatus()') < upload.indexOf("s('selectFiles'"),
+			'the current setting must be reported before the file picker'
+		);
 
 		// A browser-local copy would mean one site converting or not depending on
 		// whose browser did the uploading.
 		assert.ok(!/state\.convert\b/.test(source), 'the browser-local preference must be gone entirely');
+	});
+
+	await test('the upload conversion status reflects both settings states', function () {
+		function statusFor(enabled) {
+			var destination = '';
+			var box = context({
+				state: { settings: { convert_uploads: enabled } },
+				el: function (tag, props, children) {
+					return { tag: tag, props: props || {}, children: children || [] };
+				},
+				s: function (key, fallback) { return fallback; },
+				go: function (view) { destination = view; }
+			}, ['uploadConversionStatus']);
+
+			return {
+				node: box.uploadConversionStatus(),
+				destination: function () { return destination; }
+			};
+		}
+
+		var on = statusFor(true);
+		var onHeading = on.node.children[0].children[0];
+		var onState = onHeading.children[1];
+		var onDetail = on.node.children[0].children[1];
+		var settingsButton = on.node.children[1];
+
+		assert.equal(onState.props.text, 'On');
+		assert.match(onState.props.class, /efm-upload-status__state--on/);
+		assert.equal(onDetail.props.text, 'TTF, OTF and WOFF convert before upload.');
+		assert.match(settingsButton.props.class, /efm-upload-status__settings/);
+		settingsButton.props.onclick();
+		assert.equal(on.destination(), 'settings');
+
+		var off = statusFor(false);
+		var offState = off.node.children[0].children[0].children[1];
+		var offDetail = off.node.children[0].children[1];
+
+		assert.equal(offState.props.text, 'Off');
+		assert.match(offState.props.class, /efm-upload-status__state--off/);
+		assert.equal(offDetail.props.text, 'Files upload in their original format.');
+		assert.ok(/\.efm-upload-status\s*\{/.test(cssSource), 'the status card needs its own visual surface');
+		assert.ok(/\.efm-btn\.efm-upload-status__settings\s*\{/.test(cssSource), 'Settings needs the approved compact filled treatment');
 	});
 
 	/*

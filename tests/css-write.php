@@ -88,6 +88,44 @@ try {
 	update_option( EFM_Fonts::OPTION_FAMILIES, $efm_previous_families );
 
 	/* -------------------------------------------------------------------------
+	 * Heading and body token assignments make the export/import round trip.
+	 * ---------------------------------------------------------------------- */
+
+	$efm_role_source = array(
+		'name'     => 'Imported tokens',
+		'variants' => array( array( 'file' => 'inter-regular.woff2', 'weight' => '400' ) ),
+		'roles'    => array( 'heading', 'text' ),
+	);
+	$efm_role_existing = array(
+		'name'     => 'Existing tokens',
+		'variants' => array( array( 'file' => 'inter-regular.woff2', 'weight' => '400' ) ),
+		'roles'    => array( 'heading', 'text' ),
+	);
+
+	update_option( EFM_Fonts::OPTION_FAMILIES, array( $efm_role_source ) );
+	$efm_role_export = EFM_Fonts::export_payload( array( 'Imported tokens' ) );
+	efm_is( array( 'heading', 'text' ), $efm_role_export['families'][0]['roles'], 'an export carries both typography-token assignments' );
+
+	// The destination already owns both tokens. The imported family must take
+	// them, just as ticking its two checkboxes in the editor would.
+	update_option( EFM_Fonts::OPTION_FAMILIES, array( $efm_role_existing ) );
+	unset( $efm_role_export['settings'] );
+	$efm_role_report = EFM_Fonts::import_payload( $efm_role_export, 'merge' );
+	efm_ok( ! is_wp_error( $efm_role_report ), 'a token-bearing family merges successfully' );
+
+	$efm_role_families = array();
+	foreach ( EFM_Fonts::families() as $efm_role_family ) {
+		$efm_role_families[ $efm_role_family['name'] ] = $efm_role_family;
+	}
+
+	efm_is( array(), $efm_role_families['Existing tokens']['roles'], 'merge removes imported token roles from the previous holder' );
+	efm_is( array( 'heading', 'text' ), $efm_role_families['Imported tokens']['roles'], 'merge keeps the imported family selected for headings and body text' );
+	$efm_role_css = EFM_Fonts::token_css( array_values( $efm_role_families ) );
+	efm_ok( false !== strpos( $efm_role_css, '--heading-font-family: var(--efm-family-imported-tokens);' ), 'the imported heading assignment is applied to CSS' );
+	efm_ok( false !== strpos( $efm_role_css, '--text-font-family: var(--efm-family-imported-tokens);' ), 'the imported body assignment is applied to CSS' );
+	update_option( EFM_Fonts::OPTION_FAMILIES, $efm_previous_families );
+
+	/* -------------------------------------------------------------------------
 	 * The ordinary case still works and is reported as a success.
 	 * ---------------------------------------------------------------------- */
 

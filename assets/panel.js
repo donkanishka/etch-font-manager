@@ -1912,7 +1912,7 @@
 					// Not the square icon variant: Etch's managers use the plain
 					// outline button, which its 12px inline padding takes to 40x28
 					// around a 14px arrow.
-					class: 'efm-btn efm-btn--outline efm-tooltip',
+					class: 'efm-btn efm-btn--outline efm-btn--back efm-tooltip',
 					'aria-label': s('backToBuilder', 'Back to Builder'),
 					// Not `title`: that yields the slow OS tooltip, and alongside the
 					// styled one below it would show twice. Etch labels its own back
@@ -5069,7 +5069,7 @@
 					// Same geometry as the panel header's back button, above. Start
 					// anchored because this one sits at the content pane's edge, which
 					// would clip a centred tooltip of this length.
-					class: 'efm-btn efm-btn--outline efm-tooltip efm-tooltip--start',
+					class: 'efm-btn efm-btn--outline efm-btn--back efm-tooltip efm-tooltip--start',
 					// Named for where it lands, not for the direction it points.
 					'aria-label': s('backToLibrary', 'Back to the font library'),
 					'data-efm-tooltip': s('backToLibrary', 'Back to the font library'),
@@ -6853,6 +6853,41 @@
 		}) ? 'google' : 'upload';
 	}
 
+	/**
+	 * The upload-time conversion setting, where it matters: before a file is
+	 * chosen. This reports the site setting rather than duplicating its control,
+	 * and the compact Settings button is the one route to change it.
+	 *
+	 * @return {Element} Conversion status card.
+	 */
+	function uploadConversionStatus() {
+		var enabled = !!state.settings.convert_uploads;
+
+		return el('div', { class: 'efm-upload-status' }, [
+			el('div', { class: 'efm-upload-status__copy' }, [
+				el('div', { class: 'efm-upload-status__heading' }, [
+					el('span', { class: 'efm-upload-status__title', text: s('uploadConversion', 'WOFF2 conversion') }),
+					el('span', {
+						class: 'efm-upload-status__state efm-upload-status__state--' + (enabled ? 'on' : 'off'),
+						text: enabled ? s('onLabel', 'On') : s('offLabel', 'Off')
+					})
+				]),
+				el('span', {
+					class: 'efm-upload-status__detail',
+					text: enabled
+						? s('uploadConversionOn', 'TTF, OTF and WOFF convert before upload.')
+						: s('uploadConversionOff', 'Files upload in their original format.')
+				})
+			]),
+			el('button', {
+				type: 'button',
+				class: 'efm-btn efm-btn--sm efm-upload-status__settings',
+				text: s('settings', 'Settings'),
+				onclick: function () { go('settings'); }
+			})
+		]);
+	}
+
 	function renderUpload() {
 		var input = el('input', {
 			type: 'file',
@@ -6900,6 +6935,7 @@
 				el('h2', { class: 'efm-dropzone__title', text: s('upload', 'Upload font files') }),
 				el('p', { class: 'efm-dropzone__desc', text: s('uploadIntro', 'Font files live on your own server, and every family you build here is made from them.') }),
 				el('p', { class: 'efm-dropzone__desc', text: s('uploadHint', 'Drag files from your computer, or select them with the button below.') }),
+				uploadConversionStatus(),
 				el('button', {
 					type: 'button',
 					class: 'efm-btn efm-btn--outline efm-btn--lg',
@@ -6913,12 +6949,9 @@
 		contentEl.appendChild(dropzone);
 
 		/*
-		 * No conversion control here. It used to sit directly below this zone,
-		 * which read as though it applied to the files already listed when it only
-		 * ever applied to the next ones added -- a setting that had to be chosen
-		 * before the thing it governed, rendered after it. It is a site setting in
-		 * Settings -> Conversion now, beside the one about the original, and the
-		 * report below still says what each file did.
+		 * The conversion control stays in Settings; the card above only reports its
+		 * current state before the next files are chosen. The report below still says
+		 * what happened to each individual file.
 		 */
 		if (state.convertLog.length) {
 			contentEl.appendChild(convertReport());
@@ -7560,7 +7593,7 @@
 					type: 'button',
 					// Same geometry as the panel header's back button: every back in
 					// the panel is the same 40x28 arrow, named by its tooltip.
-					class: 'efm-btn efm-btn--outline efm-tooltip efm-tooltip--start',
+					class: 'efm-btn efm-btn--outline efm-btn--back efm-tooltip efm-tooltip--start',
 					'aria-label': s('backToGoogle', 'Back to Google Fonts'),
 					'data-efm-tooltip': s('backToGoogle', 'Back to Google Fonts'),
 					onclick: function () {

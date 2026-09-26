@@ -3031,6 +3031,83 @@
 }
 
 /*
+ * The upload setting at the point of action, without putting a second toggle on
+ * the screen. It follows the panel's raised boxes and compact controls, while
+ * the darker Settings button stays visibly secondary to Select files below.
+ */
+.efm-upload-status {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	inline-size: 100%;
+	padding: 10px;
+	border: 1px solid var(--efm-line);
+	border-radius: var(--efm-radius);
+	background: var(--efm-surface-raised);
+	color: var(--efm-text);
+	text-align: start;
+}
+
+.efm-upload-status__copy {
+	display: flex;
+	min-inline-size: 0;
+	flex: 1 1 auto;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.efm-upload-status__heading {
+	display: flex;
+	align-items: center;
+	gap: var(--e-space-xs, 6px);
+}
+
+.efm-upload-status__title {
+	font-size: var(--e-font-size-m, 12px);
+	font-weight: 600;
+	line-height: 1.2;
+	color: var(--efm-text-strong);
+}
+
+.efm-upload-status__state {
+	padding: 1px 5px;
+	border-radius: 999px;
+	font-size: 9px;
+	font-weight: 700;
+	line-height: 14px;
+	letter-spacing: .04em;
+	text-transform: uppercase;
+}
+
+.efm-upload-status__state--on {
+	background: color-mix(in srgb, var(--efm-accent) 12%, transparent);
+	color: var(--efm-accent);
+}
+
+.efm-upload-status__state--off {
+	background: color-mix(in srgb, var(--efm-muted) 14%, transparent);
+	color: var(--efm-muted);
+}
+
+.efm-upload-status__detail {
+	font-size: var(--e-font-size-s, 11px);
+	line-height: 1.3;
+	color: var(--efm-muted);
+}
+
+.efm-btn.efm-upload-status__settings {
+	flex: 0 0 auto;
+	background: var(--efm-surface);
+	border-color: var(--efm-line);
+	color: var(--efm-text-strong);
+}
+
+.efm-btn.efm-upload-status__settings:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--efm-text) 10%, var(--efm-surface));
+	color: var(--efm-text-strong);
+}
+
+/*
  * The accepted formats, as Etch lists them: a small label followed by a chip
  * each, set in the same monospace the panel uses for file names, and pushed
  * clear of the button above.
@@ -3468,6 +3545,23 @@
 
 .efm-btn--outline:hover:not(:disabled) {
 	background: color-mix(in srgb, var(--efm-text) 10%, transparent);
+	color: var(--efm-text);
+}
+
+/*
+ * Etch's own manager back button uses its outline variant exactly: a transparent
+ * rest state with --e-base-light as the hairline, then that same opaque value as
+ * both fill and border on hover or keyboard focus. Keep every way back in this
+ * panel on that shared treatment rather than the translucent generic outline.
+ */
+.efm-btn--back {
+	padding-block: var(--efm-pad-block);
+	border-color: var(--efm-surface-raised);
+}
+
+.efm-btn--back:is(:focus-visible, :hover):not(:disabled) {
+	background: var(--efm-surface-raised);
+	border-color: var(--efm-surface-raised);
 	color: var(--efm-text);
 }
 

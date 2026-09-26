@@ -83,6 +83,18 @@ if ( ! function_exists( 'sanitize_file_name' ) ) {
 	}
 }
 
+if ( ! function_exists( 'do_action' ) ) {
+	/**
+	 * Accept hooks in dependency-free tests.
+	 *
+	 * @param string $hook Hook name.
+	 * @return void
+	 */
+	function do_action( $hook ) {
+		unset( $hook );
+	}
+}
+
 if ( ! function_exists( 'wp_list_pluck' ) ) {
 	/**
 	 * Pull one field from every record in a list.

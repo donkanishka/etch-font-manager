@@ -1,11 +1,11 @@
 {
-  "version": "1.0.15",
-  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.15/etch-font-manager.zip",
-  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.15",
+  "version": "1.0.16",
+  "package": "https://github.com/donkanishka/etch-font-manager/releases/download/v1.0.16/etch-font-manager.zip",
+  "url": "https://github.com/donkanishka/etch-font-manager/releases/tag/v1.0.16",
   "requires": "6.0",
   "requires_php": "7.4",
   "tested": "7.0",
   "date": "2026-09-26",
-  "notes": "Font families can now publish concise custom CSS variable aliases without removing their generated variables. The Upload screen reports the current WOFF2 conversion state before file selection, all back buttons match Etch's Loop Manager, and merged imports now preserve heading and body typography assignments.",
+  "notes": "Custom family CSS variables now replace generated names and automatically drive heading and body tokens. Family name and CSS-variable fields align, focus stays neutral, dropdown selections use the accent filled check, and unsaved families preview custom variables immediately.",
   "last_updated": "2026-09-26"
 }

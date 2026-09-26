@@ -2,6 +2,33 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.15
+
+### Added
+
+- **Each family can publish a short CSS variable of your choice.** Enter a name such as `sans` and the family
+  publishes `var(--sans)` alongside its generated `var(--efm-family-{slug})` name, so existing sites keep working
+  while new designs can use a concise token. The editor validates names, prevents reserved or duplicate variables,
+  and import rejects conflicts instead of silently assigning one variable to two families.
+- **The Upload screen says whether WOFF2 conversion is on before files are selected.** A compact status card
+  explains whether TTF, OTF and WOFF files will convert before upload, and its Settings button opens the full
+  Conversion controls. When conversion is off it says that files will keep their original format.
+
+### Changed
+
+- **The CSS-variable field reads as one compact `var(--name)` expression.** The fixed syntax sits directly against
+  the editable name, the blank state shows the generated family variable, and copying still returns the complete
+  usable expression.
+- **Every back button now matches Etch's Loop Manager.** Back to Builder, Back to the font library and Back to
+  Google Fonts use the same 40 by 28 pixel outline button, including Etch's opaque base-light hover and focus state.
+
+### Fixed
+
+- **Heading and body assignments now survive a merged import.** Those typography-token selections already travelled
+  inside the exported family, but an existing family on the destination site could keep the unique token first and
+  silently clear it from the import. The imported family now takes the heading or body role exactly as selecting its
+  checkbox would, so the controls and generated CSS match the exported site.
+
 ## 1.0.14
 
 ### Fixed

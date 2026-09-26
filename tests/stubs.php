@@ -83,6 +83,24 @@ if ( ! function_exists( 'sanitize_file_name' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_list_pluck' ) ) {
+	/**
+	 * Pull one field from every record in a list.
+	 *
+	 * @param array  $input List of arrays or objects.
+	 * @param string $field Field to return.
+	 * @return array
+	 */
+	function wp_list_pluck( $input, $field ) {
+		return array_map(
+			static function ( $item ) use ( $field ) {
+				return is_object( $item ) ? $item->{$field} : $item[ $field ];
+			},
+			(array) $input
+		);
+	}
+}
+
 if ( ! function_exists( 'home_url' ) ) {
 	/**
 	 * Return the fixed site URL used by export metadata in these tests.

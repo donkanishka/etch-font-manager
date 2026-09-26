@@ -78,7 +78,7 @@ try {
 		true
 	);
 	efm_ok( is_wp_error( $efm_import_collision ), 'merge preview rejects an alias already used by an existing family' );
-	efm_is( array( $efm_named_family ), EFM_Fonts::families(), 'a rejected merge leaves existing names unchanged' );
+	efm_is( array( $efm_named_family ), get_option( EFM_Fonts::OPTION_FAMILIES, array() ), 'a rejected merge leaves stored families unchanged' );
 	$efm_incoming_collision = EFM_Fonts::import_payload(
 		array( 'families' => array( $efm_named_family, array_merge( $efm_named_family, array( 'name' => 'Roboto' ) ) ) ),
 		'replace',

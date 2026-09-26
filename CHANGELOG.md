@@ -2,6 +2,28 @@
 
 All notable changes to Etch Font Manager are documented here.
 
+## 1.0.16
+
+### Changed
+
+- **A custom CSS variable now replaces the generated family variable instead of aliasing it.** A family named
+  Poppins with the custom name `poppins` publishes `--poppins: "Poppins", sans-serif` without also publishing
+  `--efm-family-poppins`. Its heading and body assignments point at `var(--poppins)` automatically, including in
+  the live preview before a new family is saved for the first time. Leaving the field blank keeps the generated
+  `--efm-family-{slug}` name. This is an intentional breaking change for styles that still reference the generated
+  name after assigning a custom one.
+- **Selected dropdown options use the supplied filled circular check.** Both ordinary dropdowns and editable
+  suggestion menus share the new mark, coloured with Etch's `--efm-accent`; installed badges and other completed
+  states keep their existing plain check.
+
+### Fixed
+
+- **The editable CSS-variable field no longer turns blue when selected.** It keeps the same neutral border as its
+  resting state, while keyboard focus remains available on the controls that need a visible focus treatment.
+- **Family name and CSS-variable controls now align exactly.** Both are 28 pixels high with the same four-pixel
+  label gap, including in the Add family flow, and the copy button fits inside that shared height instead of making
+  the CSS-variable control six pixels taller.
+
 ## 1.0.15
 
 ### Added

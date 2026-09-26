@@ -2354,8 +2354,8 @@
 }
 
 /*
- * The published custom property keeps Etch's sunken code surface even when
- * its name is editable. The generated name remains underneath as a safe alias.
+ * The published family property keeps Etch's sunken code surface even when
+ * its name is editable. A custom name replaces the generated family name.
  */
 .efm-token {
 	display: flex;
@@ -2395,13 +2395,14 @@
 
 .efm-token--editable {
 	gap: 0;
-}
-
-.efm-token--editable:focus-within {
-	border-color: var(--e-focus-outline-color, #469fea);
+	block-size: var(--efm-control-block);
+	min-block-size: 0;
+	padding-block: 0;
 }
 
 .efm-token--editable .efm-btn {
+	align-self: stretch;
+	block-size: auto;
 	margin-inline-start: auto;
 }
 
@@ -2916,7 +2917,7 @@
 
 /*
  * The selected row takes the same raised fill the sidebar's active item does.
- * The accent stays a signal here too, carried by the check rather than a fill.
+ * The filled check carries Etch's accent as the single selection signal.
  */
 .efm-select__option.is-on {
 	background: var(--efm-surface-raised);

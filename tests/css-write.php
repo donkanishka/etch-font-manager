@@ -45,7 +45,7 @@ try {
 	$efm_css_kept = $GLOBALS['wp_filesystem'];
 
 	/* -------------------------------------------------------------------------
-	 * A user-named variable is an alias; the generated one never disappears.
+	 * A user-named variable replaces the generated family variable.
 	 * ---------------------------------------------------------------------- */
 
 	file_put_contents( $efm_css_root . '/inter-regular.woff2', 'font' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
@@ -57,8 +57,10 @@ try {
 		'css_variable' => '--sans',
 	);
 	$efm_named_css = EFM_Fonts::build_css( array( $efm_named_family ), true );
-	efm_ok( false !== strpos( $efm_named_css, '--efm-family-inter: "Inter", sans-serif;' ), 'the generated family variable stays available' );
-	efm_ok( false !== strpos( $efm_named_css, '--sans: var(--efm-family-inter);' ), 'a custom variable points at the same font stack' );
+	efm_ok( false === strpos( $efm_named_css, '--efm-family-inter:' ), 'a custom variable replaces the generated family variable' );
+	efm_ok( false !== strpos( $efm_named_css, '--sans: "Inter", sans-serif;' ), 'a custom variable carries the font stack directly' );
+	$efm_generated_css = EFM_Fonts::build_css( array( array_merge( $efm_named_family, array( 'css_variable' => '' ) ) ), true );
+	efm_ok( false !== strpos( $efm_generated_css, '--efm-family-inter: "Inter", sans-serif;' ), 'a blank custom name keeps the generated family variable' );
 	efm_ok( false === strpos( EFM_Fonts::build_css( array( array_merge( $efm_named_family, array( 'enabled' => false ) ) ), true ), '--sans:' ), 'a disabled family publishes no alias' );
 	efm_ok( false === strpos( EFM_Fonts::build_css( array( array_merge( $efm_named_family, array( 'css_variable' => '--bad; color: red' ) ) ), true ), '--bad;' ), 'an invalid alias never enters CSS' );
 	$efm_two_aliases = EFM_Fonts::build_css(
@@ -92,9 +94,10 @@ try {
 	 * ---------------------------------------------------------------------- */
 
 	$efm_role_source = array(
-		'name'     => 'Imported tokens',
-		'variants' => array( array( 'file' => 'inter-regular.woff2', 'weight' => '400' ) ),
-		'roles'    => array( 'heading', 'text' ),
+		'name'         => 'Imported tokens',
+		'variants'     => array( array( 'file' => 'inter-regular.woff2', 'weight' => '400' ) ),
+		'css_variable' => '--imported',
+		'roles'        => array( 'heading', 'text' ),
 	);
 	$efm_role_existing = array(
 		'name'     => 'Existing tokens',
@@ -121,8 +124,13 @@ try {
 	efm_is( array(), $efm_role_families['Existing tokens']['roles'], 'merge removes imported token roles from the previous holder' );
 	efm_is( array( 'heading', 'text' ), $efm_role_families['Imported tokens']['roles'], 'merge keeps the imported family selected for headings and body text' );
 	$efm_role_css = EFM_Fonts::token_css( array_values( $efm_role_families ) );
-	efm_ok( false !== strpos( $efm_role_css, '--heading-font-family: var(--efm-family-imported-tokens);' ), 'the imported heading assignment is applied to CSS' );
-	efm_ok( false !== strpos( $efm_role_css, '--text-font-family: var(--efm-family-imported-tokens);' ), 'the imported body assignment is applied to CSS' );
+	efm_ok( false !== strpos( $efm_role_css, '--heading-font-family: var(--imported);' ), 'the imported heading assignment uses its custom variable' );
+	efm_ok( false !== strpos( $efm_role_css, '--text-font-family: var(--imported);' ), 'the imported body assignment uses its custom variable' );
+	$efm_generated_role                       = $efm_role_families['Imported tokens'];
+	$efm_generated_role['css_variable']       = '';
+	$efm_generated_role_css                   = EFM_Fonts::token_css( array( $efm_generated_role ) );
+	efm_ok( false !== strpos( $efm_generated_role_css, '--heading-font-family: var(--efm-family-imported-tokens);' ), 'a heading without a custom variable keeps the generated target' );
+	efm_ok( false !== strpos( $efm_generated_role_css, '--text-font-family: var(--efm-family-imported-tokens);' ), 'body text without a custom variable keeps the generated target' );
 	update_option( EFM_Fonts::OPTION_FAMILIES, $efm_previous_families );
 
 	/* -------------------------------------------------------------------------

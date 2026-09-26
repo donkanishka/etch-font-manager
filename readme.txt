@@ -5,7 +5,7 @@ Tags: fonts, etch, google fonts, typography, automatic.css
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.15
+Stable tag: 1.0.16
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -26,7 +26,7 @@ Features:
 * Drag and drop uploads for woff2, woff, ttf and otf
 * Built-in TTF, OTF and WOFF to WOFF2 converter that runs in your browser, so nothing is sent to a third-party service
 * Google Fonts search, preview and one-click local install
-* A CSS variable per family, --efm-family-{slug}, plus an optional short name such as sans you can type in the family editor and copy as var(--sans). The original name remains available for existing styles
+* A CSS variable per family: --efm-family-{slug} by default, or a short replacement name such as --sans that you can type in the family editor and copy as var(--sans). Heading and body assignments use whichever name the family publishes
 * Fonts load on the frontend, in the Etch canvas iframe and in the block editor
 * Self-hosted files, so no frontend requests to Google
 

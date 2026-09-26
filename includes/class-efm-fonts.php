@@ -1924,8 +1924,9 @@ class EFM_Fonts {
 	 * !important. The mapping that was removed in 0.17.0 wrote !important because
 	 * it loaded first and had no other way through.
 	 *
-	 * Points at var(--efm-family-slug) rather than repeating the stack, so the
-	 * fallbacks and any tuned instance stay defined in exactly one place.
+	 * Points at the family's custom property when it has one, otherwise at the
+	 * generated --efm-family-slug property. A custom property replaces the
+	 * generated family property rather than duplicating the same stack.
 	 *
 	 * @param array|null $families Optional families. Defaults to stored data.
 	 * @return string CSS, empty when no family holds a role.
@@ -1954,7 +1955,9 @@ class EFM_Fonts {
 					continue;
 				}
 
-				$lines .= "\t--{$role}-font-family: var(--efm-family-{$slug});\n";
+				$custom_property = self::sanitize_custom_property( $family['css_variable'] ?? '' );
+				$family_property = '' !== $custom_property ? $custom_property : "--efm-family-{$slug}";
+				$lines          .= "\t--{$role}-font-family: var({$family_property});\n";
 
 				/*
 				 * The rule that makes the token mean something. Declaring the custom
@@ -2824,16 +2827,17 @@ class EFM_Fonts {
 				continue;
 			}
 
-			$seen[ $slug ] = true;
-			$tokens       .= "\t--efm-family-{$slug}: " . self::family_stack( $family ) . ";\n";
-
-			// Keep the generated name intact for existing styles; a custom name is
-			// an alias of that value, so its fallback stack stays in sync.
+			$seen[ $slug ]   = true;
+			$family_stack    = self::family_stack( $family );
 			$custom_property = self::sanitize_custom_property( $family['css_variable'] ?? '' );
 
+			// A custom name replaces the generated family property. Leaving the field
+			// blank keeps the automatic --efm-family-slug name.
 			if ( '' !== $custom_property && ! isset( $seen_aliases[ $custom_property ] ) ) {
 				$seen_aliases[ $custom_property ] = true;
-				$tokens .= "\t{$custom_property}: var(--efm-family-{$slug});\n";
+				$tokens .= "\t{$custom_property}: {$family_stack};\n";
+			} else {
+				$tokens .= "\t--efm-family-{$slug}: {$family_stack};\n";
 			}
 
 			/*
@@ -2850,7 +2854,7 @@ class EFM_Fonts {
 		}
 
 		if ( '' !== $tokens ) {
-			$css .= "/* Family variables and optional custom aliases */\n:root {\n" . $tokens . "}\n\n";
+			$css .= "/* Family variables and optional custom names */\n:root {\n" . $tokens . "}\n\n";
 		}
 
 		/*

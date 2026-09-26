@@ -524,6 +524,13 @@
 		copy: '<path d="M19.4 20H9.6C9.26863 20 9 19.7314 9 19.4V9.6C9 9.26863 9.26863 9 9.6 9H19.4C19.7314 9 20 9.26863 20 9.6V19.4C20 19.7314 19.7314 20 19.4 20Z"/><path d="M15 9V4.6C15 4.26863 14.7314 4 14.4 4H4.6C4.26863 4 4 4.26863 4 4.6V14.4C4 14.7314 4.26863 15 4.6 15H9"/>',
 		plus: '<path d="M6 12H12M18 12H12M12 12V6M12 12V18"/>',
 		check: '<path d="M5 13L9 17L19 7"/>',
+		// Filled selected-state mark supplied for dropdown options. Kept separate
+		// from the plain check used by installed badges and completed states.
+		selectCheck: {
+			box: '0 -960 960 960',
+			fill: true,
+			d: '<path d="m423.23-309.85 268.92-268.92L650-620.92 423.23-394.15l-114-114L267.08-466l156.15 156.15ZM480.07-100q-78.84 0-148.21-29.92t-120.68-81.21q-51.31-51.29-81.25-120.63Q100-401.1 100-479.93q0-78.84 29.92-148.21t81.21-120.68q51.29-51.31 120.63-81.25Q401.1-860 479.93-860q78.84 0 148.21 29.92t120.68 81.21q51.31 51.29 81.25 120.63Q860-558.9 860-480.07q0 78.84-29.92 148.21t-81.21 120.68q-51.29 51.31-120.63 81.25Q558.9-100 480.07-100Z"/>'
+		},
 		info: '<path d="M12 11.5v5"/><path d="M12 7.51l.01 -.011"/><path d="M12 22c5.523 0 10 -4.477 10 -10s-4.477 -10 -10 -10s-10 4.477 -10 10s4.477 10 10 10z"/>',
 		close: '<path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426"/>',
 		search: '<path d="M17 17L21 21"/><path d="M3 11C3 15.4183 6.58172 19 11 19C13.213 19 15.2161 18.1015 16.6644 16.6493C18.1077 15.2022 19 13.2053 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11Z"/>',
@@ -3820,7 +3827,7 @@
 				}
 			}, [
 				el('span', { class: 'efm-select__option-label', text: value }),
-				on ? icon('check', 'sm') : null
+				on ? icon('selectCheck', 'sm') : null
 			]);
 		}));
 
@@ -3891,7 +3898,7 @@
 				}
 			}, [
 				el('span', { class: 'efm-select__option-label', text: option.label }),
-				on ? icon('check', 'sm') : null
+				on ? icon('selectCheck', 'sm') : null
 			]);
 		}));
 
@@ -5560,6 +5567,9 @@
 		 * font-variation-settings renders identically to one that does not.
 		 */
 		var variation = String(family.variation || '');
+		var customProperty = String(family.css_variable || '');
+		var customPropertyValid = customProperty &&
+			!customPropertyIssue(customProperty, state.families.indexOf(family));
 
 		/*
 		 * First, mirroring build_css(): it is the face that renders while the real
@@ -5572,12 +5582,13 @@
 			blocks.unshift(fallbackFace);
 		}
 
-		if (family.slug && (family.variants || []).length) {
-			var alias = String(family.css_variable || '');
-			blocks.push(':root {\n\t--efm-family-' + family.slug + ': ' + familyStack(name, family) + ';\n' +
-				(alias && !customPropertyIssue(alias, state.families.indexOf(family))
-					? '\t' + alias + ': var(--efm-family-' + family.slug + ');\n' : '') +
-				(variation ? '\t--efm-family-' + family.slug + '-variation: ' + variation + ';\n' : '') + '}');
+		if ((family.slug || customPropertyValid) && (family.variants || []).length) {
+			var stack = familyStack(name, family);
+			var familyDeclaration = customPropertyValid
+				? customProperty + ': ' + stack + ';'
+				: '--efm-family-' + family.slug + ': ' + stack + ';';
+			blocks.push(':root {\n\t' + familyDeclaration + '\n' +
+				(family.slug && variation ? '\t--efm-family-' + family.slug + '-variation: ' + variation + ';\n' : '') + '}');
 		} else if (!family.slug && (family.variants || []).length) {
 			blocks.push('/* ' + s('cssPreviewUnsaved', 'Save this family to see its generated CSS variable.') + ' */');
 		}
@@ -5588,13 +5599,14 @@
 		 * reaches the stylesheet from a family that is enabled, untrashed and
 		 * actually maps a file.
 		 */
-		if (family.slug && (family.variants || []).length && isEnabled(family) && !isTrashed(family)) {
+		if ((family.slug || customPropertyValid) && (family.variants || []).length && isEnabled(family) && !isTrashed(family)) {
 			var held = ROLE_KEYS.filter(function (role) {
 				return hasRole(family, role);
 			});
 
+			var familyProperty = customPropertyValid ? customProperty : '--efm-family-' + family.slug;
 			var roleLines = held.map(function (role) {
-				return '\t--' + role + '-font-family: var(--efm-family-' + family.slug + ');';
+				return '\t--' + role + '-font-family: var(' + familyProperty + ');';
 			});
 
 			if (roleLines.length) {

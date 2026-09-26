@@ -1091,8 +1091,17 @@ function uploadContext(dirty) {
 		);
 	});
 
-	await test('a custom name previews beside the generated name and keeps the fallback', function () {
-		var named = { name: 'Inter', slug: 'inter', css_variable: '--sans', fallback: 'sans-serif', variants: [{ file: 'inter.woff2' }] };
+	await test('every selected dropdown uses the supplied filled check mark', function () {
+		var menus = extract('suggestField') + extract('dropdown');
+
+		assert.equal((menus.match(/icon\('selectCheck', 'sm'\)/g) || []).length, 2, 'both dropdown renderers use the shared selected-state icon');
+		assert.doesNotMatch(menus, /icon\('check', 'sm'\)/, 'dropdowns no longer use the plain check');
+		assert.match(source, /selectCheck:\s*{[\s\S]*?box:\s*'0 -960 960 960',[\s\S]*?fill:\s*true,/, 'the supplied filled SVG keeps its original viewBox');
+		assert.match(cssSource, /\.efm-select__option \.efm-icon\s*{[\s\S]*?color:\s*var\(--efm-accent\);/, 'the filled mark uses Etch\'s accent as the selection signal');
+	});
+
+	await test('a custom name replaces the generated name and becomes the typography target', function () {
+		var named = { name: 'Inter', slug: 'inter', css_variable: '--sans', fallback: 'sans-serif', roles: ['heading', 'text'], variants: [{ file: 'inter.woff2' }] };
 		var box = context({
 			state: { families: [named], missing: [] },
 			s: function (key, fallback) { return fallback; },
@@ -1101,17 +1110,31 @@ function uploadContext(dirty) {
 			fallbackFaceCss: function () { return ''; },
 			formatOf: function () { return 'woff2'; },
 			familyStack: function () { return '"Inter", sans-serif'; },
-			ROLE_KEYS: [],
+			hasRole: function (family, role) { return family.roles.indexOf(role) !== -1; },
+			ROLE_KEYS: ['heading', 'text'],
+			ROLE_SELECTORS: { heading: ['h1'], text: ['body'] },
 			splitSelectors: function () { return { kept: [] }; }
 		}, ['customPropertyIssue', 'previewCss']);
 		var css = box.previewCss(named);
 
-		assert.match(css, /--efm-family-inter: "Inter", sans-serif;/);
-		assert.match(css, /--sans: var\(--efm-family-inter\);/);
+		assert.doesNotMatch(css, /--efm-family-inter:/);
+		assert.match(css, /--sans: "Inter", sans-serif;/);
+		assert.match(css, /--heading-font-family: var\(--sans\);/);
+		assert.match(css, /--text-font-family: var\(--sans\);/);
 		named.css_variable = '';
-		assert.doesNotMatch(box.previewCss(named), /--sans:/);
+		var generatedCss = box.previewCss(named);
+		assert.doesNotMatch(generatedCss, /--sans:/);
+		assert.match(generatedCss, /--efm-family-inter: "Inter", sans-serif;/);
+		assert.match(generatedCss, /--heading-font-family: var\(--efm-family-inter\);/);
+		assert.match(generatedCss, /--text-font-family: var\(--efm-family-inter\);/);
 		named.slug = '';
-		assert.match(box.previewCss(named), /Save this family to see its generated CSS variable/, 'unsaved family preview does not guess the server slug');
+		named.css_variable = '--sans';
+		var unsavedNamedCss = box.previewCss(named);
+		assert.match(unsavedNamedCss, /--sans: "Inter", sans-serif;/, 'an unsaved family can preview its explicit custom variable without guessing a slug');
+		assert.match(unsavedNamedCss, /--heading-font-family: var\(--sans\);/, 'an unsaved family previews its custom heading target');
+		assert.match(unsavedNamedCss, /--text-font-family: var\(--sans\);/, 'an unsaved family previews its custom body target');
+		named.css_variable = '';
+		assert.match(box.previewCss(named), /Save this family to see its generated CSS variable/, 'an unsaved family with no custom name does not guess the server slug');
 		named.variants = [];
 		assert.doesNotMatch(box.previewCss(named), /--efm-family-inter:/, 'a family with no variants publishes no variable');
 	});
@@ -1135,8 +1158,8 @@ function uploadContext(dirty) {
 		assert.match(source, /fieldPlaceholder = generatedName \|\| 'name'/, 'an empty field displays the generated name or name placeholder');
 		assert.match(source, /'inline-size': \(fieldName \|\| fieldPlaceholder\)\.length \+ 'ch'/, 'the closing bracket starts beside the visible name');
 		assert.match(source, /setProperty\('inline-size', \(event\.target\.value \|\| fieldPlaceholder\)\.length \+ 'ch'\)/, 'the closing bracket follows edits');
-		assert.match(cssSource, /\.efm-token--editable\s*{\s*gap:\s*0;/, 'fixed syntax has no artificial spaces');
-		assert.match(cssSource, /\.efm-token--editable \.efm-btn\s*{\s*margin-inline-start:\s*auto;/, 'only the copy button moves to the far edge');
+		assert.match(cssSource, /\.efm-token--editable\s*{\s*gap:\s*0;[\s\S]*?block-size:\s*var\(--efm-control-block\);[\s\S]*?padding-block:\s*0;/, 'the editable token matches the ordinary input height without artificial spaces');
+		assert.match(cssSource, /\.efm-token--editable \.efm-btn\s*{[\s\S]*?align-self:\s*stretch;[\s\S]*?block-size:\s*auto;[\s\S]*?margin-inline-start:\s*auto;/, 'the copy button fits that height and moves to the far edge');
 		assert.equal(box.customPropertyIssue('--sans', 0), '');
 		assert.equal(box.customPropertyIssue('', 0), '');
 		assert.match(box.customPropertyIssue('--sans', 1), /already uses/);
